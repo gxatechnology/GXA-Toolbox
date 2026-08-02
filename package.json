@@ -1,0 +1,11 @@
+{
+  "name": "gxa-toolbox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GXA Toolbox — Your Complete Digital Toolbox",
+  "scripts": {
+    "lint": "node --check public_html/assets/app.js && node --check public_html/assets/tool-workspace.js && node --check public_html/assets/image-annotations.js && node --check public_html/assets/phase-one-studios.js && node --check app.js && node --check tests/repository-audit.mjs && node --check tests/phase-one-output-validation.mjs && node --check tests/fixtures/generate-fixtures.mjs",
+    "test": "node tests/repository-audit.mjs && node tests/phase-one-output-validation.mjs",
+    "build": "npm run lint && npm test"
+  }
+}

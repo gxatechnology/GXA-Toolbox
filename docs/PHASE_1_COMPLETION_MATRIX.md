@@ -1,0 +1,73 @@
+# GXA Toolbox Phase 1 Completion Matrix
+
+This matrix is the evidence gate for the 40 existing Image Studio and PDF Studio route modes. Statuses follow the strict Phase 1 definitions: a browser-capable route remains `UNTESTED` until its real output is generated, downloaded, validated, reopened, reset, invalid-input checked, console checked, and exercised at desktop/mobile and in dark mode.
+
+## Baseline counts before completion work
+
+- Total Studio route modes: **40**
+- `FULLY VERIFIED`: **0**
+- `WORKING WITH DOCUMENTED LIMITATION`: **0** under the strict end-to-end definition
+- `DEPENDENCY REQUIRED`: **9**
+- `BROKEN`: **0 known**
+- `UNTESTED`: **31**
+- UI-only modes: **0**; dependency routes intentionally provide no fabricated output
+- Output generated and runtime-validated in an earlier browser pass, but not yet downloaded/reopened: `compress-image`, `crop-image`, `crop-pdf`
+
+The seven formerly partial modes are `background-remover`, `organize-pdf`, `compress-pdf`, `watermark-pdf`, `sign-pdf`, `pdf-to-word`, and `repair-pdf`. The nine dependency-required modes are `protect-pdf`, `unlock-pdf`, `ocr-pdf`, `extract-images-pdf`, `word-to-pdf`, `excel-to-pdf`, `ppt-to-pdf`, `pdf-to-excel`, and `pdf-to-ppt`.
+
+## Exact route matrix
+
+| Module | Tool name | Route | Mode | Current status | Missing capability | Browser processing possible | Dependency required | Required dependency | Implementation task | Live-browser test status | Output generated | Output validated | Download tested | Download reopened | Mobile tested | Dark mode tested | Final status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Image | Compress Image | `compress-image` | Compress/batch | UNTESTED | Strict download/reopen, invalid/reset, mobile/dark evidence; retry/individual batch downloads audit | Yes | No | Existing Canvas + JSZip | Complete batch supported scope; remove any inert queue controls | Output-only browser flow observed | Yes | Yes, decoded Blob | No | No | No | No | UNTESTED |
+| Image | Resize Image | `resize-image` | Resize/batch | UNTESTED | Full real-output and batch evidence | Yes | No | Existing Canvas | Verify dimensions, aspect lock, prevent-upscale, batch scope and output | Not executed | No | No | No | No | No | No | UNTESTED |
+| Image | Crop Image | `crop-image` | Manual crop | UNTESTED | Strict download/reopen, invalid/reset, mobile/dark evidence | Yes | No | Existing Cropper.js + Canvas | Verify all professional crop interactions and downloaded dimensions | Output-only browser flow observed | Yes | Yes, decoded 336×420 PNG | No | No | No | No | UNTESTED |
+| Image | Background Remover | `background-remover` | Near-white background removal | UNTESTED | Formerly partial: scope must explicitly remain color-key removal, not AI segmentation | Server | Yes, existing endpoint | Existing PHP background processor | Rename/scope honestly, test server result or mark dependency unavailable | Not executed | No | No | No | No | No | No | UNTESTED |
+| Image | Color Extractor | `color-extractor` | Palette | UNTESTED | Strict E2E, invalid/reset, mobile/dark evidence | Yes | No | Existing Canvas sampling | Verify real sampled palette and any export/copy action | Not executed | No | No | No | No | No | No | UNTESTED |
+| Image | EXIF Viewer | `exif-viewer` | Metadata viewer/removal | UNTESTED | Metadata removal download/reopen evidence | Yes | No | Existing exifr + Canvas | Verify present-only metadata and cleaned export | Not executed | No | No | No | No | No | No | UNTESTED |
+| Image | WEBP to JPG | `webp-to-jpg` | Format conversion | UNTESTED | Strict output/download/reopen evidence | Yes | No | Existing Canvas | Verify JPG signature, dimensions, adjustments, invalid input | Not executed | No | No | No | No | No | No | UNTESTED |
+| Image | SVG to PNG | `svg-to-png` | SVG raster export | UNTESTED | Strict output/download/reopen evidence | Yes | No | Browser SVG decoder + Canvas | Verify PNG signature/dimensions and unsafe/invalid SVG handling | Not executed | No | No | No | No | No | No | UNTESTED |
+| Image | PNG to SVG | `png-to-svg` | Raster SVG wrapper | UNTESTED | Strict output/download/reopen evidence; limitation must remain visible | Yes | No | Browser Data URL/SVG | Verify SVG parse, embedded raster, and no vector-tracing claim | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Merge PDF | `merge-pdf` | Merge | UNTESTED | Strict download/reopen/page-count evidence | Yes | No | Existing pdf-lib | Verify reordered queue and merged page count | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Organize PDF | `organize-pdf` | Organize | UNTESTED | Formerly partial: advertised supported scope must match reorder/rotate/delete only, or add missing operations | Yes | No | Existing PDF.js + pdf-lib | Resolve blank/duplicate claims and verify visual order in output | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Split PDF | `split-pdf` | Split | UNTESTED | Strict ZIP/download/reopen and group evidence | Yes | No | Existing pdf-lib + JSZip | Verify every-page, range groups, every-N and reopened members | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Remove PDF Pages | `remove-pdf-pages` | Remove | UNTESTED | Strict download/reopen/page-count evidence | Yes | No | Existing PDF.js + pdf-lib | Verify visual/range selection and all-pages rejection | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Extract PDF Pages | `extract-pdf-pages` | Extract | UNTESTED | Strict download/reopen/page-count evidence | Yes | No | Existing PDF.js + pdf-lib | Verify visual/range selection and exact extracted order | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Rotate PDF | `rotate-pdf` | Rotate | UNTESTED | Strict selected-page output evidence | Yes | No | Existing PDF.js + pdf-lib | Verify page selection and reopened rotation values | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Crop PDF | `crop-pdf` | Manual crop | UNTESTED | Strict download/reopen, invalid/reset, mobile/dark evidence | Yes | No | Existing PDF.js + pdf-lib | Verify overlay/numeric sync and reopened CropBox values | Output-only browser flow observed | Yes | Yes, PDF signature/trailer | No | No | Layout only | Layout only | UNTESTED |
+| PDF | Compress PDF | `compress-pdf` | Lossless reserialization | UNTESTED | Formerly partial: explicitly limited to lossless structural optimization; no image-downsampling claim | Yes | No | Existing pdf-lib | Finalize honest scope and verify savings or honest no-savings error | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Add Watermark | `watermark-pdf` | Text watermark | UNTESTED | Formerly partial: image/free-position controls must not be exposed | Yes | No | Existing pdf-lib | Limit advertised scope to text watermark and verify selected pages | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Add Page Numbers | `pagenumber-pdf` | Page numbers | UNTESTED | Strict token/position/selection output evidence | Yes | No | Existing pdf-lib | Verify prefix/suffix/start/skip-first in reopened PDF | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Header & Footer | `header-footer-pdf` | Header/footer | UNTESTED | Strict token/alignment/selection output evidence | Yes | No | Existing pdf-lib | Verify tokens and placement in reopened PDF | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Sign PDF | `sign-pdf` | Visual signature | UNTESTED | Formerly partial: fixed visual appearance only; certificate-signing claims must be absent | Yes | No | Existing Canvas + pdf-lib | Finalize visual-signature scope and verify typed/drawn/uploaded placement | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | PDF Metadata Editor | `pdf-metadata` | Metadata | UNTESTED | Strict read/write/download/reopen evidence | Yes | No | Existing PDF.js + pdf-lib | Verify preserved pages and reopened standard metadata | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | PDF to Image | `pdf-to-image` | Raster export | UNTESTED | Strict ZIP/download/reopen evidence | Yes | No | Existing PDF.js + JSZip | Verify image count, PNG/JPG signatures and dimensions | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | PDF to JPG | `pdf-to-jpg` | JPG raster export | UNTESTED | Strict ZIP/download/reopen evidence | Yes | No | Existing PDF.js + JSZip | Verify page count and decoded JPG outputs | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | PDF to PNG | `pdf-to-png` | PNG raster export | UNTESTED | Strict ZIP/download/reopen evidence | Yes | No | Existing PDF.js + JSZip | Verify page count and decoded PNG outputs | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Image to PDF | `image-to-pdf` | Images to PDF | UNTESTED | Strict mixed-image/download/reopen evidence | Yes | No | Existing pdf-lib | Verify page count, order and page/image dimensions | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | JPG to PDF | `jpg-to-pdf` | JPG to PDF | UNTESTED | Strict download/reopen evidence | Yes | No | Existing pdf-lib | Verify valid PDF and page count | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | PNG to PDF | `png-to-pdf` | PNG to PDF | UNTESTED | Strict alpha/download/reopen evidence | Yes | No | Existing pdf-lib | Verify valid PDF, page count and transparency handling | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | PDF to Text | `pdf-to-text` | Text extraction | UNTESTED | Strict TXT download/reopen and scanned-state evidence | Yes | No | Existing PDF.js | Verify searchable text and honest scanned-PDF limitation | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | PDF to Word | `pdf-to-word` | Text/RTF extraction | UNTESTED | Formerly partial: must be labelled RTF/text extraction, not native DOCX layout conversion | Yes | No | Existing PDF.js | Narrow advertised scope or move native DOCX conversion to dependency state | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Repair PDF | `repair-pdf` | Normalize readable PDF | UNTESTED | Formerly partial: cannot recover corrupt/unreadable structures | Yes, readable PDFs only | No | Existing pdf-lib | Scope as normalization and verify corrupt-file rejection | Not executed | No | No | No | No | No | No | UNTESTED |
+| PDF | Protect PDF | `protect-pdf` | Genuine encryption | DEPENDENCY REQUIRED | No encryption-capable engine in browser bundle | No | Yes | qpdf or compatible encrypted-PDF service | Specify isolated backend API and polished unavailable state | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+| PDF | Unlock PDF | `unlock-pdf` | Password-authorized decryption | DEPENDENCY REQUIRED | pdf-lib cannot load/decrypt encrypted inputs | No | Yes | qpdf with supplied password | Specify safe backend; never imply password cracking | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+| PDF | OCR PDF | `ocr-pdf` | OCR | DEPENDENCY REQUIRED | No OCR model/worker or searchable-PDF text-layer generator | Possible but heavy; not integrated | Yes | Tesseract/ocrmypdf service | Specify languages, progress, TXT result, searchable-PDF boundary | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+| PDF | Extract Images from PDF | `extract-images-pdf` | Embedded image extraction | DEPENDENCY REQUIRED | PDF.js render output is not embedded-object extraction | No reliable current path | Yes | MuPDF/Poppler or dedicated parser service | Specify object extraction ZIP API and validation | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+| PDF | Word to PDF | `word-to-pdf` | DOC/DOCX to PDF | DEPENDENCY REQUIRED | Native Office layout engine unavailable | No | Yes | LibreOffice headless | Specify isolated conversion API and polished unavailable state | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+| PDF | Excel to PDF | `excel-to-pdf` | XLS/XLSX to PDF | DEPENDENCY REQUIRED | Spreadsheet pagination/layout engine unavailable | No | Yes | LibreOffice headless | Specify isolated conversion API and polished unavailable state | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+| PDF | PPT to PDF | `ppt-to-pdf` | PPT/PPTX to PDF | DEPENDENCY REQUIRED | Presentation rendering engine unavailable | No | Yes | LibreOffice headless | Specify isolated conversion API and polished unavailable state | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+| PDF | PDF to Excel | `pdf-to-excel` | PDF tables to XLSX | DEPENDENCY REQUIRED | Requires table recognition and workbook generation | No reliable current path | Yes | Camelot/Tabula plus workbook service | Specify extraction API, confidence/errors, and fallback | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+| PDF | PDF to PPT | `pdf-to-ppt` | PDF to editable PPTX | DEPENDENCY REQUIRED | Requires layout reconstruction and presentation generation | No reliable current path | Yes | MuPDF/Poppler plus python-pptx service | Specify conversion API and fidelity limitations | Unavailable-state test pending | N/A | N/A | N/A | N/A | No | No | DEPENDENCY REQUIRED |
+
+## Broken, UI-only, and unvalidated-output audit
+
+- Known broken modes at baseline: **none**, but this is not proof of correctness until live testing completes.
+- UI-only modes: **none**. Dependency-required routes must terminate in an honest unavailable state and must never emit a simulated result.
+- Output not downloaded/reopened: **all 31 browser-capable routes** at this baseline.
+- Output not generated in a live browser: **28 browser-capable routes**.
+- Earlier output-only evidence: **3 routes** (`compress-image`, `crop-image`, `crop-pdf`). These remain `UNTESTED` by the strict final rule.
+
+## Evidence update rule
+
+Each row is updated only from observable evidence. `FULLY VERIFIED` requires a valid input preview, meaningful setting change, real operation, validated output, tested download, reopened/parsed download, invalid-input rejection, reset, console check, desktop and mobile checks, and dark-mode check. A supported but deliberately narrower operation becomes `WORKING WITH DOCUMENTED LIMITATION` only after the same core workflow evidence exists and the limitation is visible in the public interface.

@@ -1,0 +1,47 @@
+# ==========================================================================
+# GXA Toolbox Server Configuration & Security Policies (.htaccess)
+# ==========================================================================
+
+# 1. Prevent directory listing / indexing
+Options -Indexes
+
+# 2. Set default entry layout file
+DirectoryIndex index.php index.html
+
+# 3. Protect config folders and sensitive deployment documents
+<FilesMatch "^\.env|database\.sql|database\.php|README\.md">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 4. URL Routing & Clean URL rewrites
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Redirect /dashboard to user dashboard index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^dashboard/?$ dashboard/index.php [L,QSA]
+
+    # Redirect /admin to admin panel index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^admin/?$ admin/index.php [L,QSA]
+
+    # Route calculator and background remover paths dynamically to index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(background-remover|calculator|scientific-calculator|percentage-calculator|age-calculator|date-calculator|emi-calculator|loan-calculator|interest-calculator|gst-calculator|sip-calculator|bmi-calculator|discount-calculator|unit-converter|currency-converter|time-calculator)/?$ index.php [L,QSA]
+</IfModule>
+
+# 5. Enable gzip compression for asset speedups
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule>
