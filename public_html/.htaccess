@@ -5,6 +5,11 @@
 # 1. Prevent directory listing / indexing
 Options -Indexes
 
+# React Background Remover runtime/model MIME types
+AddType application/wasm .wasm
+AddType application/javascript .mjs
+AddType application/octet-stream .onnx
+
 # 2. Set default entry layout file
 DirectoryIndex index.php index.html
 

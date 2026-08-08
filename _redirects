@@ -1,3 +1,8 @@
+/background-remover/assets/* /public_html/background-remover/assets/:splat 200
+/background-remover/models/* /public_html/background-remover/models/:splat 200
+/background-remover/vendor/* /public_html/background-remover/vendor/:splat 200
+/background-remover /public_html/background-remover/index.html 200
+/background-remover/ /public_html/background-remover/index.html 200
+/background-remover/* /public_html/background-remover/index.html 200
 /assets/* /public_html/assets/:splat 200
-/background-remover /index.html 200
 /* /index.html 200

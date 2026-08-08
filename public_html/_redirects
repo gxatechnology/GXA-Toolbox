@@ -1,2 +1,5 @@
+/background-remover /background-remover/index.html 200
+/background-remover/ /background-remover/index.html 200
+/background-remover/* /background-remover/index.html 200
 /assets/* /assets/:splat 200
 /* /index.php 200

@@ -10,5 +10,9 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+background-remover-app/dist/
 public_html/uploads/
 public_html/outputs/
+
+# Local Netlify folder
+.netlify

@@ -1,0 +1,25 @@
+{
+  "engine": "u2netp-onnx",
+  "model": "u2netp-web.onnx",
+  "source": "Heliosoph/u2net-onnx",
+  "upstream": "xuebinqin/U-2-Net",
+  "license": "Apache-2.0",
+  "runtime": "onnxruntime-web 1.23.0",
+  "browserCompatibility": "MaxPool ceil_mode attributes removed from the original u2netp.onnx; original model is retained as u2netp.onnx.",
+  "inputName": "input.1",
+  "inputShape": [1, 3, 320, 320],
+  "inputColorOrder": "RGB",
+  "preprocessing": {
+    "resize": "letterbox to 320x320",
+    "scale": "0..1",
+    "mean": [0.485, 0.456, 0.406],
+    "std": [0.229, 0.224, 0.225],
+    "layout": "NCHW float32"
+  },
+  "output": {
+    "selectedTensor": "first output / d0",
+    "shape": [1, 1, 320, 320],
+    "meaning": "foreground saliency probability",
+    "mask": "soft alpha 0..255 mapped back to original dimensions"
+  }
+}

@@ -64,7 +64,7 @@ try {
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <!-- Custom Stylesheets (Routed to Assets) -->
-  <link rel="stylesheet" href="/assets/style.css?v=background-remover-netlify-ort-20260808">
+  <link rel="stylesheet" href="/assets/style.css?v=background-remover-react-20260808">
 
   <!-- Core Utility Libraries (CDN) -->
   <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -112,12 +112,10 @@ try {
 
   <!-- Shared file validation, preview, and processing workspace -->
   <script defer src="/assets/image-annotations.js"></script>
-  <script defer src="/assets/background-segmentation-engine.js?v=background-remover-netlify-ort-20260808"></script>
-  <script defer src="/assets/advanced-cutout-studio.js?v=background-remover-netlify-ort-20260808"></script>
   <script defer src="/assets/phase-one-studios.js"></script>
   <script defer src="/assets/tool-workspace.js"></script>
 
   <!-- Core App Controller Script (Routed to Assets) -->
-  <script defer src="/assets/app.js?v=background-remover-netlify-ort-20260808"></script>
+  <script defer src="/assets/app.js?v=background-remover-react-20260808"></script>
 </body>
 </html>

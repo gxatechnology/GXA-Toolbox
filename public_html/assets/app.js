@@ -1005,6 +1005,10 @@ function renderFooter() {
 // --- Page Navigator (Routing) ---
 function navigate(pageId) {
   closeMobileNavigation();
+  if (pageId === 'tool-background-remover') {
+    window.location.assign('/background-remover/');
+    return;
+  }
   if (pageId === 'dashboard') {
     if (!appState.user) {
       showToast('Please sign in or create an account to view your dashboard.', 'warning');

@@ -130,3 +130,6 @@ See `BACKGROUND_REMOVER_FINAL_QA.md` for the full 15-fixture table, exact-resolu
 - Broken: 0 known from command-level validation
 
 These counts are conservative and do not count unavailable instance segmentation, inpainting, or full fixture coverage as complete.
+# React editor replacement (2026-08-08)
+
+The production `/background-remover/` route now opens `background-remover-app`, a state-driven React editor. The legacy `advanced-cutout-studio.js` is retained for rollback but is no longer globally loaded. The new editor separates React components, Zustand state, compositor, pointer controller, mask brush/refinement worker, crop engine, history, and original-resolution export.

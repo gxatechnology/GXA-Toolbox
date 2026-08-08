@@ -1,5 +1,36 @@
 [build]
+  command = "npm run build"
   publish = "."
+
+[[redirects]]
+  from = "/background-remover/assets/*"
+  to = "/public_html/background-remover/assets/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/background-remover/models/*"
+  to = "/public_html/background-remover/models/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/background-remover/vendor/*"
+  to = "/public_html/background-remover/vendor/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/background-remover"
+  to = "/public_html/background-remover/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/background-remover/"
+  to = "/public_html/background-remover/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/background-remover/*"
+  to = "/public_html/background-remover/index.html"
+  status = 200
 
 [[redirects]]
   from = "/assets/*"
@@ -7,14 +38,51 @@
   status = 200
 
 [[redirects]]
-  from = "/background-remover"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/background-remover/assets/*.wasm"
+  [headers.values]
+    Content-Type = "application/wasm"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/background-remover/assets/*.js"
+  [headers.values]
+    Content-Type = "application/javascript; charset=utf-8"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/background-remover/assets/*.css"
+  [headers.values]
+    Content-Type = "text/css; charset=utf-8"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/background-remover/vendor/ort/*.wasm"
+  [headers.values]
+    Content-Type = "application/wasm"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/background-remover/vendor/ort/*.mjs"
+  [headers.values]
+    Content-Type = "application/javascript; charset=utf-8"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/background-remover/models/*.onnx"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/background-remover/models/*.json"
+  [headers.values]
+    Content-Type = "application/json; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
 
 [[headers]]
   for = "/assets/vendor/onnxruntime-web/*.wasm"

@@ -126,3 +126,6 @@ See `BACKGROUND_REMOVER_FINAL_QA.md` for the full final QA record. Summary:
 - Brush/crop transform mapping covered by automated tests.
 - Required Background Remover model/runtime assets served HTTP 200.
 - Logged-out `/api/save-job.php` persistence is suppressed for Background Remover / Advanced Cutout Studio.
+# Background Remover route update (2026-08-08)
+
+Background Remover is now an isolated React + TypeScript + Vite application at `/background-remover/`. Legacy toolbox navigation hard-navigates to that path. No other tool registration, route, processing branch, authentication flow, dashboard page, or API was moved.

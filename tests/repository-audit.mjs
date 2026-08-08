@@ -52,11 +52,11 @@ assert.equal(validateFiles([file('large.pdf', 101 * 1024 * 1024, 'application/pd
 assert.equal(validateFiles([file('wrong.jpg', 10, 'image/jpeg')], { accept: '.pdf' }).errors.length, 1);
 assert.equal(validateFiles([file('same.pdf', 10, 'application/pdf'), file('same.pdf', 10, 'application/pdf')], { accept: '.pdf' }).errors.length, 1);
 
-assert(index.includes('public_html/assets/tool-workspace.js'), 'Static entry does not load the shared workspace.');
+assert(index.includes('/assets/tool-workspace.js'), 'Static entry does not load the shared workspace through the clean asset route.');
 assert(productionIndex.includes('/assets/tool-workspace.js'), 'Production entry does not load the shared workspace.');
-assert(index.includes('public_html/assets/phase-one-studios.js'), 'Static entry does not load the Phase 1 studio shell.');
+assert(index.includes('/assets/phase-one-studios.js'), 'Static entry does not load the Phase 1 studio shell through the clean asset route.');
 assert(productionIndex.includes('/assets/phase-one-studios.js'), 'Production entry does not load the Phase 1 studio shell.');
-assert(index.includes('public_html/assets/image-annotations.js'), 'Static entry does not load Image Studio annotations.');
+assert(index.includes('/assets/image-annotations.js'), 'Static entry does not load Image Studio annotations through the clean asset route.');
 assert(productionIndex.includes('/assets/image-annotations.js'), 'Production entry does not load Image Studio annotations.');
 assert(app.includes('function openCommandPalette'), 'Global command palette is missing.');
 assert(app.includes('function toggleFavorite'), 'Favorites support is missing.');

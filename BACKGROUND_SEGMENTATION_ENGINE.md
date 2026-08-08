@@ -174,3 +174,6 @@ Export validation:
 - Full real-photo fixture coverage is complete for the required 15 categories, but two low-contrast stress cases are derived from downloaded real photos because Wikimedia throttled additional direct fixture downloads.
 - Mobile performance/layout was emulator-tested; physical touch/pinch was not available.
 - The legacy PHP color-key endpoint still exists but is no longer primary.
+# React application update (2026-08-08)
+
+`/background-remover/` now uses the standalone React/TypeScript/Vite implementation documented in `docs/BACKGROUND_REMOVER_REACT_ARCHITECTURE.md`. The legacy global engine remains in the repository for rollback/backward compatibility but is no longer loaded by the root HTML. The React engine imports ONNX Runtime Web as a module, validates deterministic subpath assets, caches sessions by provider, and performs WebGPU-to-WASM fallback.
