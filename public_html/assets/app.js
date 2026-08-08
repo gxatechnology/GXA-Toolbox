@@ -12,8 +12,8 @@ const STORAGE_KEYS = {
   recentSearches: 'gxa-toolbox_recent-searches'
 };
 const LEGACY_STORAGE_KEYS = {
-  history: 'utilora_history',
-  theme: 'utilora_theme'
+  history: 'gxa-technologies_history',
+  theme: 'gxa-technologies_theme'
 };
 
 // --- Global Application State ---
