@@ -10,3 +10,5 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+public_html/uploads/
+public_html/outputs/
