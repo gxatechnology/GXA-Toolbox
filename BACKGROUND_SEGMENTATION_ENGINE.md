@@ -34,6 +34,18 @@ The visible UI labels this as:
 
 It does not expose ONNX/WebGPU/WASM terminology to ordinary users.
 
+## Dedicated Route Flow
+
+`/background-remover` now uses a dedicated Background Remover shell instead of the generic image-tools workspace. The route:
+
+1. Loads without login or premium gating.
+2. Shows one focused “Choose an image” upload state for JPG, PNG, and WEBP.
+3. Shows the selected image immediately.
+4. Automatically starts segmentation after file validation.
+5. Opens Advanced Cutout Studio after a valid alpha mask is generated.
+
+The hidden process button remains only as an internal compatibility hook for the existing processing pipeline; it is not part of the normal user flow.
+
 ## Model Compatibility Patch
 
 The downloaded `u2netp.onnx` failed in ONNX Runtime Web WASM with:
@@ -88,7 +100,7 @@ The studio initializes:
 - `originalMaskCanvas`
 - `maskCanvas`
 
-The existing erase/restore, mask views, edge refinement, backgrounds, layers, crop, transforms, and export pipeline remain intact.
+The existing erase/restore, mask views, edge refinement, backgrounds, layers, crop, transforms, and export pipeline remain intact. The Cutout panel now exposes real Auto mask controls: Re-run Auto, Reset Auto Mask, Invert Mask, Keep Foreground, and Remove Background.
 
 ## Privacy
 
@@ -111,6 +123,17 @@ WebGPU path:
 - Inference observed time: 2,719.5 ms
 - Mask stats: min 0, max 139, mean 1.129, transparent 90.794%, partial 9.206%, opaque 0%
 - Result: Advanced Cutout Studio opened
+
+Dedicated route auto-run:
+
+- Fixture: `tests/fixtures/transparent.png`
+- User flow: route load -> visible upload zone -> file chooser -> automatic segmentation -> Advanced Cutout Studio
+- Provider: `webgpu`
+- Mask stats: min 0, max 255, mean 229.959, transparent 0.210%, partial 22.017%, opaque 77.773%
+- Route checks: no generic tool workspace, no related-tools grid, hidden process button, logged-out upload available
+- Editor checks: Re-run Auto, Reset Auto Mask, Invert Mask, Keep Foreground, Remove Background, Erase, Restore visible in the Cutout panel
+- Crop checks: 1:1 preset displayed a real crop box with eight handles
+- PNG export after crop: valid PNG signature, alpha present, 399 x 399 output
 
 WASM path:
 

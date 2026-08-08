@@ -66,6 +66,8 @@ const premiumEditorState = {
   resultBlob: null,
   resultFilename: '',
   auxiliaryUrls: [],
+  backgroundAutoTimer: null,
+  backgroundPreviewUrl: '',
   resultSeries: [],
   batchCancelled: false,
   startedAt: 0
@@ -533,6 +535,7 @@ function showToast(message, type = 'info') {
 // --- Database History Logger ---
 function logHistory(filename, toolName, sizeStr, status = 'done') {
   const sizeVal = parseFloat(sizeStr) || 0.00;
+  const browserLocalHistoryOnlyTools = new Set(['Background Remover', 'Advanced Cutout Studio']);
   
   const payload = {
     tool_name: toolName,
@@ -557,6 +560,7 @@ function logHistory(filename, toolName, sizeStr, status = 'done') {
   }
 
   if (!window.PHP_SESSION) return;
+  if (!appState.user && browserLocalHistoryOnlyTools.has(toolName)) return;
   
   fetch('/api/save-job.php', {
     method: 'POST',
@@ -1661,6 +1665,7 @@ function isToolPremiumRestricted(toolId) {
 function renderToolPage(container, toolId) {
   const tool = toolsList.find(t => t.id === toolId);
   if (!tool) return;
+  document.body.classList.toggle('background-remover-dedicated-active', toolId === 'background-remover');
 
   // Premium tool gating check
   const isPremiumTool = isToolPremiumRestricted(toolId);
@@ -3281,6 +3286,10 @@ function renderToolPage(container, toolId) {
     renderCropImageEditor(container, tool, processingProfile, faqHTML);
     return;
   }
+  if (toolId === 'background-remover') {
+    renderBackgroundRemoverRoute(container, tool, processingProfile, faqHTML, optionsHTML, accepts, processActionLabel);
+    return;
+  }
 
   container.innerHTML = `
     <section class="container tool-container">
@@ -4617,6 +4626,130 @@ function disposeCropImageEditor() {
   });
 }
 
+function renderBackgroundRemoverRoute(container, tool, processingProfile, faqHTML, optionsHTML, accepts, processActionLabel) {
+  container.innerHTML = `
+    <section class="container background-remover-page">
+      <div class="bg-remover-hero">
+        <div>
+          <div class="breadcrumb">
+            <span class="breadcrumb-link" onclick="navigate('home')">Home</span>
+            <span>&gt;</span>
+            <span>Background Remover</span>
+          </div>
+          <span class="tool-category-label">Browser-local cutout studio</span>
+          <h1 class="tool-page-title">${tool.name}</h1>
+          <p class="section-desc">Upload a JPG, PNG, or WEBP image and GXA Toolbox automatically creates a real transparent cutout using local foreground segmentation.</p>
+        </div>
+        <div class="bg-remover-privacy-card">
+          <i data-lucide="shield-check"></i>
+          <strong>Processed privately in your browser</strong>
+          <span>${processingProfile.detail}</span>
+        </div>
+      </div>
+
+      <div class="bg-remover-workflow" data-tool-id="background-remover">
+        <aside class="bg-remover-left-rail" aria-label="Background Remover tools">
+          ${['Auto', 'Erase', 'Restore', 'Refine Edge', 'Background', 'Crop'].map((label, index) => `<span class="${index === 0 ? 'active' : ''}">${label}</span>`).join('')}
+        </aside>
+
+        <main class="bg-remover-main">
+          <div id="tool-upload-mount">
+            <div class="bg-remover-upload-grid">
+              <div class="upload-zone bg-remover-upload-zone" id="drop-zone" role="button" tabindex="0" aria-label="Choose an image for Background Remover" onclick="document.getElementById('file-picker').click()">
+                <span class="upload-icon-shell"><i data-lucide="image-up" class="upload-icon"></i></span>
+                <h3 class="upload-title">Choose an image</h3>
+                <p class="upload-subtitle">or drop a JPG, PNG, or WEBP here</p>
+                <div class="upload-formats">
+                  <span class="format-chip">JPG</span>
+                  <span class="format-chip">PNG</span>
+                  <span class="format-chip">WEBP</span>
+                </div>
+                <p class="upload-limit"><i data-lucide="info"></i> Automatic segmentation starts after selection.</p>
+                <input type="file" id="file-picker" style="display:none;" accept="${accepts}">
+              </div>
+              <div class="bg-remover-reference-panel">
+                <strong>Dedicated editor flow</strong>
+                <p>Auto cutout opens in Advanced Cutout Studio with editable mask painting, backgrounds, crop, effects, layers, and export.</p>
+                <ul>
+                  <li>Real soft alpha mask</li>
+                  <li>No third-party upload</li>
+                  <li>No near-white color-key fallback</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div id="tool-queue-mount" class="hidden bg-remover-selected-state">
+            <div class="bg-remover-selected-preview" id="bg-remover-selected-preview" aria-live="polite"></div>
+            <div class="queue-header">
+              <h4 class="form-label">Selected image</h4>
+              <button class="btn btn-ghost btn-sm" onclick="clearSelectedFiles()">Choose another</button>
+            </div>
+            <div class="file-queue" id="file-queue-container"></div>
+            <button class="btn btn-primary btn-lg hidden" id="btn-process-action" onclick="runFileProcessingPipeline()">${processActionLabel}</button>
+          </div>
+
+          <div id="tool-processing-mount" class="hidden">
+            <div class="processing-card bg-remover-processing-card">
+              <div class="processing-orbit"><div class="spinner"></div><i data-lucide="sparkles"></i></div>
+              <h3 class="upload-title" id="processing-stage-label">Loading removal engine</h3>
+              <p class="upload-subtitle">Creating a real editable transparency mask from your image.</p>
+              <div class="bg-remover-selected-preview compact" id="bg-remover-processing-preview"></div>
+              <div class="progress-bar-container">
+                <div class="progress-bar-fill shimmer-bg" id="global-progress-bar"></div>
+              </div>
+              <div class="processing-stages" id="processing-stages" aria-label="Processing stages">
+                <span class="active" data-stage="validate"><i data-lucide="check"></i> Reading</span>
+                <span data-stage="process"><i data-lucide="loader-circle"></i> Segmenting</span>
+                <span data-stage="generate"><i data-lucide="file-output"></i> Mask</span>
+                <span data-stage="finish"><i data-lucide="check-circle-2"></i> Editor</span>
+              </div>
+              <button type="button" id="btn-cancel-processing" class="btn btn-ghost hidden" onclick="cancelActiveBatch()">Cancel after current file</button>
+            </div>
+          </div>
+
+          <div id="tool-complete-mount" class="hidden bg-remover-editor-state">
+            <div class="bg-remover-editor-card">
+              <div class="bg-remover-editor-heading">
+                <div>
+                  <span class="tool-category-label">Advanced Cutout Studio</span>
+                  <h2 class="complete-title">Background Remover Editor</h2>
+                  <p class="upload-subtitle">Refine the generated alpha mask, replace the background, crop, style, and export.</p>
+                </div>
+                <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> Download</button>
+              </div>
+              <div id="premium-result-preview" class="premium-result-preview" aria-live="polite"></div>
+              <div id="comparison-metric-mount" class="complete-comparison hidden"></div>
+              <div id="premium-result-stats" class="premium-result-stats" aria-label="Output statistics"></div>
+              <div class="premium-result-actions bg-remover-result-actions">
+                <button class="btn btn-secondary btn-lg" id="btn-copy-result-link" onclick="copyPremiumResultLink()" disabled><i data-lucide="link"></i> Copy local link</button>
+                <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> Start Over</button>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <aside class="bg-remover-right-panel">
+          <div class="tool-options-panel">
+            <div class="options-title"><span><i data-lucide="sliders-horizontal"></i> Auto mode</span><small>Advanced processing</small></div>
+            ${optionsHTML}
+            <div id="premium-live-stats" class="premium-live-stats" aria-live="polite"></div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="faq-section bg-remover-faq">
+        <h3 class="faq-title">Frequently Asked Questions</h3>
+        <div class="faq-list">${faqHTML}</div>
+      </div>
+    </section>
+  `;
+
+  lucide.createIcons();
+  setupUploadZoneEvents();
+  renderPremiumSessionHistory();
+}
+
 function renderRelatedTools(currentToolId, category) {
   const container = document.getElementById('related-tools-grid');
   if (!container) return;
@@ -5110,6 +5243,7 @@ function clearPremiumResult() {
 
 function disposePremiumToolEditor() {
   window.clearTimeout(premiumEditorState.historyTimer);
+  window.clearTimeout(premiumEditorState.backgroundAutoTimer);
   premiumEditorState.previewObserver?.disconnect();
   if (premiumEditorState.keydownHandler) document.removeEventListener('keydown', premiumEditorState.keydownHandler);
   const root = document.querySelector('.premium-editor-workspace');
@@ -5120,6 +5254,7 @@ function disposePremiumToolEditor() {
   if (root && premiumEditorState.clickHandler) root.removeEventListener('click', premiumEditorState.clickHandler);
   document.body.classList.remove('premium-editor-focus-open');
   clearPremiumResult();
+  if (premiumEditorState.backgroundPreviewUrl) URL.revokeObjectURL(premiumEditorState.backgroundPreviewUrl);
   premiumEditorState.auxiliaryUrls.forEach(url => URL.revokeObjectURL(url));
   Object.assign(premiumEditorState, {
     toolId: '',
@@ -5133,6 +5268,8 @@ function disposePremiumToolEditor() {
     clickHandler: null,
     previewObserver: null,
     auxiliaryUrls: [],
+    backgroundAutoTimer: null,
+    backgroundPreviewUrl: '',
     resultSeries: [],
     batchCancelled: false,
     startedAt: 0
@@ -5217,6 +5354,36 @@ function handleFileSelection(files) {
   recordPremiumEditorState();
   renderFileQueue();
   updatePremiumLiveStats();
+  if (appState.currentPage === 'tool-background-remover') {
+    renderBackgroundRemoverSelectedPreview(appState.activeFiles[appState.activePreviewIndex] || appState.activeFiles[0]);
+    window.clearTimeout(premiumEditorState.backgroundAutoTimer);
+    premiumEditorState.backgroundAutoTimer = window.setTimeout(() => {
+      if (appState.currentPage === 'tool-background-remover' && appState.activeFiles.length) runFileProcessingPipeline();
+    }, 50);
+  }
+}
+
+function renderBackgroundRemoverSelectedPreview(file) {
+  if (!file || !file.type?.startsWith('image/')) return;
+  const mounts = [
+    document.getElementById('bg-remover-selected-preview'),
+    document.getElementById('bg-remover-processing-preview')
+  ].filter(Boolean);
+  if (!mounts.length) return;
+  if (premiumEditorState.backgroundPreviewUrl) URL.revokeObjectURL(premiumEditorState.backgroundPreviewUrl);
+  const previewUrl = URL.createObjectURL(file);
+  premiumEditorState.backgroundPreviewUrl = previewUrl;
+  const safeName = escapeHTML(file.name);
+  const size = formatCropBytes(file.size);
+  mounts.forEach((mount) => {
+    mount.innerHTML = `
+      <img src="${previewUrl}" alt="Uploaded image preview for Background Remover">
+      <div>
+        <strong>${safeName}</strong>
+        <span>${size} · segmentation will preserve the original dimensions</span>
+      </div>
+    `;
+  });
 }
 
 function renderFileQueue() {
@@ -5314,7 +5481,11 @@ function renderFileQueue() {
   });
   appState.activePreviewIndex = Math.min(appState.activePreviewIndex || 0, appState.activeFiles.length - 1);
   queueContainer.children[appState.activePreviewIndex]?.classList.add('is-previewed');
-  if (window.GxaWorkspace) window.GxaWorkspace.renderFilePreview(appState.activeFiles, appState.activePreviewIndex);
+  if (appState.currentPage === 'tool-background-remover') {
+    renderBackgroundRemoverSelectedPreview(appState.activeFiles[appState.activePreviewIndex]);
+  } else if (window.GxaWorkspace) {
+    window.GxaWorkspace.renderFilePreview(appState.activeFiles, appState.activePreviewIndex);
+  }
   updatePremiumLiveStats();
   lucide.createIcons();
 }
@@ -5339,10 +5510,15 @@ function resetActiveTool() {
     return;
   }
   window.GxaAdvancedCutoutStudio?.close();
+  window.clearTimeout(premiumEditorState.backgroundAutoTimer);
   appState.activeFiles = [];
   appState.activeToolOptions = {};
   appState.activePreviewIndex = 0;
   clearPremiumResult();
+  if (premiumEditorState.backgroundPreviewUrl) {
+    URL.revokeObjectURL(premiumEditorState.backgroundPreviewUrl);
+    premiumEditorState.backgroundPreviewUrl = '';
+  }
   if (window.GxaWorkspace) window.GxaWorkspace.dispose();
   
   const uploadMount = document.getElementById('tool-upload-mount');

@@ -464,6 +464,7 @@
   function close() {
     if (!studio) return;
     if (studio.originalUrl) URL.revokeObjectURL(studio.originalUrl);
+    if (studio.cutoutUrl?.startsWith('blob:')) URL.revokeObjectURL(studio.cutoutUrl);
     if (studio.background.imageUrl) URL.revokeObjectURL(studio.background.imageUrl);
     studio = null;
   }
@@ -499,7 +500,9 @@
             </div>
             <div class="cutout-stage-wrap">
               <canvas id="cutout-stage" aria-label="Editable cutout canvas"></canvas>
-              <div id="cutout-crop-box" class="cutout-crop-box hidden"><span></span><span></span><span></span><span></span></div>
+              <div id="cutout-crop-box" class="cutout-crop-box hidden" data-crop-handle="move">
+                ${['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(handle => `<span data-crop-handle="${handle}"></span>`).join('')}
+              </div>
               <button type="button" id="cutout-hold-original">Hold original</button>
             </div>
             <div class="cutout-image-tray">
@@ -532,11 +535,20 @@
         return;
       }
       const action = event.target.closest('[data-action]')?.dataset.action;
-      if (action) handleAction(state, action);
+      if (action) {
+        handleAction(state, action).catch(error => {
+          console.error('Advanced Cutout Studio action failed', error);
+          window.showToast?.(error.message || 'Cutout action failed.', 'error');
+        });
+        return;
+      }
       const zoom = event.target.closest('[data-zoom]')?.dataset.zoom;
       if (zoom) setZoom(state, zoom);
       const quick = event.target.closest('[data-quick]')?.dataset.quick;
       if (quick) applyQuickAction(state, quick);
+      if (event.target.closest('[data-tool],[data-bg-mode],[data-bg-color],[data-effect],[data-add-shape],[data-add-text],[data-crop-ratio],[data-canvas-preset],[data-compare],[data-select-layer],[data-layer-action],[data-mask-op]')) {
+        handleInput(state, event);
+      }
     });
 
     root.addEventListener('input', event => handleInput(state, event));
@@ -545,6 +557,10 @@
     state.canvas.addEventListener('pointermove', event => canvasPointerMove(state, event));
     state.canvas.addEventListener('pointerup', () => canvasPointerUp(state));
     state.canvas.addEventListener('pointercancel', () => canvasPointerUp(state));
+    state.cropBox.addEventListener('pointerdown', event => cropBoxPointerDown(state, event));
+    state.cropBox.addEventListener('pointermove', event => cropBoxPointerMove(state, event));
+    state.cropBox.addEventListener('pointerup', () => canvasPointerUp(state));
+    state.cropBox.addEventListener('pointercancel', () => canvasPointerUp(state));
     state.canvas.addEventListener('wheel', event => {
       event.preventDefault();
       state.zoom = Math.max(0.15, Math.min(4, state.zoom + (event.deltaY < 0 ? 0.1 : -0.1)));
@@ -598,6 +614,13 @@
   function panelCutout(state) {
     return `
       <h3>Cutout</h3>
+      <div class="cutout-grid two">
+        <button type="button" data-action="rerun-auto">${state.autoBusy ? 'Running auto…' : 'Re-run Auto'}</button>
+        <button type="button" data-action="reset-auto-mask">Reset Auto Mask</button>
+        <button type="button" data-action="invert-mask">Invert Mask</button>
+        <button type="button" data-action="keep-foreground">Keep Foreground</button>
+        <button type="button" data-action="remove-background">Remove Background</button>
+      </div>
       <div class="cutout-grid two">
         ${toolButton('move', 'Move', state)}
         ${toolButton('erase', 'Erase', state)}
@@ -818,11 +841,16 @@
     return value === '' || Number.isNaN(Number(value)) ? value : Number(value);
   }
 
-  function handleAction(state, action) {
+  async function handleAction(state, action) {
     if (action === 'undo') undo(state);
     else if (action === 'redo') redo(state);
     else if (action === 'reset') reset(state);
     else if (action === 'download') download(state);
+    else if (action === 'rerun-auto') await rerunAutoMask(state);
+    else if (action === 'reset-auto-mask') resetAutoMask(state);
+    else if (action === 'invert-mask') invertMask(state);
+    else if (action === 'keep-foreground') state.activeTool = 'restore';
+    else if (action === 'remove-background') state.activeTool = 'erase';
     else if (action === 'reset-adjust') {
       Object.assign(state.subject, clone(DEFAULTS.subject));
       Object.assign(state.all, clone(DEFAULTS.all));
@@ -841,6 +869,47 @@
     pushHistory(state);
     renderPanel(state);
     render(state);
+  }
+
+  function resetAutoMask(state) {
+    state.maskCanvas = cloneCanvas(state.originalMaskCanvas);
+    state.activeTool = 'move';
+  }
+
+  function invertMask(state) {
+    const ctx = state.maskCanvas.getContext('2d', { willReadFrequently: true });
+    const image = ctx.getImageData(0, 0, state.maskCanvas.width, state.maskCanvas.height);
+    for (let i = 0; i < image.data.length; i += 4) {
+      const alpha = 255 - image.data[i];
+      image.data[i] = alpha;
+      image.data[i + 1] = alpha;
+      image.data[i + 2] = alpha;
+      image.data[i + 3] = 255;
+    }
+    ctx.putImageData(image, 0, 0);
+  }
+
+  async function rerunAutoMask(state) {
+    if (!window.GxaBackgroundSegmentation?.segment) {
+      throw new Error('The local auto segmentation engine is unavailable.');
+    }
+    if (state.autoBusy) return;
+    state.autoBusy = true;
+    renderPanel(state);
+    try {
+      const segmentation = await window.GxaBackgroundSegmentation.segment(state.originalFile, { forceProvider: '' });
+      state.originalMaskCanvas = cloneCanvas(segmentation.maskCanvas);
+      state.maskCanvas = cloneCanvas(segmentation.maskCanvas);
+      state.segmentationStats = segmentation.stats;
+      state.segmentationProvider = segmentation.provider;
+      if (segmentation.cutoutUrl) {
+        if (state.cutoutUrl?.startsWith('blob:')) URL.revokeObjectURL(state.cutoutUrl);
+        state.cutoutUrl = segmentation.cutoutUrl;
+        state.cutoutImage = await loadImage(segmentation.cutoutUrl);
+      }
+    } finally {
+      state.autoBusy = false;
+    }
   }
 
   function applyQuickAction(state, label) {
@@ -1019,6 +1088,73 @@
       }
     }
     state.pointer.last = point;
+    render(state);
+  }
+
+  function cropBoxPointerDown(state, event) {
+    if (!state.crop) return;
+    event.preventDefault();
+    event.stopPropagation();
+    state.cropBox.setPointerCapture(event.pointerId);
+    const point = canvasPoint(state, event);
+    state.pointer = {
+      start: point,
+      last: point,
+      kind: 'crop-box',
+      handle: event.target.closest('[data-crop-handle]')?.dataset.cropHandle || 'move',
+      cropStart: clone(state.crop)
+    };
+  }
+
+  function cropBoxPointerMove(state, event) {
+    if (!state.pointer || state.pointer.kind !== 'crop-box') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = canvasPoint(state, event);
+    const start = state.pointer.start;
+    const base = state.pointer.cropStart;
+    const dx = point.x - start.x;
+    const dy = point.y - start.y;
+    const minSize = Math.max(16, Math.min(state.canvasWidth, state.canvasHeight) * 0.02);
+    let { x, y, w, h } = base;
+    const handle = state.pointer.handle;
+
+    if (handle === 'move') {
+      x = base.x + dx;
+      y = base.y + dy;
+    } else {
+      if (handle.includes('w')) {
+        x = base.x + dx;
+        w = base.w - dx;
+      }
+      if (handle.includes('e')) w = base.w + dx;
+      if (handle.includes('n')) {
+        y = base.y + dy;
+        h = base.h - dy;
+      }
+      if (handle.includes('s')) h = base.h + dy;
+    }
+
+    if (w < minSize) {
+      if (handle.includes('w')) x -= minSize - w;
+      w = minSize;
+    }
+    if (h < minSize) {
+      if (handle.includes('n')) y -= minSize - h;
+      h = minSize;
+    }
+
+    if (handle === 'move') {
+      x = Math.max(0, Math.min(state.canvasWidth - w, x));
+      y = Math.max(0, Math.min(state.canvasHeight - h, y));
+    } else {
+      x = Math.max(0, Math.min(state.canvasWidth - minSize, x));
+      y = Math.max(0, Math.min(state.canvasHeight - minSize, y));
+      w = Math.max(minSize, Math.min(state.canvasWidth - x, w));
+      h = Math.max(minSize, Math.min(state.canvasHeight - y, h));
+    }
+
+    state.crop = { x, y, w, h };
     render(state);
   }
 

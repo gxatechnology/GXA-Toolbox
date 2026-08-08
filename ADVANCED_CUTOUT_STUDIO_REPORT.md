@@ -13,7 +13,8 @@ The Advanced Cutout Studio receives the generated original-resolution segmentati
 - `public_html/assets/background-segmentation-engine.js` lazy-loads ONNX Runtime Web and the local U2NetP model.
 - `public_html/assets/advanced-cutout-studio.js` mounts after a successful browser-local segmentation run.
 - The editor keeps the original image, the generated cutout image, an editable mask canvas, a subject layer, background settings, design layers, crop state, bounded history, and export settings.
-- The existing Background Remover route, upload validation, public access behavior, and PHP API are preserved.
+- `/background-remover` now uses a dedicated Background Remover route shell rather than the generic image-tools workspace. It shows a single image upload state, starts automatic segmentation after a valid image is chosen, and opens Advanced Cutout Studio without showing unrelated image tools.
+- The existing upload validation, public access behavior, and legacy PHP API are preserved.
 
 ## Mask Architecture
 
@@ -21,6 +22,7 @@ The Advanced Cutout Studio receives the generated original-resolution segmentati
 - Editable mask: grayscale canvas where white means keep and black means remove.
 - Erase/restore brushes update the mask canvas.
 - Smooth, expand, contract, and defringe operations mutate the mask canvas.
+- Auto controls now operate on the real mask: Re-run Auto calls the local segmentation engine again, Reset Auto Mask restores the stored model mask, Invert Mask inverts alpha values, Keep Foreground selects restore painting, and Remove Background selects erase painting.
 - Export uses the edited mask, not just the initial server output.
 
 ## Subject / Background Layer System
@@ -53,7 +55,7 @@ The Advanced Cutout Studio receives the generated original-resolution segmentati
 
 ## Crop Implementation
 
-The crop tool creates an interactive crop region by dragging on the canvas. Applying crop updates the composition canvas size and subject placement. Corner visual handles are displayed. Full edge-handle resizing is not yet implemented.
+The crop tool creates an interactive crop region by dragging on the canvas or by selecting crop presets. The crop overlay now has real move handling plus eight resize handles: north, south, east, west, and four corners. Applying crop updates the composition canvas size and subject placement.
 
 ## Filter / Adjustment Engine
 
@@ -85,6 +87,7 @@ The original image dimensions are stored and the editable mask is initialized at
 ## Output Validation
 
 - PNG export exists at `C:\Users\tauqe\Downloads\transparent_gxa-cutout.png`, has a valid PNG signature, and alpha was detected.
+- Dedicated route PNG export after applying a 1:1 crop exists at `C:\Users\tauqe\Downloads\transparent_gxa-cutout (1).png`, has a valid PNG signature, alpha was detected, and the crop affected output dimensions to 399 x 399.
 - JPG export exists at `C:\Users\tauqe\Downloads\transparent_gxa-cutout.jpg` with a valid JPEG signature.
 - WEBP export exists at `C:\Users\tauqe\Downloads\transparent_gxa-cutout.webp` with a valid RIFF WEBP signature.
 - `npm.cmd run build` passed.
@@ -103,7 +106,6 @@ The editor uses canvas compositing and object URL cleanup. ONNX Runtime Web is i
 - Hair/detail quality is limited by the lightweight model.
 - Person/product/animal real-photo fixture coverage is not complete in this run.
 - Clone/patch/inpainting is not implemented.
-- Full crop edge-handle resizing is not implemented.
 - Batch mode is intentionally deferred.
 - 4K interactive performance, mobile touch gestures, and memory usage need live browser validation.
 
