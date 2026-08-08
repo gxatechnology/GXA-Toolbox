@@ -5860,3 +5860,306 @@ body.dark-mode .premium-editor-toolbar {
     transform: translateX(0) !important;
   }
 }
+/* Advanced Cutout Studio */
+.cutout-studio {
+  --cutout-bg: #f8fafc;
+  --cutout-panel: #ffffff;
+  --cutout-border: rgba(15, 23, 42, 0.12);
+  background: var(--cutout-bg);
+  border: 1px solid var(--cutout-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.dark-mode .cutout-studio {
+  --cutout-bg: #0f172a;
+  --cutout-panel: #111827;
+  --cutout-border: rgba(148, 163, 184, 0.22);
+}
+
+.cutout-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--cutout-panel);
+  border-bottom: 1px solid var(--cutout-border);
+}
+
+.cutout-kicker {
+  display: block;
+  font-size: 11px;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.cutout-toolbar,
+.cutout-quick-actions,
+.cutout-zoom,
+.cutout-grid,
+.cutout-image-tray,
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cutout-tab,
+.cutout-download,
+.cutout-quick-actions button,
+.cutout-zoom button,
+.cutout-grid button,
+.cutout-image-tray button,
+.layer-list button {
+  border: 1px solid var(--cutout-border);
+  background: var(--cutout-panel);
+  color: var(--color-text-primary);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cutout-tab.active,
+.cutout-grid button.active,
+.layer-list button.active,
+.effect-grid button.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(37, 99, 235, 0.09);
+}
+
+.cutout-download {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.cutout-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 30%);
+  min-height: 680px;
+}
+
+.cutout-canvas-pane {
+  min-width: 0;
+  padding: 14px;
+}
+
+.cutout-canvas-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cutout-quick-actions button {
+  font-size: 10px;
+  padding: 7px 9px;
+}
+
+.cutout-stage-wrap {
+  position: relative;
+  min-height: 560px;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  border-radius: 12px;
+  background:
+    linear-gradient(45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(148, 163, 184, 0.18) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(148, 163, 184, 0.18) 75%);
+  background-size: 28px 28px;
+  background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+}
+
+#cutout-stage {
+  max-width: 100%;
+  max-height: 76vh;
+  background: transparent;
+  cursor: crosshair;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+#cutout-hold-original {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 13px;
+  color: white;
+  background: rgba(15, 23, 42, 0.76);
+  cursor: pointer;
+}
+
+.cutout-crop-box {
+  position: absolute;
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.38);
+  pointer-events: none;
+}
+
+.cutout-crop-box span {
+  width: 10px;
+  height: 10px;
+  position: absolute;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.cutout-crop-box span:nth-child(1) { left: -6px; top: -6px; }
+.cutout-crop-box span:nth-child(2) { right: -6px; top: -6px; }
+.cutout-crop-box span:nth-child(3) { right: -6px; bottom: -6px; }
+.cutout-crop-box span:nth-child(4) { left: -6px; bottom: -6px; }
+
+.cutout-panel {
+  background: var(--cutout-panel);
+  border-left: 1px solid var(--cutout-border);
+  padding: 16px;
+  overflow: auto;
+}
+
+.cutout-panel h3,
+.cutout-panel h4 {
+  margin: 0 0 12px;
+  font-family: var(--font-header);
+}
+
+.cutout-panel label {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-text-secondary);
+}
+
+.cutout-panel input,
+.cutout-panel select {
+  width: 100%;
+  border: 1px solid var(--cutout-border);
+  border-radius: 8px;
+  padding: 8px 9px;
+  background: var(--cutout-panel);
+  color: var(--color-text-primary);
+}
+
+.cutout-panel output {
+  justify-self: end;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.cutout-grid.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cutout-grid.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.color-row button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.effect-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.effect-grid button {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--cutout-border);
+  background: var(--cutout-panel);
+  border-radius: 8px;
+  padding: 8px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.effect-grid canvas {
+  width: 100%;
+  border-radius: 6px;
+}
+
+.layer-list {
+  display: grid;
+  gap: 8px;
+}
+
+.layer-list button {
+  justify-content: space-between;
+  text-align: left;
+}
+
+.layer-list small,
+.cutout-note,
+.cutout-image-tray span,
+.cutout-info {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.cutout-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cutout-info span {
+  border: 1px solid var(--cutout-border);
+  background: var(--cutout-panel);
+  border-radius: 999px;
+  padding: 5px 8px;
+}
+
+.cutout-check {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .cutout-topbar,
+  .cutout-canvas-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cutout-body {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .cutout-stage-wrap {
+    min-height: 58vh;
+  }
+
+  .cutout-panel {
+    border-left: 0;
+    border-top: 1px solid var(--cutout-border);
+    max-height: 42vh;
+  }
+
+  .cutout-toolbar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+}

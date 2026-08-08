@@ -22,7 +22,7 @@
     'ocr-pdf': 'OCR processing is temporarily unavailable. No file is uploaded or processed.'
   });
 
-  const serverTools = new Set(['background-remover']);
+  const serverTools = new Set([]);
   const capabilityTools = new Set(['qr-reader', 'barcode-reader']);
 
   function loadScriptOnce(src, globalName) {
@@ -122,6 +122,7 @@
 
   function getProcessingProfile(toolId) {
     if (blockers[toolId]) return { kind: 'dependency', label: 'Temporarily unavailable', detail: blockers[toolId] };
+    if (toolId === 'background-remover') return { kind: 'local', label: 'Runs locally in your browser', detail: 'Background removal runs locally in your browser after the segmentation engine loads. Your image is not uploaded for automatic subject removal.' };
     if (serverTools.has(toolId)) return { kind: 'server', label: 'Secure server processing', detail: 'The selected file is uploaded to the GXA Toolbox server for processing.' };
     if (capabilityTools.has(toolId)) return { kind: 'capability', label: 'Browser capability required', detail: 'Processing remains local but requires Barcode Detector support in this browser.' };
     return { kind: 'local', label: 'Processed in your browser', detail: 'The operation runs locally in this browser unless the tool page states otherwise.' };

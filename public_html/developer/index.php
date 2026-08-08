@@ -125,11 +125,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'toggle_tool_premium') {
         $toolId = trim($_POST['tool_id'] ?? '');
         $isPremium = intval($_POST['is_premium'] ?? 0);
+        if ($toolId === 'background-remover') {
+            $isPremium = 0;
+        }
         if (!empty($toolId)) {
             try {
                 $stmt = $pdo->prepare("UPDATE tools SET is_premium = ? WHERE id = ?");
                 $stmt->execute([$isPremium, $toolId]);
-                $successMessage = "Successfully updated tool premium status.";
+                $successMessage = $toolId === 'background-remover'
+                    ? "Background Remover is always public and cannot be premium locked."
+                    : "Successfully updated tool premium status.";
             } catch (PDOException $e) {
                 $errorMessage = "Failed to update tool premium: " . $e->getMessage();
             }
@@ -164,7 +169,7 @@ try {
     $users = $pdo->query("SELECT id, name, email, role, is_premium, status, DATE_FORMAT(created_at, '%Y-%m-%d') as created_date FROM users ORDER BY id DESC")->fetchAll();
 
     // B. Tools table
-    $tools = $pdo->query("SELECT id, name, category, use_count, is_premium FROM tools ORDER BY category, name")->fetchAll();
+    $tools = $pdo->query("SELECT id, name, category, use_count, IF(id = 'background-remover', 0, is_premium) AS is_premium FROM tools ORDER BY category, name")->fetchAll();
 
     // C. Recent user activity feed
     $recentActivity = $pdo->query("SELECT name, email, role, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as created_time FROM users ORDER BY id DESC LIMIT 5")->fetchAll();

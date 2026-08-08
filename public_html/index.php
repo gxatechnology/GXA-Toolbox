@@ -11,7 +11,7 @@ try {
     if (!$pdo instanceof PDO) {
         throw new PDOException('Database unavailable');
     }
-    $stmt = $pdo->query("SELECT id FROM tools WHERE is_premium = 1");
+    $stmt = $pdo->query("SELECT id FROM tools WHERE is_premium = 1 AND id <> 'background-remover'");
     $premiumTools = $stmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (PDOException $e) {
     // Fallback if database query fails
@@ -112,6 +112,8 @@ try {
 
   <!-- Shared file validation, preview, and processing workspace -->
   <script defer src="/assets/image-annotations.js"></script>
+  <script defer src="/assets/background-segmentation-engine.js"></script>
+  <script defer src="/assets/advanced-cutout-studio.js"></script>
   <script defer src="/assets/phase-one-studios.js"></script>
   <script defer src="/assets/tool-workspace.js"></script>
 

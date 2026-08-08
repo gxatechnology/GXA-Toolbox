@@ -317,7 +317,7 @@ const toolsList = [
   { id: 'compress-image', name: 'Compress Image', category: 'image', desc: 'Compress browser-decodable JPG, PNG, and WEBP images with adjustable quality.', icon: 'minimize-2' },
   { id: 'resize-image', name: 'Resize Image', category: 'image', desc: 'Specify exact dimensions, aspect locking, and percentage scales.', icon: 'maximize-2' },
   { id: 'crop-image', name: 'Crop Image', category: 'image', desc: 'Manually select, position, transform, and export an exact image crop.', icon: 'crop' },
-  { id: 'background-remover', name: 'Light Background Remover', category: 'image', desc: 'Make near-white background pixels transparent. Best for flat, light backgrounds; not subject segmentation.', icon: 'sparkles' },
+  { id: 'background-remover', name: 'Background Remover', category: 'image', desc: 'Remove image backgrounds with a browser-local foreground segmentation model and refine the alpha mask in Advanced Cutout Studio.', icon: 'sparkles' },
   { id: 'password-generator', name: 'Password Generator', category: 'utility', desc: 'Produce strong, random keys with safety metrics.', icon: 'key' },
   { id: 'barcode-generator', name: 'QR & Barcode', category: 'utility', desc: 'Create code graphics for texts or links in vectors.', icon: 'qr-code' },
   { id: 'color-extractor', name: 'Color Extractor', category: 'utility', desc: 'Extract harmonious palette swatches from any image.', icon: 'palette' },
@@ -1648,14 +1648,22 @@ function clearHistoryLog() {
 }
 
 // --- UNIVERSAL TOOL PAGE TEMPLATE RENDERER ---
+const PUBLIC_TOOL_IDS = new Set(['background-remover']);
+
+function isToolPremiumRestricted(toolId) {
+  if (PUBLIC_TOOL_IDS.has(toolId)) return false;
+  if (window.PHP_SESSION && Array.isArray(window.PHP_SESSION.premium_tools)) {
+    return window.PHP_SESSION.premium_tools.includes(toolId);
+  }
+  return ['split-pdf', 'protect-pdf', 'unlock-pdf'].includes(toolId);
+}
+
 function renderToolPage(container, toolId) {
   const tool = toolsList.find(t => t.id === toolId);
   if (!tool) return;
 
   // Premium tool gating check
-  const isPremiumTool = window.PHP_SESSION && window.PHP_SESSION.premium_tools 
-    ? window.PHP_SESSION.premium_tools.includes(toolId) 
-    : ['split-pdf', 'protect-pdf', 'unlock-pdf', 'background-remover'].includes(toolId);
+  const isPremiumTool = isToolPremiumRestricted(toolId);
 
   if (isPremiumTool) {
     const isUserLoggedIn = appState.user !== null;
@@ -1837,17 +1845,18 @@ function renderToolPage(container, toolId) {
     `;
     appState.activeToolOptions.ratio = '1:1';
   } else if (toolId === 'background-remover') {
-    accepts = 'image/*';
+    accepts = 'image/jpeg,image/png,image/webp';
     multiple = false;
     optionsHTML = `
       <div class="form-group">
-        <label class="form-label">Transparency Engine</label>
+        <label class="form-label">Processing</label>
         <select id="opt-bg-engine" class="form-input-text" style="background:var(--color-surface); color:var(--color-text-primary);">
-          <option value="chroma">Near-white color key</option>
+          <option value="best">Automatic background removal</option>
+          <option value="compat">Browser compatibility mode</option>
         </select>
       </div>
       <p style="font-size:12px; color:var(--color-text-secondary); line-height:1.4; margin-top:5px;">
-        Makes near-white pixels transparent on the server. This color-key tool works best with flat light backgrounds and does not perform AI subject segmentation.
+        Loads a local foreground segmentation model only for this tool. Your image is processed in the browser and opens in Advanced Cutout Studio with an editable alpha mask.
       </p>
     `;
   } else if (toolId === 'password-generator') {
@@ -3330,7 +3339,7 @@ function renderToolPage(container, toolId) {
               <div class="file-queue" id="file-queue-container"></div>
               
               <!-- Core processing controls -->
-              <button class="btn btn-primary btn-lg" id="btn-process-action" style="width:100%; margin-top:20px;">
+              <button class="btn btn-primary btn-lg" id="btn-process-action" onclick="runFileProcessingPipeline()" style="width:100%; margin-top:20px;">
                 ${processActionLabel}
               </button>
             </div>
@@ -3714,9 +3723,9 @@ function getFAQForTool(toolId, toolName) {
       { q: "Which languages are supported by the OCR tool?", a: "OCR processing is temporarily unavailable, so no language support is currently claimed." }
     ],
     'background-remover': [
-      { q: "How does the Background Remover work?", a: "The server makes near-white pixels transparent and generates a PNG. It is not an AI subject-segmentation model." },
+      { q: "How does the Background Remover work?", a: "GXA Toolbox lazy-loads a local U2NetP ONNX segmentation model in your browser, creates a soft alpha mask, and opens that mask in Advanced Cutout Studio for refinement." },
       { q: "What image formats are supported?", a: "You can upload JPG, JPEG, PNG, or WEBP images. The output is always delivered as a transparent PNG." },
-      { q: "Is background removal processed on a server?", a: "Yes. The selected image is uploaded to the configured GXA Toolbox PHP processor for near-white background removal." }
+      { q: "Is background removal processed on a server?", a: "No. Automatic subject removal runs locally in your browser. The legacy PHP color-key endpoint is not used for the primary Background Remover workflow." }
     ]
   };
   
@@ -5166,7 +5175,7 @@ function setupUploadZoneEvents() {
   // Bind main process action button
   const processBtn = document.getElementById('btn-process-action');
   if (processBtn) {
-    processBtn.addEventListener('click', runFileProcessingPipeline);
+    if (!processBtn.hasAttribute('onclick')) processBtn.addEventListener('click', runFileProcessingPipeline);
     const toolId = appState.currentPage.replace('tool-', '');
     const blocker = window.GxaWorkspace ? window.GxaWorkspace.getBlocker(toolId) : '';
     if (blocker) {
@@ -5329,6 +5338,7 @@ function resetActiveTool() {
     resetCropImageTool();
     return;
   }
+  window.GxaAdvancedCutoutStudio?.close();
   appState.activeFiles = [];
   appState.activeToolOptions = {};
   appState.activePreviewIndex = 0;
@@ -5496,6 +5506,8 @@ async function runFileProcessingPipeline() {
     queueMount.classList.remove('hidden');
     completeMount.classList.add('hidden');
     cancelBtn?.classList.add('hidden');
+    document.body.dataset.gxaLastProcessingError = err && err.message ? err.message : String(err);
+    console.error('GXA tool processing failed', err);
     showToast(`Processing failed: ${err.message}`, 'error');
   }
 }
@@ -5731,79 +5743,50 @@ async function executeToolAlgorithm() {
     
   } else if (toolId === 'background-remover') {
     const originalFile = appState.activeFiles[0];
-    const formData = new FormData();
-    formData.append('file', originalFile);
-    
-    try {
-      const res = await fetch('/api/background-remover.php', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'Error processing image.');
-      }
-      
-      const outputUrl = data.output_url;
-      const outputFilename = data.output_filename;
-      const outputSizeStr = data.file_size + ' MB';
-      
-      // Render Before / After Comparison Slider inside comparison-metric-mount
-      metricMount.classList.remove('hidden');
-      const backgroundOriginalUrl = URL.createObjectURL(originalFile);
-      premiumEditorState.auxiliaryUrls.push(backgroundOriginalUrl);
-      metricMount.innerHTML = `
-        <div class="before-after-container">
-          <!-- Before Image (Original) -->
-          <img id="ba-before" src="${backgroundOriginalUrl}" alt="Original image before background removal" style="background: #1e293b;">
-          
-          <!-- After Image (Transparent) -->
-          <img id="ba-after" src="${outputUrl}" alt="Processed image after background removal">
-          
-          <!-- Line Separator indicator -->
-          <div id="ba-line">
-            <div class="ba-handle">◀▶</div>
-          </div>
-          
-          <!-- Range Slider overlay -->
-          <input type="range" min="0" max="100" value="50" class="ba-slider-input" id="ba-slider">
-        </div>
-        <p style="font-size:12px; color:var(--color-text-secondary); text-align:center;">Drag the slider overlay to compare Before (Left) & After (Right).</p>
-      `;
-      
-      // Wire up slider inputs
-      setTimeout(() => {
-        const slider = document.getElementById('ba-slider');
-        const afterImg = document.getElementById('ba-after');
-        const line = document.getElementById('ba-line');
-        if (slider && afterImg && line) {
-          slider.addEventListener('input', (e) => {
-            const val = e.target.value;
-            afterImg.style.clipPath = `inset(0 0 0 ${val}%)`;
-            line.style.left = `${val}%`;
-          });
-        }
-      }, 50);
-      
-      // Set download action
-      downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = outputUrl;
-        a.download = outputFilename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      };
-      registerExternalToolResult(downloadBtn, outputUrl, outputFilename, Number(data.file_size) * 1024 * 1024);
-      
-      logHistory(outputFilename, 'Background Remover', outputSizeStr);
-      showToast('Background removed successfully via API!', 'success');
-      
-    } catch (err) {
-      throw new Error('Background removal failed: ' + err.message);
+    const segmentationStageLabel = document.getElementById('processing-stage-label');
+    if (!window.GxaBackgroundSegmentation) {
+      throw new Error('The local segmentation engine is unavailable. Legacy color-key removal is not used automatically.');
     }
-    
+    const segmentation = await window.GxaBackgroundSegmentation.segment(originalFile, {
+      forceProvider: document.getElementById('opt-bg-engine')?.value === 'compat' ? 'wasm' : '',
+      status(update) {
+        if (segmentationStageLabel && update?.message) segmentationStageLabel.textContent = update.message;
+      }
+    });
+    document.body.dataset.gxaSegmentationProvider = segmentation.provider;
+    document.body.dataset.gxaSegmentationStats = JSON.stringify(segmentation.stats);
+    document.body.dataset.gxaSegmentationPerformance = JSON.stringify(segmentation.performance);
+    const resultMount = document.getElementById('premium-result-preview');
+    if (!window.GxaAdvancedCutoutStudio || !resultMount) {
+      throw new Error('The Advanced Cutout Studio is unavailable.');
+    }
+    metricMount.classList.add('hidden');
+    const title = document.querySelector('#tool-complete-mount .complete-title');
+    const subtitle = document.querySelector('#tool-complete-mount .upload-subtitle');
+    if (title) title.textContent = 'Advanced Cutout Studio';
+    if (subtitle) subtitle.textContent = 'Background removal ran locally in your browser. Refine the real alpha mask, compose a background, and export a validated image.';
+    await window.GxaAdvancedCutoutStudio.open({
+      mount: resultMount,
+      originalFile,
+      cutoutUrl: segmentation.cutoutUrl,
+      outputFilename: segmentation.filename,
+      initialMaskCanvas: segmentation.maskCanvas,
+      segmentationStats: segmentation.stats,
+      segmentationProvider: segmentation.provider,
+      onExport(blob, filename) {
+        clearPremiumResult();
+        premiumEditorState.resultBlob = blob;
+        premiumEditorState.resultFilename = filename;
+        premiumEditorState.resultUrl = URL.createObjectURL(blob);
+        logHistory(filename, 'Advanced Cutout Studio', formatCropBytes(blob.size));
+      }
+    });
+    premiumEditorState.auxiliaryUrls.push(segmentation.cutoutUrl);
+    downloadBtn.disabled = false;
+    downloadBtn.onclick = () => document.querySelector('.cutout-download')?.click();
+    logHistory(segmentation.filename, 'Background Remover', formatCropBytes(segmentation.blob.size));
+    showToast('Subject segmented locally. The Advanced Cutout Studio is ready for refinement and export.', 'success');
+    return;
   } else if (toolId === 'color-extractor') {
     const file = appState.activeFiles[0];
     const colors = await runColorExtraction(file, appState.activeToolOptions.count);
