@@ -1,0 +1,230 @@
+[
+  {
+    "slug": "01-person-plain",
+    "query": "portrait person plain background photograph",
+    "file": "tests/fixtures/background-remover-qa/01-person-plain.jpg",
+    "title": "File:A Maori girl, Titia Wikum (?), poses against a plain background. She has shoulder length hair decorated with feathers and (5d849a47-fbeb-4fdd-b3e4-9aee7564ac9d).JPG",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:A_Maori_girl,_Titia_Wikum_(%3F),_poses_against_a_plain_background._She_has_shoulder_length_hair_decorated_with_feathers_and_(5d849a47-fbeb-4fdd-b3e4-9aee7564ac9d).JPG",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/A_Maori_girl%2C_Titia_Wikum_%28%3F%29%2C_poses_against_a_plain_background._She_has_shoulder_length_hair_decorated_with_feathers_and_%285d849a47-fbeb-4fdd-b3e4-9aee7564ac9d%29.JPG/1920px-thumbnail.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "license": "Public domain",
+    "artist": "National Park Service",
+    "resolution": [
+      1920,
+      2431
+    ]
+  },
+  {
+    "slug": "02-person-room",
+    "query": "person office room photograph",
+    "file": "tests/fixtures/background-remover-qa/02-person-room.jpg",
+    "title": "File:Dean Rusk, Lyndon B. Johnson and Robert McNamara in Cabinet Room meeting February 1968.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Dean_Rusk,_Lyndon_B._Johnson_and_Robert_McNamara_in_Cabinet_Room_meeting_February_1968.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Dean_Rusk%2C_Lyndon_B._Johnson_and_Robert_McNamara_in_Cabinet_Room_meeting_February_1968.jpg/1920px-Dean_Rusk%2C_Lyndon_B._Johnson_and_Robert_McNamara_in_Cabinet_Room_meeting_February_1968.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "license": "Public domain",
+    "artist": "Yoichi Okamoto",
+    "resolution": [
+      1920,
+      1287
+    ]
+  },
+  {
+    "slug": "03-detailed-hair",
+    "query": "long hair portrait photograph",
+    "file": "tests/fixtures/background-remover-qa/03-detailed-hair.jpg",
+    "title": "File:Bearded man with long hair-3052641.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bearded_man_with_long_hair-3052641.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Bearded_man_with_long_hair-3052641.jpg/1920px-Bearded_man_with_long_hair-3052641.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "license": "CC0",
+    "artist": "subhamshome28",
+    "resolution": [
+      1920,
+      2400
+    ]
+  },
+  {
+    "slug": "04-full-body-person",
+    "query": "full body person photograph",
+    "file": "tests/fixtures/background-remover-qa/04-full-body-person.jpg",
+    "title": "File:President Barack Obama with full cabinet 09-10-09.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:President_Barack_Obama_with_full_cabinet_09-10-09.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/President_Barack_Obama_with_full_cabinet_09-10-09.jpg/1920px-President_Barack_Obama_with_full_cabinet_09-10-09.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "license": "Public domain",
+    "artist": "Chuck Kennedy",
+    "resolution": [
+      1920,
+      1280
+    ]
+  },
+  {
+    "slug": "05-two-people",
+    "query": "two people",
+    "file": "tests/fixtures/background-remover-qa/05-two-people.jpg",
+    "title": "File:Two people.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Two_people.jpg",
+    "downloadUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/Two%20people.jpg?width=1600",
+    "license": "See Wikimedia Commons source page",
+    "resolution": [
+      1920,
+      2321
+    ]
+  },
+  {
+    "slug": "06-group-people",
+    "query": "group of people three photograph",
+    "file": "tests/fixtures/background-remover-qa/06-group-people.jpg",
+    "title": "File:Group portrait of three people (AM 75180-1).jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Group_portrait_of_three_people_(AM_75180-1).jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/9/91/Group_portrait_of_three_people_%28AM_75180-1%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+    "license": "CC BY 4.0",
+    "artist": "\nCollins, Tudor Washington, 1898-1970, photographer",
+    "resolution": [
+      1275,
+      947
+    ]
+  },
+  {
+    "slug": "07-product-white",
+    "query": "product/white",
+    "file": "tests/fixtures/background-remover-qa/07-product-white.jpg",
+    "title": "File:Product photography.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Product_photography.jpg",
+    "downloadUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/Product%20photography.jpg?width=1600",
+    "license": "See Wikimedia Commons source page",
+    "resolution": [
+      1920,
+      1267
+    ]
+  },
+  {
+    "slug": "08-product-busy",
+    "query": "product/busy",
+    "file": "tests/fixtures/background-remover-qa/08-product-busy.jpg",
+    "title": "File:Curcuma longa roots.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Curcuma_longa_roots.jpg",
+    "downloadUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/Curcuma%20longa%20roots.jpg?width=1600",
+    "license": "See Wikimedia Commons source page",
+    "resolution": [
+      1920,
+      791
+    ]
+  },
+  {
+    "slug": "09-shoe",
+    "query": "shoe photograph",
+    "file": "tests/fixtures/background-remover-qa/09-shoe.jpg",
+    "title": "File:Shoe trees.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Shoe_trees.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Shoe_trees.jpg/1920px-Shoe_trees.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "license": "CC0",
+    "artist": "Wilfredor",
+    "resolution": [
+      1920,
+      1314
+    ]
+  },
+  {
+    "slug": "10-bottle",
+    "query": "bottle product photograph",
+    "file": "tests/fixtures/background-remover-qa/10-bottle.jpg",
+    "title": "File:A close-up artistic photograph of a perfume bottle covered in water droplets, illuminated by dramatic red and dark lighting. 01.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:A_close-up_artistic_photograph_of_a_perfume_bottle_covered_in_water_droplets,_illuminated_by_dramatic_red_and_dark_lighting._01.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/A_close-up_artistic_photograph_of_a_perfume_bottle_covered_in_water_droplets%2C_illuminated_by_dramatic_red_and_dark_lighting._01.jpg/1920px-A_close-up_artistic_photograph_of_a_perfume_bottle_covered_in_water_droplets%2C_illuminated_by_dramatic_red_and_dark_lighting._01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "license": "CC BY-SA 4.0",
+    "artist": "A S M Jobaer",
+    "resolution": [
+      1920,
+      1295
+    ]
+  },
+  {
+    "slug": "12-dog-cat",
+    "query": "animal",
+    "file": "tests/fixtures/background-remover-qa/12-dog-cat.jpg",
+    "title": "File:Cat and dog.JPG",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cat_and_dog.JPG",
+    "downloadUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/Cat%20and%20dog.JPG?width=1600",
+    "license": "See Wikimedia Commons source page",
+    "resolution": [
+      1920,
+      2223
+    ]
+  },
+  {
+    "slug": "15-high-resolution-4k-source",
+    "query": "4k/high-resolution",
+    "file": "tests/fixtures/background-remover-qa/15-high-resolution-4k-source.jpg",
+    "title": "File:Weismes (B), Brackvenn -- 2021 -- 6582 (bw).jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Weismes_%28B%29%2C_Brackvenn_--_2021_--_6582_%28bw%29.jpg",
+    "downloadUrl": "https://commons.wikimedia.org/wiki/Special:FilePath/Weismes%20%28B%29%2C%20Brackvenn%20--%202021%20--%206582%20%28bw%29.jpg?width=1600",
+    "license": "See Wikimedia Commons source page",
+    "resolution": [
+      1920,
+      2880
+    ]
+  },
+  {
+    "slug": "16-exact-512",
+    "query": "derived exact-resolution QA fixture",
+    "file": "tests/fixtures/background-remover-qa/16-exact-512.jpg",
+    "title": "Derivative of 01-person-plain.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:A_Maori_girl,_Titia_Wikum_(%3F),_poses_against_a_plain_background._She_has_shoulder_length_hair_decorated_with_feathers_and_(5d849a47-fbeb-4fdd-b3e4-9aee7564ac9d).JPG",
+    "downloadUrl": "",
+    "license": "Derived from source fixture for local QA only",
+    "resolution": [
+      512,
+      512
+    ]
+  },
+  {
+    "slug": "17-exact-1920x1080",
+    "query": "derived exact-resolution QA fixture",
+    "file": "tests/fixtures/background-remover-qa/17-exact-1920x1080.jpg",
+    "title": "Derivative of 02-person-room.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Dean_Rusk,_Lyndon_B._Johnson_and_Robert_McNamara_in_Cabinet_Room_meeting_February_1968.jpg",
+    "downloadUrl": "",
+    "license": "Derived from source fixture for local QA only",
+    "resolution": [
+      1920,
+      1080
+    ]
+  },
+  {
+    "slug": "18-exact-2560x1440",
+    "query": "derived exact-resolution QA fixture",
+    "file": "tests/fixtures/background-remover-qa/18-exact-2560x1440.jpg",
+    "title": "Derivative of 03-detailed-hair.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bearded_man_with_long_hair-3052641.jpg",
+    "downloadUrl": "",
+    "license": "Derived from source fixture for local QA only",
+    "resolution": [
+      2560,
+      1440
+    ]
+  },
+  {
+    "slug": "19-exact-3840x2160",
+    "query": "derived exact-resolution QA fixture",
+    "file": "tests/fixtures/background-remover-qa/19-exact-3840x2160.jpg",
+    "title": "Derivative of 04-full-body-person.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:President_Barack_Obama_with_full_cabinet_09-10-09.jpg",
+    "downloadUrl": "",
+    "license": "Derived from source fixture for local QA only",
+    "resolution": [
+      3840,
+      2160
+    ]
+  },
+  {
+    "slug": "20-exact-2160x3840",
+    "query": "derived exact-resolution QA fixture",
+    "file": "tests/fixtures/background-remover-qa/20-exact-2160x3840.jpg",
+    "title": "Derivative of 06-group-people.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Group_portrait_of_three_people_(AM_75180-1).jpg",
+    "downloadUrl": "",
+    "license": "Derived from source fixture for local QA only",
+    "resolution": [
+      2160,
+      3840
+    ]
+  }
+]
