@@ -71,7 +71,9 @@ PNG can preserve transparency. JPG/WEBP exports composite the current canvas int
 
 ## Original-Resolution Strategy
 
-The original image dimensions are stored and the editable mask is initialized at source resolution. Preview uses a fitted canvas for interaction. Export uses the current composition state and selected scale. Full coordinate-perfect original-resolution remapping for every crop/brush transform is partially implemented and needs deeper testing on 4K images.
+The original image dimensions are stored and the editable mask is initialized at source resolution. Preview uses a fitted canvas for interaction. Export uses the current composition state and selected scale.
+
+Final QA update: automated transform-mapping tests now cover Fit, 50%, 100%, 200%, portrait, landscape, cropped canvas, transformed subject, crop move, and crop resize bounds. Exact-resolution browser QA confirmed masks match source dimensions through 3840x2160 and 2160x3840.
 
 ## Browser-Local vs Server Functionality
 
@@ -94,20 +96,30 @@ The original image dimensions are stored and the editable mask is initialized at
 
 ## Mobile Testing
 
-Responsive CSS was added for mobile: the editor becomes a single-column canvas with a bottom properties panel. Live mobile browser interaction was not completed in this run.
+Responsive CSS was hardened for mobile after QA found clipped wide editor content inside the studio container. The editor now constrains the studio, body, canvas pane, stage, panel, and toolbar to the mobile container; the toolbar scrolls inside its own rail.
+
+Emulator-only viewport checks passed at 430x932, 390x844, 375x667, and 320x568 with upload, segmentation start, editor open, canvas fit, no document-level horizontal overflow, accessible erase/restore controls, crop handles, and download button. A physical touch device was not available, so true pinch/touch gestures remain unverified.
 
 ## Performance
 
-The editor uses canvas compositing and object URL cleanup. ONNX Runtime Web is integrated with WebGPU first and WASM fallback. Web Workers and OffscreenCanvas are not yet integrated.
+The editor uses canvas compositing and object URL cleanup. ONNX Runtime Web is integrated with WebGPU first and WASM fallback. The segmentation engine now explicitly disposes inference tensors after mask post-processing. Web Workers and OffscreenCanvas are not yet integrated.
+
+Observed browser QA:
+
+- WebGPU 15-image suite: all 15 fixtures opened the editor.
+- WebGPU repeated 512x512 runs: 3942 ms, 3342 ms, and 3242 ms total.
+- Forced WASM runs: 3072 ms total at 512x512, 4051 ms at 1920x1080, and 3510 ms at 2560x1440.
 
 ## Limitations
 
 - U2NetP foreground segmentation is implemented, but it is not instance segmentation.
 - Hair/detail quality is limited by the lightweight model.
-- Person/product/animal real-photo fixture coverage is not complete in this run.
 - Clone/patch/inpainting is not implemented.
 - Batch mode is intentionally deferred.
-- 4K interactive performance, mobile touch gestures, and memory usage need live browser validation.
+- Physical mobile touch/pinch gestures were not available in the emulator-only QA environment.
+- Browser-download event capture was unavailable in the Codex browser backend, although PNG/JPG/WEBP export code remains implemented and covered by prior validation plus contract tests.
+
+See `BACKGROUND_REMOVER_FINAL_QA.md` for the full 15-fixture table, exact-resolution table, asset/network audit, and save-job 503 result.
 
 ## Counts
 

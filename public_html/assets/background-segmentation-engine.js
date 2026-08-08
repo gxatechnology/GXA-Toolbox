@@ -1,11 +1,21 @@
 (function () {
   'use strict';
 
-  const ROOT = '/assets/models/background-remover/';
-  const MODEL_URL = ROOT + 'u2netp-web.onnx';
-  const CONFIG_URL = ROOT + 'model-config.json';
-  const ORT_URL = '/assets/vendor/onnxruntime-web/ort.all.min.js';
-  const ORT_WASM_PATH = '/assets/vendor/onnxruntime-web/';
+  const SCRIPT_URL = document.currentScript?.src || new URL('/assets/background-segmentation-engine.js', window.location.origin).href;
+  const ASSET_ROOT = new URL('./', SCRIPT_URL).href;
+  const ROOT = new URL('models/background-remover/', ASSET_ROOT).href;
+  const MODEL_URL = new URL('u2netp-web.onnx', ROOT).href;
+  const CONFIG_URL = new URL('model-config.json', ROOT).href;
+  const ORT_ROOT = new URL('vendor/onnxruntime-web/', ASSET_ROOT).href;
+  const ORT_URL = new URL('ort.all.min.js', ORT_ROOT).href;
+  const ORT_WASM_PATH = ORT_ROOT;
+  const REQUIRED_ASSETS = [
+    { label: 'ONNX Runtime Web script', url: ORT_URL, types: ['javascript'] },
+    { label: 'ONNX Runtime Web JSEP loader', url: new URL('ort-wasm-simd-threaded.jsep.mjs', ORT_ROOT).href, types: ['javascript'] },
+    { label: 'ONNX Runtime Web JSEP WASM', url: new URL('ort-wasm-simd-threaded.jsep.wasm', ORT_ROOT).href, types: ['wasm', 'octet-stream'] },
+    { label: 'ONNX Runtime Web WASM fallback', url: new URL('ort-wasm-simd-threaded.wasm', ORT_ROOT).href, types: ['wasm', 'octet-stream'] },
+    { label: 'U2NetP ONNX model', url: MODEL_URL, types: ['octet-stream', 'onnx', 'binary'] }
+  ];
   const MODEL_SIZE_BYTES = 4574267;
   const INPUT_SIZE = 320;
   const MEAN = [0.485, 0.456, 0.406];
@@ -13,7 +23,13 @@
 
   let ortPromise = null;
   let sessionPromise = null;
+  let assetCheckPromise = null;
   let lastEngine = null;
+
+  function diagnostic(message, detail) {
+    if (detail === undefined) console.info(`[BG Remover] ${message}`);
+    else console.info(`[BG Remover] ${message}`, detail);
+  }
 
   function emit(status, message, detail) {
     document.documentElement.dataset.gxaSegmentationStatus = message || '';
@@ -41,14 +57,64 @@
     });
   }
 
-  async function ensureOrt(status) {
+  function assertAssetResponse(asset, response) {
+    const contentType = response.headers.get('content-type') || '';
+    diagnostic(`${asset.label} response`, { url: asset.url, status: response.status, contentType });
+    if (!response.ok) {
+      throw new Error(`${asset.label} returned ${response.status} from ${asset.url}`);
+    }
+    if (/text\/html/i.test(contentType)) {
+      throw new Error(`${asset.label} returned HTML instead of a runtime asset: ${asset.url}`);
+    }
+    if (asset.types?.length && contentType) {
+      const normalized = contentType.toLowerCase();
+      const allowed = asset.types.some(type => normalized.includes(type));
+      if (!allowed) diagnostic(`${asset.label} has unexpected content type`, contentType);
+    }
+  }
+
+  async function verifyAsset(asset) {
+    let response;
+    try {
+      response = await fetch(asset.url, { method: 'HEAD', cache: 'no-store' });
+    } catch (headError) {
+      diagnostic(`${asset.label} HEAD failed; retrying with ranged GET`, headError.message || headError);
+      response = await fetch(asset.url, {
+        cache: 'no-store',
+        headers: { Range: 'bytes=0-0' }
+      });
+    }
+    assertAssetResponse(asset, response);
+  }
+
+  async function verifyRequiredAssets(status) {
+    if (!assetCheckPromise) {
+      assetCheckPromise = (async () => {
+        emit(status, 'Loading removal engine', 'Checking local model and runtime assets.');
+        for (const asset of REQUIRED_ASSETS) await verifyAsset(asset);
+      })();
+    }
+    return assetCheckPromise;
+  }
+
+  async function ensureOnnxRuntime(status) {
     if (!ortPromise) {
-      emit(status, 'Loading removal engine', 'Loading the local ONNX Runtime Web assets.');
-      ortPromise = loadScript(ORT_URL).then((ort) => {
-        if (!ort) throw new Error('ONNX Runtime Web did not initialize.');
+      ortPromise = (async () => {
+        emit(status, 'Loading removal engine', 'Loading the local ONNX Runtime Web assets.');
+        await verifyRequiredAssets(status);
+        const ort = await loadScript(ORT_URL);
+        if (!ort || !ort.InferenceSession) throw new Error(`ONNX Runtime Web did not initialize from ${ORT_URL}`);
         ort.env.wasm.wasmPaths = ORT_WASM_PATH;
         ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1)) : 1;
+        diagnostic('ORT available');
+        diagnostic('ORT version', ort.version || 'unknown');
+        diagnostic('WebGPU available', 'gpu' in navigator);
+        diagnostic('Model URL', MODEL_URL);
+        diagnostic('WASM path', ORT_WASM_PATH);
         return ort;
+      })().catch(error => {
+        ortPromise = null;
+        throw error;
       });
     }
     return ortPromise;
@@ -62,20 +128,26 @@
   }
 
   async function createSession(status, forceProvider) {
-    const ort = await ensureOrt(status);
+    const ort = await ensureOnnxRuntime(status);
     const preferred = forceProvider ? [forceProvider] : await providerOrder();
     const errors = [];
     for (const provider of preferred) {
       try {
         emit(status, 'Loading removal engine', provider === 'webgpu' ? 'Trying browser GPU acceleration.' : 'Using browser compatibility mode.');
+        diagnostic(provider === 'webgpu' ? 'Trying WebGPU' : 'Trying WASM');
         const session = await ort.InferenceSession.create(MODEL_URL, {
           executionProviders: [provider],
           graphOptimizationLevel: 'all'
         });
         lastEngine = provider;
+        diagnostic(provider === 'webgpu' ? 'WebGPU initialized' : 'WASM initialized');
+        diagnostic('Model loaded');
+        diagnostic('Session ready');
         return { ort, session, provider };
       } catch (error) {
-        errors.push(`${provider}: ${error.message || error}`);
+        const message = error.message || String(error);
+        diagnostic(provider === 'webgpu' ? 'WebGPU failed' : 'WASM failed', message);
+        errors.push(`${provider}: ${message}`);
       }
     }
     throw new Error(`Segmentation engine failed to initialize. ${errors.join(' | ')}`);
@@ -99,8 +171,15 @@
     try {
       const image = await new Promise((resolve, reject) => {
         const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('The browser could not decode this image. It may be corrupted or unsupported.'));
+        const timer = setTimeout(() => reject(new Error('The browser could not decode this image. It may be corrupted or unsupported.')), 12000);
+        img.onload = () => {
+          clearTimeout(timer);
+          resolve(img);
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          reject(new Error('The browser could not decode this image. It may be corrupted or unsupported.'));
+        };
         img.src = url;
       });
       return { image, url };
@@ -143,6 +222,10 @@
     const names = Object.keys(outputs || {});
     if (!names.length) throw new Error('The segmentation model returned no output.');
     return outputs[names[0]];
+  }
+
+  function disposeTensor(tensor) {
+    if (tensor && typeof tensor.dispose === 'function') tensor.dispose();
   }
 
   function normalizeMask(tensor) {
@@ -277,6 +360,8 @@
       const inferenceMs = performance.now() - inferenceStarted;
       emit(options.status, 'Creating cutout', 'Mapping the soft alpha mask back to the original image dimensions.');
       const mask = postProcessMask(normalizeMask(firstOutput(outputs)), transform);
+      disposeTensor(tensor);
+      Object.values(outputs || {}).forEach(disposeTensor);
       const stats = statsForMask(mask);
       const { blob } = await buildCutout(decoded.image, mask);
       const cutoutUrl = URL.createObjectURL(blob);

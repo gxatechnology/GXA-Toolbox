@@ -19,7 +19,7 @@ The repository contains 91 unique registered tools. Every registration was check
 | 3 | Compress Image | Local | JPEG plus actual size comparison | Pass — browser E2E verified |
 | 4 | Resize Image | Local | Image at validated dimensions | Pass — real canvas output |
 | 5 | Crop Image | Local | Centered aspect-ratio crop | Pass — real canvas output |
-| 6 | Background Remover | Server | Transparent PNG from near-white keying | Pass contract — PHP processor; no original-file fallback |
+| 6 | Background Remover | Browser-local | U2NetP ONNX soft alpha mask opened in Advanced Cutout Studio | Pass with limitations — 15-image WebGPU suite, forced WASM, 4K, mobile layout, save-job suppression, and local asset checks completed; U2NetP still needs manual refinement for hair/fur/low-contrast/product edge cases |
 | 7 | Password Generator | Local | Cryptographically random password text | Pass |
 | 8 | QR & Barcode | Local | Scannable QR PNG or Code 128 SVG | Pass — real encoder libraries |
 | 9 | Color Extractor | Local | Palette sampled from uploaded image | Pass |
@@ -111,5 +111,18 @@ The repository contains 91 unique registered tools. Every registration was check
 - `npm run lint`: JavaScript syntax checks.
 - `npm test`: 91-tool registry/route contract, uniqueness, dependency mapping, shared-workspace presence, input-validation cases, simulated-success signatures, entry-point wiring, and old-brand audit.
 - `npm run build`: release validation (lint plus tests) for this unbundled PHP/static application.
-- PHP CLI syntax check: unavailable in the local environment because `php` is not installed.
+- PHP CLI syntax check: passed for `public_html/index.php` and `public_html/api/background-remover.php` using the local PHP runtime.
 - Type checking: not applicable; this repository contains no TypeScript project or type-check configuration.
+
+## Background Remover final QA (2026-08-08)
+
+See `BACKGROUND_REMOVER_FINAL_QA.md` for the full final QA record. Summary:
+
+- Required 15 categories tested: 7 fully verified, 8 verified with U2NetP quality limitations, 0 failed.
+- WebGPU verified across the 15-image suite.
+- WASM verified in Browser compatibility mode.
+- Exact-resolution masks verified through 3840x2160 and 2160x3840.
+- Mobile viewport layout verified at 430x932, 390x844, 375x667, and 320x568; physical touch/pinch remains untested.
+- Brush/crop transform mapping covered by automated tests.
+- Required Background Remover model/runtime assets served HTTP 200.
+- Logged-out `/api/save-job.php` persistence is suppressed for Background Remover / Advanced Cutout Studio.

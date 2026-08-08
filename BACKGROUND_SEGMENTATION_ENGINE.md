@@ -108,6 +108,19 @@ Automatic Background Remover processing runs locally in the browser. User images
 
 The old PHP GD endpoint remains in the repository only as legacy compatibility code. It is not called by the primary Background Remover route.
 
+Logged-out Background Remover history persistence is optional. The frontend now suppresses `/api/save-job.php` for logged-out Background Remover / Advanced Cutout Studio runs so a session-history outage cannot block browser-local cutouts.
+
+## Final QA Update - 2026-08-08
+
+- Required 15-image suite completed in-browser with WebGPU; all 15 opened Advanced Cutout Studio with non-uniform masks.
+- Forced WASM compatibility mode completed on 512x512, 1920x1080, and 2560x1440 fixtures.
+- Exact-resolution fixtures preserved source dimensions through mask creation at 512x512, 1920x1080, 2560x1440, 3840x2160, and 2160x3840.
+- 3840x2160 fixture completed in 4522 ms total / 1833 ms inference.
+- Engine now releases inference tensors after mask post-processing.
+- Corrupt image decode now has a timeout/error path instead of hanging indefinitely at "Preparing image."
+- Required local runtime/model assets served HTTP 200 from `/assets/...`.
+- Full fixture table and limitations are documented in `BACKGROUND_REMOVER_FINAL_QA.md`.
+
 ## Observed Browser Results
 
 Test environment: Codex in-app browser against `http://127.0.0.1:4180/background-remover`.
@@ -158,7 +171,6 @@ Export validation:
 - U2NetP is salient-object segmentation, not instance segmentation.
 - It does not provide separate person/product/animal/vehicle labels.
 - Hair/fur detail is limited compared with larger matting models.
-- Full real-photo fixture coverage is not yet complete.
-- Mobile performance was not measured in this run.
-- Memory usage was not measured in this run.
+- Full real-photo fixture coverage is complete for the required 15 categories, but two low-contrast stress cases are derived from downloaded real photos because Wikimedia throttled additional direct fixture downloads.
+- Mobile performance/layout was emulator-tested; physical touch/pinch was not available.
 - The legacy PHP color-key endpoint still exists but is no longer primary.

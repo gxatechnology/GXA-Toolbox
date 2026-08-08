@@ -137,6 +137,20 @@
     ]
   },
   {
+    "slug": "11-vehicle",
+    "query": "vehicle photograph",
+    "file": "tests/fixtures/background-remover-qa/11-vehicle.jpg",
+    "title": "File:Several cars.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Several_cars.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Several_cars.jpg",
+    "license": "CC BY-SA 4.0",
+    "artist": "See Wikimedia Commons source page",
+    "resolution": [
+      2816,
+      1950
+    ]
+  },
+  {
     "slug": "12-dog-cat",
     "query": "animal",
     "file": "tests/fixtures/background-remover-qa/12-dog-cat.jpg",
@@ -147,6 +161,34 @@
     "resolution": [
       1920,
       2223
+    ]
+  },
+  {
+    "slug": "13-dark-on-dark",
+    "query": "dark subject on dark background derived stress fixture",
+    "file": "tests/fixtures/background-remover-qa/13-dark-on-dark.jpg",
+    "title": "Derivative of 09-shoe.jpg for low-contrast dark-on-dark QA",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Shoe_trees.jpg",
+    "downloadUrl": "",
+    "license": "Derived from source fixture for local QA only",
+    "artist": "Wilfredor",
+    "resolution": [
+      1920,
+      1314
+    ]
+  },
+  {
+    "slug": "14-light-on-light",
+    "query": "light subject on light background derived stress fixture",
+    "file": "tests/fixtures/background-remover-qa/14-light-on-light.jpg",
+    "title": "Derivative of 07-product-white.jpg for low-contrast light-on-light QA",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Product_photography.jpg",
+    "downloadUrl": "",
+    "license": "Derived from source fixture for local QA only",
+    "artist": "See Wikimedia Commons source page",
+    "resolution": [
+      1920,
+      1267
     ]
   },
   {

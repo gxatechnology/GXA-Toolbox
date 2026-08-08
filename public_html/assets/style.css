@@ -6142,6 +6142,22 @@ body.dark-mode .premium-editor-toolbar {
 }
 
 @media (max-width: 900px) {
+  .cutout-studio,
+  .cutout-topbar,
+  .cutout-body,
+  .cutout-canvas-pane,
+  .cutout-stage-wrap,
+  .cutout-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .cutout-topbar > *,
+  .cutout-canvas-head > * {
+    min-width: 0;
+  }
+
   .cutout-topbar,
   .cutout-canvas-head {
     align-items: stretch;
@@ -6166,6 +6182,8 @@ body.dark-mode .premium-editor-toolbar {
   .cutout-toolbar {
     overflow-x: auto;
     flex-wrap: nowrap;
+    width: 100%;
+    max-width: 100%;
     padding-bottom: 4px;
   }
 }
