@@ -100,11 +100,11 @@ CREATE TABLE `ai_usage_logs` (
 
 -- Seed default user accounts (Passwords are pre-hashed using BCRYPT)
 -- Provision these privileged accounts with deployment-specific passwords before production use.
--- tauqeer@brandupdigital.in / UserPass123
+-- tauqeer@gxatechnologies.com / UserPass123
 INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `is_premium`, `status`) VALUES 
 (1, 'Developer', 'developer@gxa.local', '$2y$10$wL4P8.s4g/cQ.J7Yp9N66e6nIqjPj164z7DkL33gT27d7S/y2Qxxe', 'developer', 1, 'active'),
 (2, 'System Admin', 'admin@gxatechnologies.com', '$2y$10$fVwF6Pq2hR5uD0q71c9T/O.dEqd6l79339eA2e1G0u2G9l.v9q1qG', 'admin', 1, 'active'),
-(3, 'Tauqeer Ashraf', 'tauqeer@brandupdigital.in', '$2y$10$fVwF6Pq2hR5uD0q71c9T/O.dEqd6l79339eA2e1G0u2G9l.v9q1qG', 'user', 0, 'active')
+(3, 'Tauqeer Ashraf', 'tauqeer@gxatechnologies.com', '$2y$10$fVwF6Pq2hR5uD0q71c9T/O.dEqd6l79339eA2e1G0u2G9l.v9q1qG', 'user', 0, 'active')
 ON DUPLICATE KEY UPDATE `email`=VALUES(`email`);
 
 -- Prepopulate tools table and set default premium statuses

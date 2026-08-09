@@ -124,7 +124,12 @@
     if (blockers[toolId]) return { kind: 'dependency', label: 'Temporarily unavailable', detail: blockers[toolId] };
     if (toolId === 'background-remover') return { kind: 'local', label: 'Runs locally in your browser', detail: 'Background removal runs locally in your browser after the segmentation engine loads. Your image is not uploaded for automatic subject removal.' };
     if (serverTools.has(toolId)) return { kind: 'server', label: 'Secure server processing', detail: 'The selected file is uploaded to the GXA Toolbox server for processing.' };
-    if (capabilityTools.has(toolId)) return { kind: 'capability', label: 'Browser capability required', detail: 'Processing remains local but requires Barcode Detector support in this browser.' };
+    if (capabilityTools.has(toolId)) {
+      const supported = 'BarcodeDetector' in window && 'createImageBitmap' in window;
+      return supported
+        ? { kind: 'local', label: 'Supported in this browser', detail: 'Barcode detection and image decoding are available and run locally in this browser.' }
+        : { kind: 'capability', label: 'Barcode scanning unavailable', detail: 'This browser does not expose the BarcodeDetector and createImageBitmap features required for local scanning.' };
+    }
     return { kind: 'local', label: 'Processed in your browser', detail: 'The operation runs locally in this browser unless the tool page states otherwise.' };
   }
 
@@ -340,6 +345,8 @@
     const selectedPages = new Set();
     let lastSelectedPage = 0;
     let draggedThumbnail = null;
+    let pointerDrag = null;
+    let suppressThumbnailClick = false;
     let currentPage = 1;
     let zoom = 1;
     let rotation = 0;
@@ -550,6 +557,10 @@
       pageLabel.textContent = `Page ${pageNumber}`;
       button.append(thumbCanvas, pageLabel);
       button.addEventListener('click', async (event) => {
+        if (suppressThumbnailClick) {
+          suppressThumbnailClick = false;
+          return;
+        }
         currentPage = pageNumber;
         if (pageSelectionInput) {
           if (event.shiftKey && lastSelectedPage) {
@@ -584,6 +595,34 @@
           button.classList.remove('dragging');
           draggedThumbnail = null;
         });
+        button.addEventListener('pointerdown', event => {
+          if (event.pointerType === 'mouse') return;
+          button.setPointerCapture(event.pointerId);
+          pointerDrag = { button, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+        });
+        button.addEventListener('pointermove', event => {
+          if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+          if (!pointerDrag.moved && Math.hypot(event.clientX - pointerDrag.x, event.clientY - pointerDrag.y) < 10) return;
+          pointerDrag.moved = true;
+          button.classList.add('dragging');
+          const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.pdf-thumbnail-button');
+          if (!target || target === button || !thumbs.contains(target)) return;
+          const bounds = target.getBoundingClientRect();
+          const after = event.clientY > bounds.top + bounds.height / 2
+            || (event.clientY >= bounds.top && event.clientY <= bounds.bottom && event.clientX > bounds.left + bounds.width / 2);
+          thumbs.insertBefore(button, after ? target.nextSibling : target);
+        });
+        const finishPointerReorder = event => {
+          if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+          if (pointerDrag.moved) {
+            suppressThumbnailClick = true;
+            syncPageSelection(true);
+          }
+          button.classList.remove('dragging');
+          pointerDrag = null;
+        };
+        button.addEventListener('pointerup', finishPointerReorder);
+        button.addEventListener('pointercancel', finishPointerReorder);
       }
       thumbs.appendChild(button);
       if (thumbnailObserver) thumbnailObserver.observe(thumbCanvas);
@@ -661,15 +700,55 @@
     if (!window.JSZip) throw new Error('ZIP preview library is unavailable.');
     const archive = await window.JSZip.loadAsync(await file.arrayBuffer(), { checkCRC32: true });
     const entries = Object.values(archive.files).slice(0, 100);
+    const summary = document.createElement('div');
+    summary.className = 'archive-summary';
+    summary.innerHTML = `<strong>${safeFileName(file.name)}</strong><span>${formatBytes(file.size)} · ${Object.keys(archive.files).length} entries</span>`;
     const list = document.createElement('ul');
     list.className = 'archive-entry-list';
     entries.forEach((entry) => {
       const item = document.createElement('li');
-      item.textContent = `${entry.dir ? '📁' : '📄'} ${entry.name}`;
+      const label = document.createElement('span');
+      label.className = 'archive-entry-name';
+      label.textContent = `${entry.dir ? 'Folder' : 'File'} · ${entry.name}`;
+      const size = Number(entry._data?.uncompressedSize);
+      const meta = document.createElement('span');
+      meta.className = 'archive-entry-meta';
+      meta.textContent = entry.dir ? 'Directory' : (Number.isFinite(size) ? formatBytes(size) : 'Size available after extraction');
+      item.append(label, meta);
+      if (!entry.dir) {
+        const extractButton = document.createElement('button');
+        extractButton.type = 'button';
+        extractButton.className = 'archive-extract-button';
+        extractButton.textContent = 'Extract';
+        extractButton.setAttribute('aria-label', `Extract ${entry.name}`);
+        extractButton.addEventListener('click', async () => {
+          const originalText = extractButton.textContent;
+          extractButton.disabled = true;
+          extractButton.textContent = 'Preparing…';
+          try {
+            const blob = await entry.async('blob');
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = safeFileName(entry.name.split('/').pop() || 'archive-file');
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+          } catch {
+            extractButton.textContent = 'Failed';
+            return;
+          } finally {
+            extractButton.disabled = false;
+            if (extractButton.textContent !== 'Failed') extractButton.textContent = originalText;
+          }
+        });
+        item.appendChild(extractButton);
+      }
       list.appendChild(item);
     });
-    stage.appendChild(list);
-    details.textContent = `${Object.keys(archive.files).length} archive entries${Object.keys(archive.files).length > 100 ? ' • showing first 100' : ''}`;
+    stage.append(summary, list);
+    details.textContent = `${file.name} · ${formatBytes(file.size)} · ${Object.keys(archive.files).length} archive entries${Object.keys(archive.files).length > 100 ? ' · showing first 100' : ''}`;
   }
 
   async function renderTextPreview(file, stage, details) {
@@ -789,17 +868,24 @@
     return pages;
   }
 
-  async function renderCode(data, format, color, container) {
+  async function renderCode(data, format, color, container, options = {}) {
     if (!data.trim()) throw new Error('Enter content before generating a code.');
     container.innerHTML = '';
+    const size = Math.max(128, Math.min(512, Number(options.size) || 256));
+    const margin = Math.max(0, Math.min(32, Number(options.margin) || 0));
+    const background = options.background || '#ffffff';
     if (format === 'qr') {
       await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js', 'QRCode');
-      new window.QRCode(container, { text: data, width: 220, height: 220, colorDark: color, colorLight: '#ffffff', correctLevel: window.QRCode.CorrectLevel.M });
+      container.style.padding = `${margin}px`;
+      container.style.background = background;
+      new window.QRCode(container, { text: data, width: size, height: size, colorDark: color, colorLight: background, correctLevel: window.QRCode.CorrectLevel.M });
     } else {
       await loadScriptOnce('https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js', 'JsBarcode');
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       container.appendChild(svg);
-      window.JsBarcode(svg, data, { format: 'CODE128', lineColor: color, background: '#ffffff', displayValue: true, margin: 12 });
+      container.style.padding = '0';
+      container.style.background = 'transparent';
+      window.JsBarcode(svg, data, { format: 'CODE128', lineColor: color, background, displayValue: true, margin, height: Math.max(64, Math.round(size * 0.35)), width: size >= 384 ? 3 : 2 });
     }
   }
 

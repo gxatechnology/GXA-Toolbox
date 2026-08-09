@@ -83,7 +83,10 @@ export function useCanvasInteractions() {
       return;
     }
     if (state.activeTool === 'crop' && state.crop) {
-      const handle = hitTestCrop(state.crop, current, Math.max(14, state.canvasSize.width / 60));
+      const canvasRect = event.currentTarget.getBoundingClientRect();
+      const cssTarget = event.pointerType === 'touch' ? 32 : 14;
+      const canvasUnitsPerCssPixel = state.canvasSize.width / Math.max(1, canvasRect.width);
+      const handle = hitTestCrop(state.crop, current, Math.max(cssTarget * canvasUnitsPerCssPixel, state.canvasSize.width / 60));
       if (handle) drag.current = { kind: 'crop', start: current, last: current, crop: { ...state.crop }, cropHandle: handle };
       return;
     }

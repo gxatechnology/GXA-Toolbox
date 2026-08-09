@@ -33,12 +33,14 @@ export default function App() {
   const state = useEditorStore();
   const [exportOpen, setExportOpen] = useState(false);
   const [exportingHint, setExportingHint] = useState(false);
+  const [mobilePropertiesOpen, setMobilePropertiesOpen] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const sourceUrl = useRef('');
   const autoSeen = useRef(0);
   const replacementInput = useRef<HTMLInputElement>(null);
 
   const cancel = useCallback(() => {
+    setMobilePropertiesOpen(false);
     abort.current?.abort();
     abort.current = null;
     if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current);
@@ -68,6 +70,7 @@ export default function App() {
   }, []);
 
   const openFile = useCallback(async (file: File) => {
+    setMobilePropertiesOpen(false);
     abort.current?.abort();
     try { validateFile(file); }
     catch (error) { useEditorStore.getState().setError(error instanceof Error ? error.message : 'Invalid file.'); return; }
@@ -106,6 +109,19 @@ export default function App() {
     return () => window.clearTimeout(timeout);
   }, [exportingHint]);
 
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobilePropertiesOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, []);
+
+  const selectMobileTool = (tool: Parameters<typeof state.setActiveTool>[0]) => {
+    state.setActiveTool(tool);
+    setMobilePropertiesOpen(true);
+  };
+
   const editing = state.phase === 'editing';
   return (
     <div className={`app-shell phase-${state.phase}`}>
@@ -123,7 +139,7 @@ export default function App() {
             <input ref={replacementInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => event.target.files?.[0] && openFile(event.target.files[0])} />
           </div>
         </div>
-        <div className="editor-workspace">
+        <div className={`editor-workspace${mobilePropertiesOpen ? ' mobile-properties-open' : ''}`}>
           <ToolSidebar active={state.activeTool} onChange={state.setActiveTool} />
           <section className="canvas-column">
             <EditorCanvas />
@@ -132,9 +148,10 @@ export default function App() {
               <div className="zoom-controls"><button type="button" onClick={() => state.setZoom(state.zoom - .1)}>−</button><select aria-label="Canvas zoom" value={Math.round(state.zoom * 100)} onChange={(event) => state.setZoom(Number(event.target.value) / 100)}><option value="25">25%</option><option value="50">50%</option><option value="100">100%</option><option value="200">200%</option></select><button type="button" onClick={() => state.setZoom(state.zoom + .1)}>+</button><button type="button" onClick={() => { state.setZoom(1); state.setPan({ x: 0, y: 0 }); }}>Fit</button></div>
             </div>
           </section>
-          <PropertiesPanel />
+          <button className="mobile-properties-backdrop" type="button" aria-label="Close tool properties" onClick={() => setMobilePropertiesOpen(false)} />
+          <PropertiesPanel mobileOpen={mobilePropertiesOpen} onClose={() => setMobilePropertiesOpen(false)} />
         </div>
-        <BottomToolbar active={state.activeTool} onChange={state.setActiveTool} />
+        <BottomToolbar active={state.activeTool} onChange={selectMobileTool} />
       </main>}
       {exportingHint && <div className="toast">Preparing full-resolution export…</div>}
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />

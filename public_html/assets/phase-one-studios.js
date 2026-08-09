@@ -136,10 +136,12 @@
 
     const close = () => {
       container.classList.remove('studio-settings-open');
+      document.body.classList.remove('studio-drawer-open');
       toggle.setAttribute('aria-expanded', 'false');
     };
     const open = () => {
       container.classList.add('studio-settings-open');
+      document.body.classList.add('studio-drawer-open');
       toggle.setAttribute('aria-expanded', 'true');
       drawerClose.focus({ preventScroll: true });
     };
@@ -153,7 +155,10 @@
     backdrop.addEventListener('click', close);
     drawerClose.addEventListener('click', close);
     document.addEventListener('keydown', onKeydown);
-    cleanupHandlers.push(() => document.removeEventListener('keydown', onKeydown));
+    cleanupHandlers.push(() => {
+      document.removeEventListener('keydown', onKeydown);
+      document.body.classList.remove('studio-drawer-open');
+    });
   }
 
   function bindStudioFileStatus(container) {

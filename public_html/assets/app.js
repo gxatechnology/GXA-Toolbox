@@ -9,7 +9,8 @@ const STORAGE_KEYS = {
   theme: 'gxa-toolbox_theme',
   favorites: 'gxa-toolbox_favorites',
   recentTools: 'gxa-toolbox_recent-tools',
-  recentSearches: 'gxa-toolbox_recent-searches'
+  recentSearches: 'gxa-toolbox_recent-searches',
+  rememberedEmail: 'gxa-toolbox_auth-email'
 };
 const LEGACY_STORAGE_KEYS = {
   history: 'gxa-technologies_history',
@@ -611,6 +612,14 @@ function setupGlobalExperience() {
     document.body.appendChild(feedback);
   }
 
+  const modal = document.getElementById('modal-container');
+  if (modal && !modal.dataset.interactionsBound) {
+    modal.dataset.interactionsBound = 'true';
+    modal.addEventListener('mousedown', event => {
+      if (event.target === modal) closeModal();
+    });
+  }
+
   const commandInput = document.getElementById('command-search-input');
   commandInput.addEventListener('input', () => renderCommandResults(commandInput.value));
   commandInput.addEventListener('keydown', handleCommandKeyboard);
@@ -621,8 +630,10 @@ function setupGlobalExperience() {
     } else if (event.key === 'Escape') {
       closeCommandPalette();
       closeMobileNavigation();
+      closeModal();
     }
   });
+  window.addEventListener('resize', syncMobileNavigationState, { passive: true });
   lucide.createIcons();
 }
 
@@ -725,17 +736,25 @@ function toggleFavorite(toolId) {
 function toggleMobileNavigation() {
   const open = document.body.classList.toggle('mobile-menu-open');
   const button = document.getElementById('mobile-nav-toggle');
+  const menu = document.querySelector('.header-nav .nav-menu');
   button?.setAttribute('aria-expanded', String(open));
   button?.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
   if (button) button.innerHTML = `<i data-lucide="${open ? 'x' : 'menu'}"></i>`;
+  menu?.setAttribute('aria-hidden', String(!open));
+  if (menu) menu.inert = !open;
   lucide.createIcons();
+  if (open) requestAnimationFrame(() => document.querySelector('.mobile-drawer-search')?.focus());
 }
 
 function closeMobileNavigation() {
-  if (!document.body.classList.contains('mobile-menu-open')) return;
   document.body.classList.remove('mobile-menu-open');
   document.querySelectorAll('.nav-item.menu-expanded').forEach(item => item.classList.remove('menu-expanded'));
   document.querySelectorAll('.nav-item > button[aria-haspopup="true"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+  const menu = document.querySelector('.header-nav .nav-menu');
+  if (window.matchMedia('(max-width: 1100px)').matches && menu) {
+    menu.setAttribute('aria-hidden', 'true');
+    menu.inert = true;
+  }
   const button = document.getElementById('mobile-nav-toggle');
   button?.setAttribute('aria-expanded', 'false');
   button?.setAttribute('aria-label', 'Open navigation menu');
@@ -743,10 +762,52 @@ function closeMobileNavigation() {
   lucide.createIcons();
 }
 
+function syncMobileNavigationState() {
+  const mobile = window.matchMedia('(max-width: 1100px)').matches;
+  const menu = document.querySelector('.header-nav .nav-menu');
+  if (!menu) return;
+  if (!mobile) {
+    document.body.classList.remove('mobile-menu-open');
+    menu.removeAttribute('aria-hidden');
+    menu.inert = false;
+    return;
+  }
+  const open = document.body.classList.contains('mobile-menu-open');
+  menu.setAttribute('aria-hidden', String(!open));
+  menu.inert = !open;
+}
+
+function navigateToToolCategory(category = 'all') {
+  closeMobileNavigation();
+  navigate('home');
+  requestAnimationFrame(() => {
+    const tab = document.querySelector(`.filter-tab[data-category="${category}"]`);
+    if (tab) filterTools(category, tab);
+    document.getElementById('tools-grid-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
 // --- Navigation Renderers ---
 function renderNavbar() {
   const nav = document.getElementById('navbar');
   if (!nav) return;
+
+  const activeToolId = appState.currentPage.startsWith('tool-') ? appState.currentPage.replace('tool-', '') : '';
+  const activeTool = toolsList.find(tool => tool.id === activeToolId);
+  const imageAdjacentTools = new Set(['color-extractor', 'exif-viewer', 'svg-to-png', 'png-to-svg', 'webp-to-jpg', 'gif-maker', 'gif-to-png']);
+  const activeNavSection = appState.currentPage === 'home'
+    ? 'home'
+    : appState.currentPage === 'dashboard'
+      ? 'dashboard'
+      : activeTool?.category === 'calculator'
+        ? 'calculator'
+        : activeTool?.category === 'image' || imageAdjacentTools.has(activeToolId)
+          ? 'image'
+          : activeTool?.category === 'pdf' || activeToolId.includes('pdf')
+            ? 'pdf'
+            : '';
+  const navState = section => activeNavSection === section ? ' is-active' : '';
+  const currentPageAttribute = section => activeNavSection === section ? ' aria-current="page"' : '';
   
   let authActionsHTML = '';
   if (appState.user) {
@@ -774,11 +835,21 @@ function renderNavbar() {
       </a>
       
       <ul class="nav-menu" aria-label="Primary navigation">
-        <li class="nav-item">
-          <a class="nav-link" onclick="navigate('home')">${t('home')}</a>
+        <li class="mobile-drawer-heading" aria-hidden="true">
+          <span>GXA Toolbox</span>
+          <small>Your Complete Digital Toolbox</small>
+        </li>
+        <li class="mobile-drawer-search-row">
+          <button type="button" class="mobile-drawer-search" onclick="closeMobileNavigation(); openCommandPalette()"><i data-lucide="search"></i><span>Search tools</span></button>
         </li>
         <li class="nav-item">
-          <button type="button" class="nav-link" aria-haspopup="true">${t('pdf')} <i data-lucide="chevron-down"></i></button>
+          <a class="nav-link${navState('home')}" onclick="navigate('home')"${currentPageAttribute('home')}><i data-lucide="house"></i><span>${t('home')}</span></a>
+        </li>
+        <li class="mobile-all-tools-link">
+          <button type="button" class="nav-link" onclick="navigateToToolCategory('all')"><i data-lucide="grid-2x2"></i><span>All Tools</span></button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link${navState('pdf')}" aria-haspopup="true"${currentPageAttribute('pdf')}><i data-lucide="file-text"></i><span>${t('pdf')}</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
           <div class="mega-menu">
             <div>
               <div class="mega-col-title">Optimize</div>
@@ -812,7 +883,7 @@ function renderNavbar() {
           </div>
         </li>
         <li class="nav-item">
-          <button type="button" class="nav-link" aria-haspopup="true">${t('image')} <i data-lucide="chevron-down"></i></button>
+          <button type="button" class="nav-link${navState('image')}" aria-haspopup="true"${currentPageAttribute('image')}><i data-lucide="image"></i><span>${t('image')}</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
           <div class="mega-menu">
             <div>
               <div class="mega-col-title">Optimize</div>
@@ -842,7 +913,7 @@ function renderNavbar() {
           </div>
         </li>
         <li class="nav-item">
-          <button type="button" class="nav-link" aria-haspopup="true">Calculators <i data-lucide="chevron-down"></i></button>
+          <button type="button" class="nav-link${navState('calculator')}" aria-haspopup="true"${currentPageAttribute('calculator')}><i data-lucide="calculator"></i><span>Calculators</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
           <div class="mega-menu">
             <div>
               <div class="mega-col-title">Basic Calculators</div>
@@ -882,8 +953,31 @@ function renderNavbar() {
           </div>
         </li>
         <li class="nav-item">
-          <a class="nav-link" onclick="navigate('dashboard')">${t('dashboard')}</a>
+          <a class="nav-link${navState('dashboard')}" onclick="navigate('dashboard')"${currentPageAttribute('dashboard')}><i data-lucide="layout-dashboard"></i><span>${t('dashboard')}</span></a>
         </li>
+        <li class="mobile-tool-category-links" aria-label="More tool categories">
+          <button type="button" onclick="navigateToToolCategory('convert')"><i data-lucide="repeat-2"></i><span>Converters</span></button>
+          <button type="button" onclick="navigateToToolCategory('zip')"><i data-lucide="archive"></i><span>ZIP Tools</span></button>
+          <button type="button" onclick="navigateToToolCategory('utility')"><i data-lucide="code-2"></i><span>Developer Tools</span></button>
+        </li>
+        <li class="mobile-nav-utilities" aria-label="Display and support actions">
+          <label for="mobile-language-select"><i data-lucide="languages"></i><span>Language</span></label>
+          <select id="mobile-language-select" aria-label="Select language" onchange="setLanguage(this.value)">
+            <option value="en" ${appState.lang === 'en' ? 'selected' : ''}>English</option>
+            <option value="de" ${appState.lang === 'de' ? 'selected' : ''}>Deutsch</option>
+            <option value="es" ${appState.lang === 'es' ? 'selected' : ''}>EspaÃ±ol</option>
+            <option value="fr" ${appState.lang === 'fr' ? 'selected' : ''}>FranÃ§ais</option>
+            <option value="ar" ${appState.lang === 'ar' ? 'selected' : ''}>Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©</option>
+          </select>
+          <button type="button" onclick="setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark')"><i data-lucide="${appState.theme === 'dark' ? 'sun' : 'moon'}"></i><span>${appState.theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button>
+          <button type="button" onclick="closeMobileNavigation(); showContactModal()"><i data-lucide="life-buoy"></i><span>Contact Support</span></button>
+        </li>
+        ${!appState.user ? `
+          <li class="mobile-nav-auth" aria-label="Account actions">
+            <button class="btn btn-secondary" onclick="closeMobileNavigation(); showAuthModal('login')">Sign In</button>
+            <button class="btn btn-primary" onclick="closeMobileNavigation(); showAuthModal('signup')">${t('signup')}</button>
+          </li>
+        ` : ''}
       </ul>
       
       <div class="nav-actions">
@@ -920,11 +1014,18 @@ function renderNavbar() {
   document.getElementById('theme-toggle-btn').addEventListener('click', () => {
     setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark');
   });
-  document.querySelectorAll('.nav-item > button[aria-haspopup="true"]').forEach(button => {
+  nav.querySelectorAll('.mega-list-link[onclick*="navigate"]').forEach(link => {
+    const route = link.getAttribute('onclick')?.match(/navigate\('([^']+)'\)/)?.[1];
+    if (route === appState.currentPage) {
+      link.classList.add('is-active');
+      link.setAttribute('aria-current', 'page');
+    }
+  });
+  nav.querySelectorAll('.nav-item > button[aria-haspopup="true"]').forEach(button => {
     button.setAttribute('aria-expanded', 'false');
     button.addEventListener('click', () => {
       const item = button.closest('.nav-item');
-      const expanded = window.matchMedia('(max-width: 900px)').matches
+      const expanded = window.matchMedia('(max-width: 1100px)').matches
         ? item.classList.toggle('menu-expanded')
         : true;
       button.setAttribute('aria-expanded', String(expanded));
@@ -936,6 +1037,7 @@ function renderNavbar() {
       }
     });
   });
+  syncMobileNavigationState();
   
   lucide.createIcons();
 }
@@ -1033,6 +1135,7 @@ function navigate(pageId) {
     localStorage.setItem(STORAGE_KEYS.recentTools, JSON.stringify(appState.recentTools));
   }
   appState.activeFiles = []; // Clear current file state when navigating
+  renderNavbar();
   renderPage();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1074,165 +1177,289 @@ function renderPage() {
 }
 
 // --- Auth Modal & Session Actions (Database Integrated) ---
+let modalReturnFocus = null;
+
+function openModalContainer(modal, focusId) {
+  if (!modal) return;
+  if (modal.classList.contains('hidden')) modalReturnFocus = document.activeElement;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+  lucide.createIcons();
+  window.setTimeout(() => document.getElementById(focusId)?.focus({ preventScroll: true }), 0);
+}
+
 function showAuthModal(mode = 'signup') {
   const modal = document.getElementById('modal-container');
   if (!modal) return;
-  
-  if (mode === 'login') {
-    modal.innerHTML = `
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3 class="modal-title">Sign in to GXA Toolbox</h3>
-          <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
+
+  const isLogin = mode === 'login';
+  const rememberedEmail = isLogin ? getRememberedAuthEmail() : '';
+  const title = isLogin ? 'Sign in to GXA Toolbox' : 'Create your GXA Toolbox account';
+  const description = isLogin
+    ? 'Access your dashboard and saved processing history. Public tools remain available without an account.'
+    : 'Create an account for saved history and larger batch workflows. Standard tools remain free to use without signing in.';
+
+  modal.innerHTML = `
+    <div class="modal-card auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div class="auth-modal-accent" aria-hidden="true"><i data-lucide="shield-check"></i></div>
+      <div class="modal-header auth-modal-header">
+        <div>
+          <span class="auth-eyebrow">GXA Technologies</span>
+          <h3 class="modal-title" id="auth-modal-title">${title}</h3>
         </div>
-        <div class="modal-body">
-          <p style="font-size:14px; color:var(--color-text-secondary); margin-bottom:15px;">
-            Sign in to access your dashboard, processing history, and tier settings.
-          </p>
-          <div id="auth-error-msg" style="color:var(--color-danger); font-size:13px; font-weight:700; margin-bottom:10px; display:none;"></div>
-          <div class="form-group" style="margin-bottom:12px;">
-            <label class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Email Address</label>
-            <input type="email" id="auth-email" class="form-input-text" placeholder="tauqeer@brandupdigital.in" style="width:100%; height:38px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
-          </div>
-          <div class="form-group" style="margin-bottom:15px;">
-            <label class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Password</label>
-            <input type="password" id="auth-password" class="form-input-text" placeholder="••••••••" style="width:100%; height:38px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
-          </div>
-          <button class="btn btn-primary" onclick="submitAuth('login')" style="width:100%; margin-top:5px; height:40px;">Sign In</button>
-          <p style="font-size:13px; color:var(--color-text-secondary); margin-top:15px; text-align:center;">
-            Don't have an account? <a href="#" onclick="showAuthModal('signup'); return false;" style="color:var(--color-primary); font-weight:600; text-decoration:none;">Sign Up</a>
-          </p>
-        </div>
+        <button type="button" class="modal-close" onclick="closeModal()" aria-label="Close ${isLogin ? 'sign in' : 'sign up'} dialog"><i data-lucide="x"></i></button>
       </div>
-    `;
-  } else {
-    modal.innerHTML = `
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3 class="modal-title">Create your GXA Toolbox account</h3>
-          <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
+      <form id="auth-form" class="modal-body auth-form" onsubmit="submitAuth(event, '${isLogin ? 'login' : 'signup'}')" novalidate>
+        <p class="auth-description">${description}</p>
+        <div id="auth-error-msg" class="auth-status auth-status-error hidden" role="alert"></div>
+        <div id="auth-success-msg" class="auth-status auth-status-success hidden" role="status"></div>
+        ${isLogin ? '' : `
+          <div class="auth-field">
+            <label class="form-label" for="auth-name">Full Name</label>
+            <input type="text" id="auth-name" class="form-input-text" placeholder="Your full name" autocomplete="name" aria-describedby="auth-name-error" oninput="clearAuthFieldError('name')">
+            <small id="auth-name-error" class="auth-field-error"></small>
+          </div>
+        `}
+        <div class="auth-field">
+          <label class="form-label" for="auth-email">Email Address</label>
+          <input type="email" id="auth-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${escapeHTML(rememberedEmail)}" autocomplete="email" inputmode="email" aria-describedby="auth-email-error" oninput="clearAuthFieldError('email')">
+          <small id="auth-email-error" class="auth-field-error"></small>
         </div>
-        <div class="modal-body">
-          <p style="font-size:14px; color:var(--color-text-secondary); margin-bottom:15px;">
-            Create a free account to unlock larger batch processes and tracking logs.
-          </p>
-          <div id="auth-error-msg" style="color:var(--color-danger); font-size:13px; font-weight:700; margin-bottom:10px; display:none;"></div>
-          <div class="form-group" style="margin-bottom:12px;">
-            <label class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Full Name</label>
-            <input type="text" id="auth-name" class="form-input-text" placeholder="Tauqeer Ashraf" style="width:100%; height:38px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
+        <div class="auth-field">
+          <label class="form-label" for="auth-password">Password</label>
+          <div class="auth-password-control">
+            <input type="password" id="auth-password" class="form-input-text" placeholder="Enter your password" autocomplete="${isLogin ? 'current-password' : 'new-password'}" aria-describedby="auth-password-error${isLogin ? '' : ' auth-strength-label'}" oninput="clearAuthFieldError('password'); ${isLogin ? '' : 'updateAuthPasswordStrength();'}">
+            <button type="button" class="auth-password-toggle" onclick="toggleAuthPassword('auth-password', this)" aria-label="Show password" title="Show password"><i data-lucide="eye"></i></button>
           </div>
-          <div class="form-group" style="margin-bottom:12px;">
-            <label class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Email Address</label>
-            <input type="email" id="auth-email" class="form-input-text" placeholder="tauqeer@brandupdigital.in" style="width:100%; height:38px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
-          </div>
-          <div class="form-group" style="margin-bottom:15px;">
-            <label class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Password</label>
-            <input type="password" id="auth-password" class="form-input-text" placeholder="••••••••" style="width:100%; height:38px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
-          </div>
-          <button class="btn btn-primary" onclick="submitAuth('signup')" style="width:100%; margin-top:5px; height:40px;">Sign Up</button>
-          <p style="font-size:13px; color:var(--color-text-secondary); margin-top:15px; text-align:center;">
-            Already have an account? <a href="#" onclick="showAuthModal('login'); return false;" style="color:var(--color-primary); font-weight:600; text-decoration:none;">Sign In</a>
-          </p>
+          <small id="auth-password-error" class="auth-field-error"></small>
         </div>
-      </div>
-    `;
+        ${isLogin ? `
+          <label class="auth-remember">
+            <input type="checkbox" id="auth-remember" ${rememberedEmail ? 'checked' : ''}>
+            <span>Remember me <small>Stores only your email on this device</small></span>
+          </label>
+        ` : `
+          <div class="auth-strength" id="auth-password-strength" data-level="0" aria-live="polite">
+            <div class="auth-strength-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <span id="auth-strength-label">Use 8+ characters with upper/lowercase, a number, and a symbol.</span>
+          </div>
+          <div class="auth-field">
+            <label class="form-label" for="auth-confirm-password">Confirm Password</label>
+            <div class="auth-password-control">
+              <input type="password" id="auth-confirm-password" class="form-input-text" placeholder="Re-enter your password" autocomplete="new-password" aria-describedby="auth-confirm-error" oninput="clearAuthFieldError('confirm')">
+              <button type="button" class="auth-password-toggle" onclick="toggleAuthPassword('auth-confirm-password', this)" aria-label="Show confirmed password" title="Show confirmed password"><i data-lucide="eye"></i></button>
+            </div>
+            <small id="auth-confirm-error" class="auth-field-error"></small>
+          </div>
+        `}
+        <button type="submit" class="btn btn-primary auth-submit" id="auth-submit-button">
+          <span>${isLogin ? 'Sign In' : 'Create Account'}</span><i data-lucide="arrow-right"></i>
+        </button>
+        <p class="auth-switch">
+          ${isLogin
+            ? `Don’t have an account? <a href="#" onclick="showAuthModal('signup'); return false;">Sign Up</a>`
+            : `Already have an account? <a href="#" onclick="showAuthModal('login'); return false;">Sign In</a>`}
+        </p>
+      </form>
+    </div>
+  `;
+
+  openModalContainer(modal, isLogin ? 'auth-email' : 'auth-name');
+}
+
+function getRememberedAuthEmail() {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.rememberedEmail) || '';
+  } catch {
+    return '';
   }
-  
-  modal.classList.remove('hidden');
+}
+
+function toggleAuthPassword(inputId, button) {
+  const input = document.getElementById(inputId);
+  if (!input || !button) return;
+  const showPassword = input.type === 'password';
+  input.type = showPassword ? 'text' : 'password';
+  const label = showPassword ? 'Hide password' : 'Show password';
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.innerHTML = `<i data-lucide="${showPassword ? 'eye-off' : 'eye'}"></i>`;
   lucide.createIcons();
+  input.focus({ preventScroll: true });
+}
+
+function getAuthPasswordStrength(password) {
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1;
+  const labels = ['Enter a password', 'Weak', 'Fair', 'Good', 'Strong'];
+  return { score, label: labels[score] };
+}
+
+function updateAuthPasswordStrength() {
+  const password = document.getElementById('auth-password')?.value || '';
+  const meter = document.getElementById('auth-password-strength');
+  const label = document.getElementById('auth-strength-label');
+  if (!meter || !label) return;
+  const strength = getAuthPasswordStrength(password);
+  meter.dataset.level = String(strength.score);
+  label.textContent = password ? `${strength.label} password` : 'Use 8+ characters with upper/lowercase, a number, and a symbol.';
+}
+
+function clearAuthFieldError(field) {
+  const inputId = field === 'confirm' ? 'auth-confirm-password' : `auth-${field}`;
+  document.getElementById(inputId)?.classList.remove('is-invalid');
+  const error = document.getElementById(`auth-${field}-error`);
+  if (error) error.textContent = '';
+}
+
+function showAuthFieldError(field, message) {
+  const inputId = field === 'confirm' ? 'auth-confirm-password' : `auth-${field}`;
+  const input = document.getElementById(inputId);
+  const error = document.getElementById(`auth-${field}-error`);
+  input?.classList.add('is-invalid');
+  if (error) error.textContent = message;
+  return input;
 }
 
 function closeModal() {
   const modal = document.getElementById('modal-container');
-  if (modal) {
-    modal.classList.add('hidden');
+  if (!modal || modal.classList.contains('hidden')) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-open');
+  if (modalReturnFocus instanceof HTMLElement && document.contains(modalReturnFocus)) {
+    modalReturnFocus.focus({ preventScroll: true });
   }
+  modalReturnFocus = null;
 }
 
-function submitAuth(type) {
+async function submitAuth(event, type) {
+  event?.preventDefault();
   const errorEl = document.getElementById('auth-error-msg');
-  if (errorEl) errorEl.style.display = 'none';
-  
-  const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value.trim();
-  
-  if (!email || !password) {
-    if (errorEl) {
-      errorEl.innerText = 'Please enter both email and password fields.';
-      errorEl.style.display = 'block';
-    }
-    return;
+  const successEl = document.getElementById('auth-success-msg');
+  const submitButton = document.getElementById('auth-submit-button');
+  errorEl?.classList.add('hidden');
+  successEl?.classList.add('hidden');
+  ['name', 'email', 'password', 'confirm'].forEach(clearAuthFieldError);
+
+  const email = document.getElementById('auth-email')?.value.trim() || '';
+  const password = document.getElementById('auth-password')?.value || '';
+  let firstInvalid = null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const invalidField = showAuthFieldError('email', 'Enter a valid email address.');
+    firstInvalid ||= invalidField;
   }
-  
+  if (!password) {
+    const invalidField = showAuthFieldError('password', 'Enter your password.');
+    firstInvalid ||= invalidField;
+  }
+
   const endpoint = type === 'login' ? '/api/login.php' : '/api/register.php';
   const payload = { email, password };
-  
   if (type === 'signup') {
-    const name = document.getElementById('auth-name').value.trim();
-    if (!name) {
-      if (errorEl) {
-        errorEl.innerText = 'Please enter your full name.';
-        errorEl.style.display = 'block';
-      }
-      return;
+    const name = document.getElementById('auth-name')?.value.trim() || '';
+    const confirmation = document.getElementById('auth-confirm-password')?.value || '';
+    if (name.length < 2) {
+      const invalidField = showAuthFieldError('name', 'Enter your full name.');
+      firstInvalid ||= invalidField;
+    }
+    if (password.length < 8) {
+      const invalidField = showAuthFieldError('password', 'Use at least 8 characters.');
+      firstInvalid ||= invalidField;
+    }
+    if (confirmation !== password) {
+      const invalidField = showAuthFieldError('confirm', 'Passwords do not match.');
+      firstInvalid ||= invalidField;
     }
     payload.name = name;
   }
-  
-  fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.success) {
-      appState.user = {
+
+  if (firstInvalid) {
+    firstInvalid.focus();
+    return;
+  }
+
+  const originalButton = submitButton?.innerHTML || '';
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = `<span class="spinner spinner-inline"></span><span>${type === 'login' ? 'Signing in…' : 'Creating account…'}</span>`;
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!data.success) {
+      if (errorEl) {
+        errorEl.textContent = data.message || 'Authentication was not accepted. Check your details and try again.';
+        errorEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    appState.user = {
+      id: data.user.id,
+      name: data.user.name,
+      email: data.user.email,
+      role: data.user.role,
+      is_premium: parseInt(data.user.is_premium) || 0,
+      processedCount: 0,
+      history: []
+    };
+    window.PHP_SESSION = {
+      loggedIn: true,
+      user: {
         id: data.user.id,
         name: data.user.name,
         email: data.user.email,
         role: data.user.role,
-        is_premium: parseInt(data.user.is_premium) || 0,
-        processedCount: 0,
-        history: []
-      };
-      
-      window.PHP_SESSION = {
-        loggedIn: true,
-        user: {
-          id: data.user.id,
-          name: data.user.name,
-          email: data.user.email,
-          role: data.user.role,
-          is_premium: data.user.is_premium
-        },
-        premium_tools: window.PHP_SESSION ? window.PHP_SESSION.premium_tools : []
-      };
-      
-      showToast(data.message, 'success');
-      closeModal();
-      
-      fetchHistoryFromDB();
-      renderNavbar();
-      
-      setTimeout(() => {
-        navigate('dashboard');
-      }, 800);
-      
-    } else {
-      if (errorEl) {
-        errorEl.innerText = data.message;
-        errorEl.style.display = 'block';
+        is_premium: data.user.is_premium
+      },
+      premium_tools: window.PHP_SESSION ? window.PHP_SESSION.premium_tools : []
+    };
+
+    if (type === 'login') {
+      try {
+        if (document.getElementById('auth-remember')?.checked) localStorage.setItem(STORAGE_KEYS.rememberedEmail, email);
+        else localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
+      } catch {
+        // Remembering an email is optional and must never block authentication.
       }
     }
-  })
-  .catch(err => {
-    console.error('Auth request failed:', err);
-    if (errorEl) {
-      errorEl.innerText = 'Server processing error occurred. Please try again.';
-      errorEl.style.display = 'block';
+
+    if (successEl) {
+      successEl.textContent = data.message || (type === 'login' ? 'Signed in successfully.' : 'Account created successfully.');
+      successEl.classList.remove('hidden');
     }
-  });
+    if (submitButton) submitButton.innerHTML = '<i data-lucide="check"></i><span>Success</span>';
+    showToast(data.message || 'Authentication completed.', 'success');
+    fetchHistoryFromDB();
+    renderNavbar();
+    lucide.createIcons();
+    setTimeout(() => {
+      closeModal();
+      navigate('dashboard');
+    }, 650);
+  } catch (error) {
+    console.error('Auth request failed:', error);
+    if (errorEl) {
+      errorEl.textContent = 'The authentication service is unavailable. Please try again.';
+      errorEl.classList.remove('hidden');
+    }
+  } finally {
+    if (submitButton && !appState.user) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = originalButton;
+      lucide.createIcons();
+    }
+  }
 }
 
 // --- Contact Support Modal & API Actions ---
@@ -1241,10 +1468,10 @@ function showContactModal() {
   if (!modal) return;
   
   modal.innerHTML = `
-    <div class="modal-card">
+    <div class="modal-card contact-modal-card" role="dialog" aria-modal="true" aria-labelledby="contact-modal-title">
       <div class="modal-header">
-        <h3 class="modal-title">Contact Support</h3>
-        <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
+        <h3 class="modal-title" id="contact-modal-title">Contact Support</h3>
+        <button type="button" class="modal-close" onclick="closeModal()" aria-label="Close contact support dialog"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
         <p style="font-size:14px; color:var(--color-text-secondary); margin-bottom:15px;">
@@ -1252,24 +1479,23 @@ function showContactModal() {
         </p>
         <div id="contact-status-msg" style="font-size:13px; font-weight:700; margin-bottom:10px; display:none;"></div>
         <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Full Name</label>
-          <input type="text" id="contact-name" class="form-input-text" placeholder="Tauqeer Ashraf" value="${appState.user ? appState.user.name : ''}" style="width:100%; height:38px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
+          <label for="contact-name" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Full Name</label>
+          <input type="text" id="contact-name" class="form-input-text" placeholder="Tauqeer Ashraf" value="${appState.user ? appState.user.name : ''}" autocomplete="name" style="width:100%; height:44px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
         </div>
         <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Email Address</label>
-          <input type="email" id="contact-email" class="form-input-text" placeholder="tauqeer@brandupdigital.in" value="${appState.user ? appState.user.email : ''}" style="width:100%; height:38px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
+          <label for="contact-email" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Email Address</label>
+          <input type="email" id="contact-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${appState.user ? appState.user.email : ''}" autocomplete="email" inputmode="email" style="width:100%; height:44px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
         </div>
         <div class="form-group" style="margin-bottom:15px;">
-          <label class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Message Details</label>
-          <textarea id="contact-message" placeholder="Describe your inquiry..." style="width:100%; height:100px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:10px; font-family:inherit; resize:vertical; line-height:1.4;"></textarea>
+          <label for="contact-message" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Message Details</label>
+          <textarea id="contact-message" placeholder="Describe your inquiry..." style="width:100%; min-height:110px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:10px; font-family:inherit; resize:vertical; line-height:1.4;"></textarea>
         </div>
         <button class="btn btn-primary" onclick="submitContact()" style="width:100%; margin-top:5px; height:40px;">Send Message</button>
       </div>
     </div>
   `;
   
-  modal.classList.remove('hidden');
-  lucide.createIcons();
+  openModalContainer(modal, 'contact-name');
 }
 
 function submitContact() {
@@ -1663,7 +1889,22 @@ function isToolPremiumRestricted(toolId) {
   if (window.PHP_SESSION && Array.isArray(window.PHP_SESSION.premium_tools)) {
     return window.PHP_SESSION.premium_tools.includes(toolId);
   }
-  return ['split-pdf', 'protect-pdf', 'unlock-pdf'].includes(toolId);
+  return false;
+}
+
+function getToolPanelMeta(toolId, category, needsFiles) {
+  if (category === 'calculator') return { title: 'Calculation inputs', subtitle: 'Enter values, calculate, or reset' };
+  if (toolId === 'barcode-generator') return { title: 'Code settings', subtitle: 'Content, type, size, margin, and colors' };
+  if (['json-tool', 'sql-formatter', 'html-beautifier', 'css-beautifier', 'js-beautifier', 'xml-to-json', 'base64-tool', 'url-tool', 'diff-checker', 'markdown-editor'].includes(toolId)) {
+    return { title: 'Input & output', subtitle: 'Edit locally with live validation' };
+  }
+  if (category === 'zip') return { title: 'Archive settings', subtitle: 'Inspect, extract, or package local files' };
+  if (category === 'pdf' || toolId.includes('pdf')) return { title: 'Document settings', subtitle: 'Page-aware PDF controls' };
+  if (category === 'image' || ['svg-to-png', 'png-to-svg', 'webp-to-jpg', 'color-extractor', 'exif-viewer'].includes(toolId)) {
+    return { title: 'Image settings', subtitle: 'Preview and configure the real output' };
+  }
+  if (needsFiles) return { title: 'Output settings', subtitle: 'Controls for this file workflow' };
+  return { title: 'Tool settings', subtitle: 'Controls specific to this utility' };
 }
 
 function renderToolPage(container, toolId) {
@@ -1907,7 +2148,7 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Data Value / Text Link</label>
-        <input type="text" id="bc-text" class="form-input-text" value="https://example.com" onkeyup="generateBarcodeSVG()">
+        <input type="text" id="bc-text" class="form-input-text" value="https://example.com" oninput="generateBarcodeSVG()">
       </div>
       <div class="form-group">
         <label class="form-label">Barcode Format</label>
@@ -1917,7 +2158,7 @@ function renderToolPage(container, toolId) {
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Color Themes</label>
+        <label class="form-label">Foreground presets</label>
         <div class="swatches-grid">
           <button class="swatch-btn active" style="background-color:#000000;" onclick="setBcColor('#000000', this)"></button>
           <button class="swatch-btn" style="background-color:#2563EB;" onclick="setBcColor('#2563EB', this)"></button>
@@ -1925,6 +2166,18 @@ function renderToolPage(container, toolId) {
           <button class="swatch-btn" style="background-color:#EF4444;" onclick="setBcColor('#EF4444', this)"></button>
           <button class="swatch-btn" style="background-color:#8B5CF6;" onclick="setBcColor('#8B5CF6', this)"></button>
         </div>
+      </div>
+      <div class="form-group">
+        <div class="slider-header"><label class="form-label" for="bc-size">Output size</label><span id="bc-size-value">256 px</span></div>
+        <input type="range" id="bc-size" class="custom-range-slider" min="128" max="512" step="32" value="256" oninput="document.getElementById('bc-size-value').textContent = this.value + ' px'; generateBarcodeSVG()">
+      </div>
+      <div class="form-group">
+        <div class="slider-header"><label class="form-label" for="bc-margin">Margin</label><span id="bc-margin-value">12 px</span></div>
+        <input type="range" id="bc-margin" class="custom-range-slider" min="0" max="32" step="2" value="12" oninput="document.getElementById('bc-margin-value').textContent = this.value + ' px'; generateBarcodeSVG()">
+      </div>
+      <div class="code-color-grid">
+        <label class="form-label" for="bc-foreground">Foreground<input type="color" id="bc-foreground" value="#000000" oninput="appState.activeToolOptions.color = this.value; generateBarcodeSVG()"></label>
+        <label class="form-label" for="bc-background">Background<input type="color" id="bc-background" value="#ffffff" oninput="generateBarcodeSVG()"></label>
       </div>
     `;
     appState.activeToolOptions.format = 'qr';
@@ -2613,7 +2866,7 @@ function renderToolPage(container, toolId) {
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
         <div class="form-group">
           <label class="form-label">Email Address</label>
-          <input type="email" id="opt-res-email" class="form-input-text" placeholder="tauqeer@brandupdigital.in">
+          <input type="email" id="opt-res-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com">
         </div>
         <div class="form-group">
           <label class="form-label">Phone Number</label>
@@ -2705,26 +2958,26 @@ function renderToolPage(container, toolId) {
       <div style="border-bottom:1px solid var(--color-border); padding-bottom:12px; margin-bottom:12px;">
         <label class="form-label" style="font-weight:700;">1. What is X% of Y?</label>
         <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
-          <input type="number" id="opt-pct-val1" class="form-input-text" value="15" style="width:70px; text-align:center;">
+          <input type="number" id="opt-pct-val1" class="form-input-text" placeholder="15" style="width:70px; text-align:center;">
           <span style="font-size:12px;">% of</span>
-          <input type="number" id="opt-pct-val2" class="form-input-text" value="200" style="width:90px; text-align:center;">
+          <input type="number" id="opt-pct-val2" class="form-input-text" placeholder="200" style="width:90px; text-align:center;">
         </div>
       </div>
       <div style="border-bottom:1px solid var(--color-border); padding-bottom:12px; margin-bottom:12px;">
         <label class="form-label" style="font-weight:700;">2. X is what % of Y?</label>
         <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
-          <input type="number" id="opt-pct-a" class="form-input-text" value="30" style="width:70px; text-align:center;">
+          <input type="number" id="opt-pct-a" class="form-input-text" placeholder="30" style="width:70px; text-align:center;">
           <span style="font-size:12px;">is what % of</span>
-          <input type="number" id="opt-pct-b" class="form-input-text" value="150" style="width:90px; text-align:center;">
+          <input type="number" id="opt-pct-b" class="form-input-text" placeholder="150" style="width:90px; text-align:center;">
         </div>
       </div>
       <div>
         <label class="form-label" style="font-weight:700;">3. Percentage Change</label>
         <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
           <span style="font-size:12px;">From</span>
-          <input type="number" id="opt-pct-from" class="form-input-text" value="100" style="width:70px; text-align:center;">
+          <input type="number" id="opt-pct-from" class="form-input-text" placeholder="100" style="width:70px; text-align:center;">
           <span style="font-size:12px;">to</span>
-          <input type="number" id="opt-pct-to" class="form-input-text" value="125" style="width:70px; text-align:center;">
+          <input type="number" id="opt-pct-to" class="form-input-text" placeholder="125" style="width:70px; text-align:center;">
         </div>
       </div>
     `;
@@ -2734,7 +2987,7 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Date of Birth</label>
-        <input type="date" id="opt-age-dob" class="form-input-text" value="1995-01-01">
+        <input type="date" id="opt-age-dob" class="form-input-text">
       </div>
       <div class="form-group">
         <label class="form-label">Age at Date (Optional)</label>
@@ -2747,7 +3000,7 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Start Date</label>
-        <input type="date" id="opt-date-start" class="form-input-text" value="2026-06-14">
+        <input type="date" id="opt-date-start" class="form-input-text">
       </div>
       <div class="form-group">
         <label class="form-label">Operation</label>
@@ -2759,13 +3012,13 @@ function renderToolPage(container, toolId) {
       </div>
       <div id="date-duration-group" class="form-group">
         <label class="form-label">End Date</label>
-        <input type="date" id="opt-date-end" class="form-input-text" value="2026-12-31">
+        <input type="date" id="opt-date-end" class="form-input-text">
       </div>
       <div id="date-offset-group" class="form-group hidden">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div>
             <label class="form-label">Amount</label>
-            <input type="number" id="opt-date-offset" class="form-input-text" value="30">
+            <input type="number" id="opt-date-offset" class="form-input-text" placeholder="30">
           </div>
           <div>
             <label class="form-label">Unit</label>
@@ -2785,15 +3038,15 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Loan Amount (₹)</label>
-        <input type="number" id="opt-emi-amount" class="form-input-text" value="1000000">
+        <input type="number" id="opt-emi-amount" class="form-input-text" placeholder="e.g. 1000000" min="1">
       </div>
       <div class="form-group">
         <label class="form-label">Interest Rate (% P.A.)</label>
-        <input type="number" id="opt-emi-rate" class="form-input-text" value="8.5" step="0.1">
+        <input type="number" id="opt-emi-rate" class="form-input-text" placeholder="e.g. 8.5" min="0.01" step="0.1">
       </div>
       <div class="form-group">
         <label class="form-label">Tenure (Years)</label>
-        <input type="number" id="opt-emi-years" class="form-input-text" value="5">
+        <input type="number" id="opt-emi-years" class="form-input-text" placeholder="e.g. 5" min="0.1" step="0.1">
       </div>
     `;
   } else if (toolId === 'loan-calculator') {
@@ -2802,15 +3055,15 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Principal Amount (₹)</label>
-        <input type="number" id="opt-loan-amount" class="form-input-text" value="500000">
+        <input type="number" id="opt-loan-amount" class="form-input-text" placeholder="e.g. 500000" min="1">
       </div>
       <div class="form-group">
         <label class="form-label">Interest Rate (% P.A.)</label>
-        <input type="number" id="opt-loan-rate" class="form-input-text" value="10" step="0.1">
+        <input type="number" id="opt-loan-rate" class="form-input-text" placeholder="e.g. 10" min="0.01" step="0.1">
       </div>
       <div class="form-group">
         <label class="form-label">Tenure (Months)</label>
-        <input type="number" id="opt-loan-months" class="form-input-text" value="12">
+        <input type="number" id="opt-loan-months" class="form-input-text" placeholder="e.g. 12" min="1">
       </div>
       <div class="form-group">
         <label class="form-label">Interest Type</label>
@@ -2826,15 +3079,15 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Principal Amount (₹)</label>
-        <input type="number" id="opt-int-principal" class="form-input-text" value="10000">
+        <input type="number" id="opt-int-principal" class="form-input-text" placeholder="e.g. 10000" min="1">
       </div>
       <div class="form-group">
         <label class="form-label">Rate of Interest (% P.A.)</label>
-        <input type="number" id="opt-int-rate" class="form-input-text" value="6.5" step="0.1">
+        <input type="number" id="opt-int-rate" class="form-input-text" placeholder="e.g. 6.5" min="0.01" step="0.1">
       </div>
       <div class="form-group">
         <label class="form-label">Period (Years)</label>
-        <input type="number" id="opt-int-years" class="form-input-text" value="3" step="0.1">
+        <input type="number" id="opt-int-years" class="form-input-text" placeholder="e.g. 3" min="0.1" step="0.1">
       </div>
       <div class="form-group">
         <label class="form-label">Interest Type</label>
@@ -2853,7 +3106,7 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Initial Amount (₹)</label>
-        <input type="number" id="opt-gst-amount" class="form-input-text" value="1000">
+        <input type="number" id="opt-gst-amount" class="form-input-text" placeholder="e.g. 1000" min="0">
       </div>
       <div class="form-group">
         <label class="form-label">GST Rate</label>
@@ -2878,15 +3131,15 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Monthly Investment (₹)</label>
-        <input type="number" id="opt-sip-monthly" class="form-input-text" value="5000">
+        <input type="number" id="opt-sip-monthly" class="form-input-text" placeholder="e.g. 5000" min="1">
       </div>
       <div class="form-group">
         <label class="form-label">Expected Return Rate (% P.A.)</label>
-        <input type="number" id="opt-sip-rate" class="form-input-text" value="12" step="0.5">
+        <input type="number" id="opt-sip-rate" class="form-input-text" placeholder="e.g. 12" min="0.01" step="0.5">
       </div>
       <div class="form-group">
         <label class="form-label">Time Period (Years)</label>
-        <input type="number" id="opt-sip-years" class="form-input-text" value="10">
+        <input type="number" id="opt-sip-years" class="form-input-text" placeholder="e.g. 10" min="1">
       </div>
     `;
   } else if (toolId === 'bmi-calculator') {
@@ -2902,11 +3155,11 @@ function renderToolPage(container, toolId) {
       </div>
       <div class="form-group">
         <label class="form-label" id="opt-bmi-w-label">Weight (kg)</label>
-        <input type="number" id="opt-bmi-weight" class="form-input-text" value="70">
+        <input type="number" id="opt-bmi-weight" class="form-input-text" placeholder="e.g. 70" min="1">
       </div>
       <div class="form-group">
         <label class="form-label" id="opt-bmi-h-label">Height (cm)</label>
-        <input type="number" id="opt-bmi-height" class="form-input-text" value="175">
+        <input type="number" id="opt-bmi-height" class="form-input-text" placeholder="e.g. 175" min="1">
       </div>
     `;
   } else if (toolId === 'discount-calculator') {
@@ -2915,11 +3168,11 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Original Price (₹)</label>
-        <input type="number" id="opt-disc-price" class="form-input-text" value="1000">
+        <input type="number" id="opt-disc-price" class="form-input-text" placeholder="e.g. 1000" min="0">
       </div>
       <div class="form-group">
         <label class="form-label">Discount (%)</label>
-        <input type="number" id="opt-disc-pct" class="form-input-text" value="20">
+        <input type="number" id="opt-disc-pct" class="form-input-text" placeholder="e.g. 20" min="0" max="100">
       </div>
       <div class="form-group">
         <label class="form-label">Additional Discount (%)</label>
@@ -2945,7 +3198,7 @@ function renderToolPage(container, toolId) {
       </div>
       <div class="form-group">
         <label class="form-label">Value</label>
-        <input type="number" id="opt-unit-val" class="form-input-text" value="1">
+        <input type="number" id="opt-unit-val" class="form-input-text" placeholder="Enter a value">
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
         <div class="form-group">
@@ -2957,11 +3210,6 @@ function renderToolPage(container, toolId) {
           <select id="opt-unit-to" class="form-input-text" style="background:var(--color-surface); color:var(--color-text-primary);"></select>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Exchange rate (1 From = ? To)</label>
-        <input type="number" id="opt-curr-rate" class="form-input-text" value="1" min="0" step="any">
-        <small class="processing-disclosure">Enter a current rate from a source you trust. GXA Toolbox does not claim this is a live market rate.</small>
-      </div>
     `;
   } else if (toolId === 'currency-converter') {
     accepts = '';
@@ -2969,7 +3217,7 @@ function renderToolPage(container, toolId) {
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Amount</label>
-        <input type="number" id="opt-curr-val" class="form-input-text" value="100">
+        <input type="number" id="opt-curr-val" class="form-input-text" placeholder="Enter an amount" min="0" step="any">
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
         <div class="form-group">
@@ -2997,6 +3245,11 @@ function renderToolPage(container, toolId) {
           </select>
         </div>
       </div>
+      <div class="form-group">
+        <label class="form-label">Exchange rate (1 From = ? To)</label>
+        <input type="number" id="opt-curr-rate" class="form-input-text" placeholder="Enter a current rate" min="0" step="any">
+        <small class="processing-disclosure">Enter a current rate from a source you trust. GXA Toolbox does not claim this is a live market rate.</small>
+      </div>
     `;
   } else if (toolId === 'time-calculator') {
     accepts = '';
@@ -3005,9 +3258,9 @@ function renderToolPage(container, toolId) {
       <div class="form-group">
         <label class="form-label">Start Time (HH:MM:SS)</label>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px;">
-          <input type="number" id="opt-time-h1" class="form-input-text" value="0" placeholder="HH" min="0">
-          <input type="number" id="opt-time-m1" class="form-input-text" value="0" placeholder="MM" min="0" max="59">
-          <input type="number" id="opt-time-s1" class="form-input-text" value="0" placeholder="SS" min="0" max="59">
+          <input type="number" id="opt-time-h1" class="form-input-text" placeholder="HH" min="0">
+          <input type="number" id="opt-time-m1" class="form-input-text" placeholder="MM" min="0" max="59">
+          <input type="number" id="opt-time-s1" class="form-input-text" placeholder="SS" min="0" max="59">
         </div>
       </div>
       <div class="form-group">
@@ -3020,9 +3273,9 @@ function renderToolPage(container, toolId) {
       <div class="form-group">
         <label class="form-label">Time to Add/Subtract</label>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px;">
-          <input type="number" id="opt-time-h2" class="form-input-text" value="2" placeholder="HH" min="0">
-          <input type="number" id="opt-time-m2" class="form-input-text" value="30" placeholder="MM" min="0" max="59">
-          <input type="number" id="opt-time-s2" class="form-input-text" value="0" placeholder="SS" min="0" max="59">
+          <input type="number" id="opt-time-h2" class="form-input-text" placeholder="HH" min="0">
+          <input type="number" id="opt-time-m2" class="form-input-text" placeholder="MM" min="0" max="59">
+          <input type="number" id="opt-time-s2" class="form-input-text" placeholder="SS" min="0" max="59">
         </div>
       </div>
     `;
@@ -3248,6 +3501,7 @@ function renderToolPage(container, toolId) {
     : { kind: 'local', label: 'Processed in your browser', detail: 'Processing runs in this browser.' };
   const dependencyBlocker = window.GxaWorkspace ? window.GxaWorkspace.getBlocker(toolId) : '';
   const needsFiles = routeNormallyNeedsFiles && !dependencyBlocker;
+  const panelMeta = getToolPanelMeta(toolId, tool.category, needsFiles);
   const processActionLabel = ({
     'merge-pdf': 'Merge PDFs', 'organize-pdf': 'Organize PDF', 'compress-image': 'Compress Image',
     'resize-image': 'Resize Image', 'crop-image': 'Crop Image', 'background-remover': 'Remove Background',
@@ -3411,8 +3665,14 @@ function renderToolPage(container, toolId) {
         <!-- Sidebar Controls settings panels -->
         <div class="tool-sidebar-settings">
           <div class="tool-options-panel">
-            <div class="options-title"><span><i data-lucide="sliders-horizontal"></i> Configuration</span><small>Adjust output settings</small></div>
+            <div class="options-title"><span><i data-lucide="sliders-horizontal"></i> ${panelMeta.title}</span><small>${panelMeta.subtitle}</small></div>
             ${optionsHTML}
+            ${tool.category === 'calculator' ? `
+              <div class="calculator-action-row">
+                <button type="button" class="btn btn-primary" onclick="runActiveCalculator()"><i data-lucide="equal"></i> Calculate</button>
+                <button type="button" class="btn btn-secondary" onclick="resetPremiumEditor()"><i data-lucide="rotate-ccw"></i> Reset</button>
+              </div>
+            ` : ''}
             ${!needsFiles && !dependencyBlocker ? `
               <button class="btn btn-primary" id="btn-generator-download"><i data-lucide="download"></i> Download Output</button>
             ` : ''}
@@ -3630,14 +3890,16 @@ function renderToolPage(container, toolId) {
         if (units === 'metric') {
           wLabel.innerText = 'Weight (kg)';
           hLabel.innerText = 'Height (cm)';
-          weightInput.value = '70';
-          heightInput.value = '175';
+          weightInput.placeholder = 'e.g. 70';
+          heightInput.placeholder = 'e.g. 175';
         } else {
           wLabel.innerText = 'Weight (lbs)';
           hLabel.innerText = 'Height (inches)';
-          weightInput.value = '154';
-          heightInput.value = '69';
+          weightInput.placeholder = 'e.g. 154';
+          heightInput.placeholder = 'e.g. 69';
         }
+        weightInput.value = '';
+        heightInput.value = '';
         generateBmiCalc();
       });
       document.getElementById('opt-bmi-weight').addEventListener('input', generateBmiCalc);
@@ -4793,6 +5055,28 @@ function toggleFaq(btn) {
 
 let html2CanvasPromise = null;
 
+function runActiveCalculator() {
+  const calculatorRunners = {
+    calculator: generateSimpleCalc,
+    'scientific-calculator': generateScientificCalc,
+    'percentage-calculator': generatePercentageCalc,
+    'age-calculator': generateAgeCalc,
+    'date-calculator': generateDateCalc,
+    'emi-calculator': generateEMICalc,
+    'loan-calculator': generateLoanCalc,
+    'interest-calculator': generateInterestCalc,
+    'gst-calculator': generateGstCalc,
+    'sip-calculator': generateSipCalc,
+    'bmi-calculator': generateBmiCalc,
+    'discount-calculator': generateDiscountCalc,
+    'unit-converter': generateUnitConvert,
+    'currency-converter': generateCurrencyConvert,
+    'time-calculator': generateTimeCalc
+  };
+  const runner = calculatorRunners[appState.currentPage.replace('tool-', '')];
+  if (runner) runner();
+}
+
 function initializePremiumToolEditor(toolId, needsFiles) {
   disposePremiumToolEditor();
   premiumEditorState.toolId = toolId;
@@ -5454,14 +5738,19 @@ function renderFileQueue() {
     });
     
     const sizeStr = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+    const safeFileName = escapeHTML(file.name);
     
     card.innerHTML = `
       <div class="file-card-thumb" id="thumb-${index}">
         <i data-lucide="file" style="width:24px;"></i>
       </div>
       <div class="file-card-info">
-        <div class="file-card-name" title="${file.name}">${file.name}</div>
+        <div class="file-card-name" title="${safeFileName}">${safeFileName}</div>
         <div class="file-card-size">${sizeStr}</div>
+      </div>
+      <div class="file-card-order-controls" aria-label="Reorder ${safeFileName}">
+        <button type="button" aria-label="Move ${safeFileName} up" ${index === 0 ? 'disabled' : ''} onclick="event.stopPropagation(); moveQueueIndex(${index}, -1)"><i data-lucide="chevron-up"></i></button>
+        <button type="button" aria-label="Move ${safeFileName} down" ${index === appState.activeFiles.length - 1 ? 'disabled' : ''} onclick="event.stopPropagation(); moveQueueIndex(${index}, 1)"><i data-lucide="chevron-down"></i></button>
       </div>
       <button class="file-card-remove" aria-label="Remove ${file.name.replace(/[&<>\"]/g, '')}" onclick="event.stopPropagation(); removeQueueIndex(${index})"><i data-lucide="x" style="width:16px;"></i></button>
     `;
@@ -5492,6 +5781,17 @@ function renderFileQueue() {
   }
   updatePremiumLiveStats();
   lucide.createIcons();
+}
+
+function moveQueueIndex(index, direction) {
+  const targetIndex = Math.max(0, Math.min(appState.activeFiles.length - 1, index + direction));
+  if (targetIndex === index) return;
+  const [moved] = appState.activeFiles.splice(index, 1);
+  appState.activeFiles.splice(targetIndex, 0, moved);
+  appState.activePreviewIndex = targetIndex;
+  recordPremiumEditorState();
+  renderFileQueue();
+  document.querySelectorAll('.file-card')[targetIndex]?.focus();
 }
 
 function removeQueueIndex(idx) {
@@ -6977,6 +7277,8 @@ function setBcFormat(format, btn) {
 
 function setBcColor(color, btn) {
   appState.activeToolOptions.color = color;
+  const foreground = document.getElementById('bc-foreground');
+  if (foreground) foreground.value = color;
   const btns = btn.parentElement.querySelectorAll('.swatch-btn');
   btns.forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -6986,7 +7288,10 @@ function setBcColor(color, btn) {
 async function generateBarcodeSVG() {
   const data = document.getElementById('bc-text').value.trim();
   const format = appState.activeToolOptions.format || 'qr';
-  const color = appState.activeToolOptions.color || '#000000';
+  const color = document.getElementById('bc-foreground')?.value || appState.activeToolOptions.color || '#000000';
+  const background = document.getElementById('bc-background')?.value || '#ffffff';
+  const size = Number(document.getElementById('bc-size')?.value || 256);
+  const margin = Number(document.getElementById('bc-margin')?.value || 12);
   const preview = document.getElementById('generator-preview-mount');
   
   if (!preview) return;
@@ -6996,7 +7301,7 @@ async function generateBarcodeSVG() {
     return;
   }
   try {
-    await window.GxaWorkspace.renderCode(data, format, color, preview);
+    await window.GxaWorkspace.renderCode(data, format, color, preview, { size, margin, background });
   } catch (error) {
     preview.textContent = error.message;
   }
@@ -7013,7 +7318,16 @@ function downloadBarcodeSVGFile() {
   }
   const canvas = container.querySelector('canvas');
   if (!canvas) return showToast('Generate a valid code before downloading.', 'error');
-  canvas.toBlob((blob) => {
+  const margin = Number(document.getElementById('bc-margin')?.value || 0);
+  const background = document.getElementById('bc-background')?.value || '#ffffff';
+  const outputCanvas = document.createElement('canvas');
+  outputCanvas.width = canvas.width + (margin * 2);
+  outputCanvas.height = canvas.height + (margin * 2);
+  const context = outputCanvas.getContext('2d');
+  context.fillStyle = background;
+  context.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+  context.drawImage(canvas, margin, margin);
+  outputCanvas.toBlob((blob) => {
     if (!blob) return showToast('Unable to create the QR image.', 'error');
     saveBlob(blob, 'qr-code.png');
     logHistory('qr-code.png', 'QR & Barcode', `${(blob.size / 1024).toFixed(1)} KB`);
@@ -8115,12 +8429,84 @@ function generateColorConvert() {
   const val = document.getElementById('opt-color-val').value.trim();
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
-  let hex = '#2563eb';
-  let rgb = 'rgb(37, 99, 235)';
-  let hsl = 'hsl(221, 83%, 53%)';
-  if (val.startsWith('#')) {
-    hex = val;
+
+  const parseColor = input => {
+    const hexMatch = input.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hexMatch) {
+      const expanded = hexMatch[1].length === 3
+        ? hexMatch[1].split('').map(char => char + char).join('')
+        : hexMatch[1];
+      return {
+        r: parseInt(expanded.slice(0, 2), 16),
+        g: parseInt(expanded.slice(2, 4), 16),
+        b: parseInt(expanded.slice(4, 6), 16)
+      };
+    }
+
+    const rgbMatch = input.match(/^rgba?\(\s*([+-]?[\d.]+)\s*,\s*([+-]?[\d.]+)\s*,\s*([+-]?[\d.]+)(?:\s*,\s*[\d.]+)?\s*\)$/i);
+    if (rgbMatch) {
+      const channels = rgbMatch.slice(1, 4).map(Number);
+      if (channels.every(channel => Number.isFinite(channel) && channel >= 0 && channel <= 255)) {
+        return { r: Math.round(channels[0]), g: Math.round(channels[1]), b: Math.round(channels[2]) };
+      }
+    }
+
+    const hslMatch = input.match(/^hsla?\(\s*([+-]?[\d.]+)(?:deg)?\s*,\s*([+-]?[\d.]+)%\s*,\s*([+-]?[\d.]+)%(?:\s*,\s*[\d.]+)?\s*\)$/i);
+    if (hslMatch) {
+      const hue = ((Number(hslMatch[1]) % 360) + 360) % 360;
+      const saturation = Number(hslMatch[2]);
+      const lightness = Number(hslMatch[3]);
+      if (Number.isFinite(hue) && saturation >= 0 && saturation <= 100 && lightness >= 0 && lightness <= 100) {
+        const s = saturation / 100;
+        const l = lightness / 100;
+        const chroma = (1 - Math.abs(2 * l - 1)) * s;
+        const sector = hue / 60;
+        const x = chroma * (1 - Math.abs((sector % 2) - 1));
+        const [r1, g1, b1] = sector < 1 ? [chroma, x, 0]
+          : sector < 2 ? [x, chroma, 0]
+            : sector < 3 ? [0, chroma, x]
+              : sector < 4 ? [0, x, chroma]
+                : sector < 5 ? [x, 0, chroma]
+                  : [chroma, 0, x];
+        const match = l - chroma / 2;
+        return {
+          r: Math.round((r1 + match) * 255),
+          g: Math.round((g1 + match) * 255),
+          b: Math.round((b1 + match) * 255)
+        };
+      }
+    }
+    return null;
+  };
+
+  const parsed = parseColor(val);
+  if (!parsed) {
+    preview.innerHTML = '<div class="calculator-empty-state" style="color:var(--color-danger);">Enter a valid HEX, RGB, or HSL color value.</div>';
+    return;
   }
+
+  const { r, g, b } = parsed;
+  const hex = `#${[r, g, b].map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
+  const max = Math.max(r, g, b) / 255;
+  const min = Math.min(r, g, b) / 255;
+  const delta = max - min;
+  let hue = 0;
+  if (delta) {
+    if (max === r / 255) hue = 60 * (((g - b) / 255 / delta) % 6);
+    else if (max === g / 255) hue = 60 * (((b - r) / 255 / delta) + 2);
+    else hue = 60 * (((r - g) / 255 / delta) + 4);
+  }
+  if (hue < 0) hue += 360;
+  const lightness = (max + min) / 2;
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+  const black = 1 - max;
+  const cmykDivisor = 1 - black;
+  const cyan = cmykDivisor === 0 ? 0 : (1 - r / 255 - black) / cmykDivisor;
+  const magenta = cmykDivisor === 0 ? 0 : (1 - g / 255 - black) / cmykDivisor;
+  const yellow = cmykDivisor === 0 ? 0 : (1 - b / 255 - black) / cmykDivisor;
+  const rgb = `rgb(${r}, ${g}, ${b})`;
+  const hsl = `hsl(${Math.round(hue)}, ${Math.round(saturation * 100)}%, ${Math.round(lightness * 100)}%)`;
+  const cmyk = `cmyk(${Math.round(cyan * 100)}%, ${Math.round(magenta * 100)}%, ${Math.round(yellow * 100)}%, ${Math.round(black * 100)}%)`;
   preview.innerHTML = `
     <div style="width:100%; text-align:left; font-size:13px;">
       <h5 style="font-weight:700; margin-bottom:8px;">Translated Formats</h5>
@@ -8130,6 +8516,7 @@ function generateColorConvert() {
           <p><strong>HEX:</strong> <span style="font-family:var(--font-mono); font-size:11px;">${hex}</span></p>
           <p><strong>RGB:</strong> <span style="font-family:var(--font-mono); font-size:11px;">${rgb}</span></p>
           <p><strong>HSL:</strong> <span style="font-family:var(--font-mono); font-size:11px;">${hsl}</span></p>
+          <p><strong>CMYK:</strong> <span style="font-family:var(--font-mono); font-size:11px;">${cmyk}</span></p>
         </div>
       </div>
     </div>
@@ -9088,6 +9475,8 @@ function generateScientificCalc() {
 }
 
 function generatePercentageCalc() {
+  const hasInput = ['opt-pct-val1', 'opt-pct-val2', 'opt-pct-a', 'opt-pct-b', 'opt-pct-from', 'opt-pct-to']
+    .some(id => document.getElementById(id)?.value !== '');
   const val1 = parseFloat(document.getElementById('opt-pct-val1').value) || 0;
   const val2 = parseFloat(document.getElementById('opt-pct-val2').value) || 0;
   const a = parseFloat(document.getElementById('opt-pct-a').value) || 0;
@@ -9097,6 +9486,10 @@ function generatePercentageCalc() {
   
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
+  if (!hasInput) {
+    preview.innerHTML = '<div class="calculator-empty-state">Enter values for any percentage calculation, then select Calculate.</div>';
+    return;
+  }
   
   const res1 = (val1 / 100) * val2;
   const res2 = (a / b) * 100;
@@ -9769,12 +10162,17 @@ function setupUnitConverterUnits() {
 }
 
 function generateUnitConvert() {
+  const rawValue = document.getElementById('opt-unit-val').value;
   const cat = document.getElementById('opt-unit-cat').value;
-  const val = parseFloat(document.getElementById('opt-unit-val').value) || 0;
+  const val = parseFloat(rawValue) || 0;
   const from = document.getElementById('opt-unit-from').value;
   const to = document.getElementById('opt-unit-to').value;
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
+  if (rawValue === '') {
+    preview.innerHTML = '<div class="calculator-empty-state">Enter a measurement value to convert.</div>';
+    return;
+  }
   
   let result = 0;
   
@@ -9810,15 +10208,20 @@ function generateUnitConvert() {
 }
 
 function generateCurrencyConvert() {
-  const val = parseFloat(document.getElementById('opt-curr-val').value) || 0;
+  const val = parseFloat(document.getElementById('opt-curr-val').value);
   const from = document.getElementById('opt-curr-from').value;
   const to = document.getElementById('opt-curr-to').value;
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
   const rate = parseFloat(document.getElementById('opt-curr-rate').value);
+  const validAmount = Number.isFinite(val) && val >= 0;
   const validRate = Number.isFinite(rate) && rate > 0;
-  const result = validRate ? val * rate : 0;
+  if (!validAmount || !validRate) {
+    preview.innerHTML = '<div class="calculator-empty-state">Enter an amount and a current exchange rate greater than zero.</div>';
+    return;
+  }
+  const result = val * rate;
   
   preview.innerHTML = `
     <div style="width:100%; text-align:center; display:block; font-size:14px; padding:20px 0;">
@@ -9830,6 +10233,8 @@ function generateCurrencyConvert() {
 }
 
 function generateTimeCalc() {
+  const hasInput = ['opt-time-h1', 'opt-time-m1', 'opt-time-s1', 'opt-time-h2', 'opt-time-m2', 'opt-time-s2']
+    .some(id => document.getElementById(id)?.value !== '');
   const h1 = parseInt(document.getElementById('opt-time-h1').value) || 0;
   const m1 = parseInt(document.getElementById('opt-time-m1').value) || 0;
   const s1 = parseInt(document.getElementById('opt-time-s1').value) || 0;
@@ -9842,6 +10247,10 @@ function generateTimeCalc() {
   
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
+  if (!hasInput) {
+    preview.innerHTML = '<div class="calculator-empty-state">Enter a start time and a duration to add or subtract.</div>';
+    return;
+  }
   
   const time1Sec = (h1 * 3600) + (m1 * 60) + s1;
   const time2Sec = (h2 * 3600) + (m2 * 60) + s2;
