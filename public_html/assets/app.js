@@ -1631,8 +1631,8 @@ function renderHome(container) {
           ${[['all','All tools'],['pdf','PDF'],['image','Image'],['convert','Convert'],['zip','ZIP'],['utility','Developer'],['calculator','Calculators']].map(([id,label], index) => `<button class="filter-tab ${index === 0 ? 'active' : ''}" data-category="${id}" onclick="filterTools('${id}', this)">${label}</button>`).join('')}
         </div>
         <div class="search-wrapper">
-          <i data-lucide="search" class="search-icon"></i>
-          <input type="search" id="tool-search" class="search-input" placeholder="Filter ${toolsList.length} tools" oninput="searchTools(this.value)" onkeydown="if(event.key==='Enter') recordRecentSearch(this.value)">
+          <i data-lucide="search" class="search-icon" aria-hidden="true"></i>
+          <input type="search" id="tool-search" class="search-input" aria-label="Filter ${toolsList.length} tools" placeholder="Filter ${toolsList.length} tools" oninput="searchTools(this.value)" onkeydown="if(event.key==='Enter') recordRecentSearch(this.value)">
         </div>
       </div>
       <div class="tools-grid" id="tools-grid-container"></div>
@@ -1905,6 +1905,18 @@ function getToolPanelMeta(toolId, category, needsFiles) {
   }
   if (needsFiles) return { title: 'Output settings', subtitle: 'Controls for this file workflow' };
   return { title: 'Tool settings', subtitle: 'Controls specific to this utility' };
+}
+
+function getDirectResultDownloadLabel(toolId) {
+  const labels = {
+    'compress-image': 'Download Compressed Image',
+    'resize-image': 'Download Resized Image',
+    'webp-to-jpg': 'Download Converted Image',
+    'svg-to-png': 'Download Converted Image',
+    'png-to-svg': 'Download Converted Image',
+    'exif-viewer': 'Download Clean Image'
+  };
+  return labels[toolId] || 'Download Result';
 }
 
 function renderToolPage(container, toolId) {
@@ -3646,6 +3658,9 @@ function renderToolPage(container, toolId) {
               <div class="complete-icon"><i data-lucide="check" style="width:36px; height:36px; stroke-width:3;"></i></div>
               <h3 class="complete-title">${t('complete')}</h3>
               <p class="upload-subtitle" style="margin-bottom:20px;">Your processed output is ready. Review the real result and download it when ready.</p>
+              <div class="premium-mobile-result-action">
+                <button class="btn btn-primary btn-lg" id="btn-mobile-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
+              </div>
               <div id="premium-result-preview" class="premium-result-preview" aria-live="polite"></div>
               
               <!-- Image compression comparisons if applicable -->
@@ -3653,7 +3668,7 @@ function renderToolPage(container, toolId) {
               
               <div id="premium-result-stats" class="premium-result-stats" aria-label="Output statistics"></div>
               <div class="premium-result-actions">
-                <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> ${t('download')}</button>
+                <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
                 <button class="btn btn-secondary btn-lg" id="btn-copy-result-link" onclick="copyPremiumResultLink()" disabled><i data-lucide="link"></i> Copy local link</button>
                 <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> Start Over</button>
               </div>
@@ -4121,6 +4136,10 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
             <span id="crop-editor-status" role="status" aria-live="polite">Select an image to begin.</span>
             <span class="crop-shortcuts">Wheel/pinch to zoom · Space + drag to pan · Arrow keys to nudge</span>
           </div>
+          <div class="crop-mobile-primary-actions" aria-label="Crop actions">
+            <button id="crop-mobile-apply-button" type="button" class="btn btn-primary btn-lg" onclick="createCropImageResult()" disabled><i data-lucide="crop"></i> Apply Crop</button>
+            <span>Advanced format and quality controls are available in Settings.</span>
+          </div>
         </div>
 
         <aside class="crop-options-panel" aria-label="Crop options">
@@ -4206,6 +4225,9 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
           <div><span class="tool-category-label">Export ready</span><h2 id="crop-result-title">Your cropped image is ready</h2></div>
           <span class="crop-result-check"><i data-lucide="check"></i></span>
         </div>
+        <div class="crop-mobile-result-action">
+          <button id="crop-mobile-download-button" type="button" class="btn btn-primary btn-lg" onclick="downloadCropResult()"><i data-lucide="download"></i> Download Cropped Image</button>
+        </div>
         <div class="crop-result-compare">
           <figure><div class="crop-result-image-wrap"><img id="crop-before-image" alt="Original image before cropping"></div><figcaption>Before</figcaption></figure>
           <figure><div class="crop-result-image-wrap checkerboard"><img id="crop-after-image" alt="Cropped image result"></div><figcaption>After</figcaption></figure>
@@ -4216,8 +4238,8 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
           <div><span>Format</span><strong id="crop-result-format">—</strong></div>
         </div>
         <div class="crop-result-actions">
-          <button id="crop-download-button" type="button" class="btn btn-primary btn-lg" onclick="downloadCropResult()"><i data-lucide="download"></i> Download cropped image</button>
-          <button type="button" class="btn btn-secondary btn-lg" onclick="returnToCropEditor()"><i data-lucide="arrow-left"></i> Return to editor</button>
+          <button id="crop-download-button" type="button" class="btn btn-primary btn-lg" onclick="downloadCropResult()"><i data-lucide="download"></i> Download Cropped Image</button>
+          <button type="button" class="btn btn-secondary btn-lg" onclick="returnToCropEditor()"><i data-lucide="arrow-left"></i> Edit Crop Again</button>
           <button type="button" class="btn btn-ghost btn-lg" onclick="cropAnotherImage()"><i data-lucide="image-plus"></i> Crop another</button>
           <button type="button" class="btn btn-ghost btn-lg" onclick="resetCropImageTool()"><i data-lucide="refresh-cw"></i> Reset</button>
         </div>
@@ -4399,8 +4421,10 @@ function enableCropControls(enabled) {
     const element = document.getElementById(id);
     if (element) element.disabled = !enabled;
   });
-  const applyButton = document.getElementById('crop-apply-button');
-  if (applyButton) applyButton.disabled = !enabled;
+  ['crop-apply-button', 'crop-mobile-apply-button'].forEach(id => {
+    const applyButton = document.getElementById(id);
+    if (applyButton) applyButton.disabled = !enabled;
+  });
 }
 
 function syncCropEditorData() {
@@ -4758,6 +4782,7 @@ function getCropOutputSettings() {
 async function createCropImageResult() {
   const cropper = cropEditorState.cropper;
   const button = document.getElementById('crop-apply-button');
+  const mobileButton = document.getElementById('crop-mobile-apply-button');
   if (!cropper || !cropEditorState.file || button?.disabled) return;
   const data = cropper.getData(true);
   const width = Math.round(data.width);
@@ -4768,8 +4793,13 @@ async function createCropImageResult() {
   }
   const settings = getCropOutputSettings();
   const originalText = button.innerHTML;
+  const mobileOriginalText = mobileButton?.innerHTML;
   button.disabled = true;
   button.innerHTML = '<span class="spinner spinner-inline"></span> Cropping image…';
+  if (mobileButton) {
+    mobileButton.disabled = true;
+    mobileButton.innerHTML = '<span class="spinner spinner-inline"></span> Processing crop…';
+  }
   document.getElementById('crop-editor-status').textContent = 'Rendering the cropped image…';
 
   try {
@@ -4803,7 +4833,11 @@ async function createCropImageResult() {
     document.getElementById('crop-result-dimensions').textContent = outputWidth + ' × ' + outputHeight + ' px';
     document.getElementById('crop-result-size').textContent = formatCropBytes(blob.size);
     document.getElementById('crop-result-format').textContent = settings.extension.toUpperCase();
-    document.getElementById('crop-download-button').title = 'Download ' + cropEditorState.resultFilename;
+    ['crop-download-button', 'crop-mobile-download-button'].forEach(id => {
+      const downloadButton = document.getElementById(id);
+      if (downloadButton) downloadButton.title = 'Download ' + cropEditorState.resultFilename;
+    });
+    window.GxaPhaseOneStudios?.closeDrawer?.();
     document.getElementById('crop-result-panel').classList.remove('hidden');
     document.getElementById('crop-editor-workspace').classList.add('hidden');
     document.getElementById('crop-editor-status').textContent = 'Crop complete. Your source image was not changed.';
@@ -4815,6 +4849,10 @@ async function createCropImageResult() {
   } finally {
     button.disabled = false;
     button.innerHTML = originalText;
+    if (mobileButton) {
+      mobileButton.disabled = false;
+      mobileButton.innerHTML = mobileOriginalText;
+    }
     lucide.createIcons();
   }
 }
@@ -5942,6 +5980,7 @@ async function runFileProcessingPipeline() {
   const progressBar = document.getElementById('global-progress-bar');
   const stageLabel = document.getElementById('processing-stage-label');
   const downloadBtn = document.getElementById('btn-download-result');
+  const mobileDownloadBtn = document.getElementById('btn-mobile-download-result');
   const cancelBtn = document.getElementById('btn-cancel-processing');
   premiumEditorState.startedAt = performance.now();
   premiumEditorState.batchCancelled = false;
@@ -5951,6 +5990,10 @@ async function runFileProcessingPipeline() {
   processingMount.classList.remove('hidden');
   downloadBtn.disabled = true;
   downloadBtn.onclick = null;
+  if (mobileDownloadBtn) {
+    mobileDownloadBtn.disabled = true;
+    mobileDownloadBtn.onclick = null;
+  }
   if (cancelBtn) {
     const supportsBatchCancel = appState.activeFiles.length > 1 && ['compress-image', 'resize-image', 'webp-to-jpg'].includes(toolId);
     cancelBtn.classList.toggle('hidden', !supportsBatchCancel);
@@ -5981,6 +6024,8 @@ async function runFileProcessingPipeline() {
     completeMount.classList.remove('hidden');
     cancelBtn?.classList.add('hidden');
     downloadBtn.disabled = false;
+    if (mobileDownloadBtn) mobileDownloadBtn.disabled = false;
+    window.requestAnimationFrame(() => completeMount.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   } catch (err) {
     processingMount.classList.add('hidden');
     queueMount.classList.remove('hidden');
@@ -5999,7 +6044,10 @@ function registerToolResult(downloadButton, blob, filename) {
   premiumEditorState.resultFilename = filename;
   premiumEditorState.resultUrl = URL.createObjectURL(blob);
   downloadButton.classList.remove('hidden');
-  downloadButton.onclick = () => saveBlob(blob, filename);
+  const download = () => saveBlob(blob, filename);
+  downloadButton.onclick = download;
+  const mobileDownloadButton = document.getElementById('btn-mobile-download-result');
+  if (mobileDownloadButton) mobileDownloadButton.onclick = download;
   renderPremiumToolResult(blob, filename, premiumEditorState.resultUrl);
 }
 
@@ -6008,7 +6056,7 @@ function registerExternalToolResult(downloadButton, url, filename, size) {
   premiumEditorState.resultFilename = filename;
   premiumEditorState.resultUrl = url;
   downloadButton.classList.remove('hidden');
-  downloadButton.onclick = () => {
+  const download = () => {
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = filename;
@@ -6016,6 +6064,9 @@ function registerExternalToolResult(downloadButton, url, filename, size) {
     anchor.click();
     anchor.remove();
   };
+  downloadButton.onclick = download;
+  const mobileDownloadButton = document.getElementById('btn-mobile-download-result');
+  if (mobileDownloadButton) mobileDownloadButton.onclick = download;
   renderPremiumToolResult(null, filename, url, Number(size) || 0);
 }
 

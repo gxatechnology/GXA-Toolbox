@@ -36,6 +36,22 @@ Desktop shell/viewports verified: **91/91 routes covered by the shared responsiv
 | Color Converter accepted invalid strings and returned unrelated default values | Added real HEX/RGB/HSL parsing, RGB/HSL/CMYK conversion, normalization, and an explicit invalid-value state | 390x844 | Color Converter | Pass |
 | PDF mode labels and organize thumbnails were compressed | Touch-scrollable mode rail and two-column organize grid with reorder fallback | 390x844 | PDF Studio | Pass |
 | Background Remover retained desktop sidebars | Canvas-first mobile layout, bottom toolbar/properties sheet, safe areas, and larger crop hit targets | 390x844 | Background Remover | Pass |
+| Crop Image required Settings to apply a crop, then left the Settings backdrop and body scroll lock active over the result | Added an in-workspace Apply Crop action, an immediate sticky/in-flow Download Cropped Image action, and shared drawer cleanup on successful processing | 320x568, 360x800, 390x844, 430x932, 844x390 | Crop Image | Pass |
+| Shared image outputs placed the download control after long before/after previews | Added a top-of-result mobile action wired to the same validated Blob/download handler; image routes use explicit Compressed, Resized, Converted, or Clean Image labels where applicable | 320x568–844x390 | Compress, Resize, WebP/JPG, SVG/PNG, EXIF clean export and shared file-result routes | Pass |
+
+## Direct download production audit
+
+All **91/91 registered tools** are represented in the tool matrix below. Of those, **51** currently expose an implemented downloadable-output workflow (50 fully exercised and Password Generator retained as a browser-runtime limitation), **27** produce an on-screen/calculated result where a file download is not the primary product, and **13** remain truthfully dependency-blocked. Before this focused pass, **1 implemented downloadable tool**—Crop Image—failed the direct mobile output UX because its workflow was trapped behind the Settings drawer. After the fix, **0 implemented downloadable tools are missing their primary direct output control**.
+
+Crop Image output files were revalidated as real device downloads rather than cosmetic controls:
+
+| Input | Source | Cropped output | Format/signature | Downloaded size | Result |
+|---|---:|---:|---|---:|---|
+| PNG portrait fixture | 800 × 1200 | 656 × 984 | PNG | 18,692 bytes | Opens successfully; dimensions differ from source |
+| GXA logo JPEG | 877 × 877 | 719 × 719 | JPEG | 57,984 bytes | Opens successfully; dimensions differ from source |
+| Campus WebP | 4200 × 1134 | 3444 × 929 | RIFF/WEBP | 1,208,682 bytes | Browser preview opens; file has valid WebP signature and cropped dimensions |
+
+The exact no-Settings workflow was exercised at 390×844: upload → adjust/default crop selection → Apply Crop → cropped preview → Download Cropped Image. The result remained scrollable; Settings open/close restored body scrolling; Edit Crop Again → changed width → Apply Crop produced a second 500×984 result without reloading. The drawer backdrop returned to `pointer-events: none`, and route navigation removed the drawer owner/class.
 
 ## Viewport and orientation checks
 
@@ -49,7 +65,7 @@ The shared home/header/navigation shell was previously measured at 320x568, 3608
 | 2 | Organize PDF | `#tool-organize-pdf` | PDF | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Multi-page PDF uploaded; rotation changed; organized PDF produced/downloaded; corrupt PDF rejected. |
 | 3 | Compress Image | `#tool-compress-image` | Image | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | PNG uploaded, quality changed, compressed image previewed/downloaded, corrupt image rejected. |
 | 4 | Resize Image | `#tool-resize-image` | Image | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Image dimensions changed; resized output previewed/downloaded; invalid image rejected. |
-| 5 | Crop Image | `#tool-crop-image` | Image | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Mobile crop canvas, move/resize controls, settings, crop output, and download exercised. |
+| 5 | Crop Image | `#tool-crop-image` | Image | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Direct in-workspace Apply Crop and immediate Download Cropped Image controls exercised without Settings; repeat edit/crop/download, scroll-lock cleanup, PNG/JPEG/WebP files, portrait/landscape, tablet, and desktop were verified. |
 | 6 | Background Remover | `#tool-background-remover` | Image | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Real image inference opened Advanced Cutout Studio; mobile canvas/tools/properties/export exercised. |
 | 7 | Password Generator | `#tool-password-generator` | Utility | YES | YES | LIMIT | LIMIT | YES - emulated | LIMIT | LIMIT | VERIFIED WITH LIMITATION | In-app browser cryptographic RNG stalled; physical-browser rerun required. | Route and controls render responsively, but the in-app browser stalled while executing its cryptographic RNG; requires physical-browser confirmation. |
 | 8 | QR & Barcode | `#tool-barcode-generator` | Utility | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | QR generated at mobile size, settings changed, preview and SVG download exercised. |
@@ -181,4 +197,3 @@ Every blocked route was opened at 390x844. All 13 displayed Temporarily unavaila
 - The 13 dependency-blocked tools remain intentionally unavailable until their named engines are deliberately implemented and bundled.
 
 No tool is labeled `UNTESTED` or `FAILED`; limitations and dependency blockers are accounted for explicitly above.
-

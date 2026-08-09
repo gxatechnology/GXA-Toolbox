@@ -58,6 +58,7 @@
   ]);
 
   let cleanupHandlers = [];
+  let closeActiveMobileDrawer = null;
 
   function studioForRoute(toolId) {
     if (imageRouteIds.has(toolId)) return { kind: 'image', title: 'Image Studio', modes: IMAGE_MODES };
@@ -66,6 +67,8 @@
   }
 
   function dispose() {
+    closeActiveMobileDrawer?.();
+    closeActiveMobileDrawer = null;
     window.GxaImageAnnotations?.dispose();
     cleanupHandlers.forEach((cleanup) => cleanup());
     cleanupHandlers = [];
@@ -139,6 +142,7 @@
       document.body.classList.remove('studio-drawer-open');
       toggle.setAttribute('aria-expanded', 'false');
     };
+    closeActiveMobileDrawer = close;
     const open = () => {
       container.classList.add('studio-settings-open');
       document.body.classList.add('studio-drawer-open');
@@ -157,7 +161,8 @@
     document.addEventListener('keydown', onKeydown);
     cleanupHandlers.push(() => {
       document.removeEventListener('keydown', onKeydown);
-      document.body.classList.remove('studio-drawer-open');
+      close();
+      if (closeActiveMobileDrawer === close) closeActiveMobileDrawer = null;
     });
   }
 
@@ -348,6 +353,9 @@
   window.GxaPhaseOneStudios = Object.freeze({
     decorate,
     dispose,
+    closeDrawer() {
+      closeActiveMobileDrawer?.();
+    },
     studioForRoute,
     imageRoutes: Object.freeze(Array.from(imageRouteIds)),
     pdfRoutes: Object.freeze(Array.from(pdfRouteIds))
