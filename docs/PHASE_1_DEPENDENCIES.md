@@ -1,6 +1,14 @@
 # Phase 1 Dependency Integration Specification
 
+> Current status: the legacy nine-route summary below has been superseded by the 13-route audit in the next section.
+
 The nine routes below intentionally generate no output in the current deployment. Their public pages disable uploads and show only: **“This conversion service is temporarily unavailable.”** (or the equally concise secure-PDF/OCR variant). Technical diagnostics belong in server logs and administration tooling, not the public route.
+
+## Current local-processing audit (2026-08-09)
+
+There are **13** registered routes that require an additional local processing engine and intentionally generate no output in this deployment. The public page now names the missing processing capability, disables uploads, and explicitly states that no file is uploaded or processed. It does not use a vague unavailable banner and does not pretend that page rasterization, plain-text extraction, or an incomplete browser codec is an equivalent result.
+
+The `watermark-pdf` route is not in this count: it uses the already bundled `pdf-lib` browser path for text, image/logo, and local symbol watermarks. No new runtime dependency was added for that upgrade.
 
 ## Shared isolated document-service contract
 
@@ -35,6 +43,10 @@ The PHP application sends an authenticated server-to-server request and never ex
 | `ppt-to-pdf` | LibreOffice headless | Presentation layout, fonts, media, and slide rendering require a presentation engine | `apt-get install libreoffice-impress fonts-liberation` | `{ "output": "pdf" }` | Polished unavailable state and contract included; worker deferred |
 | `pdf-to-excel` | pdfplumber + openpyxl; OCR service for scanned tables | Table boundaries and reading order require recognition plus workbook generation | `python -m pip install pdfplumber openpyxl` | `{ "pages": "all|range", "table_strategy": "lines|text" }` | Polished unavailable state and contract included; worker deferred |
 | `pdf-to-ppt` | Poppler renderer + python-pptx | Faithful editable layout reconstruction is not available in PDF.js; reliable baseline output is page-per-slide imagery | `apt-get install poppler-utils` and `python -m pip install python-pptx Pillow` | `{ "pages": "all|range", "mode": "page-image" }`; public UI must disclose non-editable page imagery | Polished unavailable state and contract included; worker deferred |
+| `epub-to-pdf` | EPUB renderer such as Calibre or a maintained headless web renderer | Browser HTML parsing does not reproduce EPUB navigation, embedded fonts, CSS pagination, and fixed-layout content | Candidate: isolated Calibre/renderer worker | `{ "output": "pdf" }` | Engine intentionally not bundled; no file is accepted |
+| `pdf-to-epub` | PDF reflow and EPUB package generator | PDF page geometry does not safely reveal semantic reading order or reflow structure | Candidate: extraction/reflow worker plus EPUB validator | `{ "pages": "all|range" }` | Engine intentionally not bundled; no file is accepted |
+| `gif-maker` | Animated GIF codec | The current browser stack has no deterministic animated GIF encoder | Candidate: isolated WASM/native GIF encoder with frame and memory limits | `{ "fps": 1..30, "loop": true }` | Codec intentionally not bundled; no file is accepted |
+| `gif-to-png` | Animated GIF frame decoder | Browser image decoding does not expose a reliable full animation frame sequence | Candidate: isolated GIF decoder with ZIP output | `{ "frames": "all|range" }` | Decoder intentionally not bundled; no file is accepted |
 
 Package licensing must be reviewed for the chosen hosting/distribution model before deployment. The listed packages are integration candidates, not bundled binaries in this repository.
 

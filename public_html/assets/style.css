@@ -100,6 +100,8 @@
   gap: 16px;
   align-items: start;
   margin-top: 18px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .phase-one-studio-frame > .tool-workspace,
@@ -125,6 +127,9 @@
   border-radius: 18px;
   box-shadow: var(--shadow-sm);
   scrollbar-width: thin;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .studio-rail-heading {
@@ -4239,7 +4244,7 @@ body.dark-mode .favorite-button:hover, body.dark-mode .favorite-button.active { 
   .main-body { padding-top: 66px; }
   .mobile-nav-toggle { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-text-primary); background: var(--color-surface); cursor: pointer; }
   .mobile-nav-toggle svg { width: 19px; }
-  .header-nav .nav-menu { position: fixed; top: 66px; right: 0; bottom: 0; width: min(360px, calc(100vw - 34px)); padding: 18px; display: flex !important; flex-direction: column; align-items: stretch; gap: 3px; overflow-y: auto; background: var(--color-surface); border-left: 1px solid var(--color-border); transform: translateX(102%); transition: transform var(--transition-base); box-shadow: -22px 0 65px -35px rgba(2,6,23,.52); }
+  .header-nav .nav-menu { position: fixed; top: 66px; right: 0; bottom: 0; width: min(360px, calc(100vw - 34px)); padding: 18px; display: flex !important; flex-direction: column; align-items: stretch; gap: 3px; overflow-y: auto; background: var(--color-surface); border-left: 1px solid var(--color-border); transform: translateX(100%); transition: transform var(--transition-base); box-shadow: -22px 0 65px -35px rgba(2,6,23,.52); }
   .mobile-menu-open .header-nav .nav-menu { transform: translateX(0); }
   .header-nav .nav-menu .nav-item { display: block; width: 100%; }
   .header-nav .nav-link { width: 100%; min-height: 46px; padding: 0 12px; display: flex; align-items: center; justify-content: flex-start; border-radius: 9px; }
@@ -6779,7 +6784,7 @@ body.studio-drawer-open {
     background: var(--color-surface);
     border-left: 1px solid var(--color-border);
     box-shadow: -22px 0 65px -35px rgba(2,6,23,.52);
-    transform: translateX(102%);
+    transform: translateX(100%);
     transition: transform var(--transition-base), visibility var(--transition-base);
   }
   .mobile-menu-open .header-nav .nav-menu {
@@ -6962,7 +6967,7 @@ body.studio-drawer-open {
   .command-trigger,
   .btn-icon-nav,
   .mobile-nav-toggle { width: 38px; min-width: 38px; height: 38px; }
-  .header-nav .nav-menu { width: 100vw; padding-inline: 14px; border-left: 0; }
+  .header-nav .nav-menu { width: 100%; padding-inline: 14px; border-left: 0; }
   .header-nav .mega-menu { grid-template-columns: 1fr; }
 
   .modal-overlay {
@@ -7084,4 +7089,75 @@ body.studio-drawer-open {
   .contact-modal-card { max-height: calc(100dvh - 12px); }
   .phase-one-studio-page .tool-sidebar-settings,
   .phase-one-studio-page .crop-options-panel { max-height: 88dvh !important; }
+}
+
+/* PDF Watermark Studio: controls remain compact in the desktop settings panel and
+   become touch-sized, vertically readable controls in the mobile settings sheet. */
+.watermark-studio { display: grid; gap: 16px; min-width: 0; }
+.watermark-studio fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.watermark-studio legend { margin-bottom: 8px; color: var(--color-text-primary); font-size: 13px; font-weight: 700; }
+.watermark-type-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.watermark-type-button,
+.watermark-position-grid button,
+.watermark-presets button { border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; }
+.watermark-type-button { min-width: 0; min-height: 54px; display: grid; place-items: center; gap: 3px; padding: 7px 5px; font: inherit; font-size: 11px; line-height: 1.1; }
+.watermark-type-button svg { width: 18px; height: 18px; }
+.watermark-type-button.active,
+.watermark-position-grid button.active { color: #fff; background: var(--color-primary); border-color: var(--color-primary); box-shadow: 0 3px 10px rgba(37, 99, 235, .22); }
+.watermark-source-panel { display: grid; gap: 10px; }
+.watermark-text-input { resize: vertical; min-height: 72px; }
+.watermark-presets { display: flex; flex-wrap: wrap; gap: 7px; }
+.watermark-presets button { min-height: 32px; padding: 5px 8px; font-size: 11px; }
+.watermark-presets button:hover,
+.watermark-presets button:focus-visible { border-color: var(--color-primary); color: var(--color-primary); }
+.watermark-control-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.watermark-control-grid .form-label { display: grid; gap: 6px; min-width: 0; margin: 0; }
+.watermark-color-control input[type="color"] { width: 100%; height: 44px; padding: 3px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface); }
+.watermark-bold-control,
+.watermark-lock-control,
+.watermark-tile-control { min-height: 44px; align-self: end; }
+.watermark-range-row { display: grid; gap: 7px; min-width: 0; margin: 0; color: var(--color-text-primary); font-size: 12px; font-weight: 600; }
+.watermark-range-row > span { display: flex; justify-content: space-between; gap: 8px; }
+.watermark-range-row output,
+.watermark-scale-control output { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-weight: 600; }
+.watermark-range-row input[type="range"],
+.watermark-scale-control input[type="range"] { width: 100%; accent-color: var(--color-primary); }
+.watermark-image-status { display: grid; gap: 6px; padding: 9px 10px; color: var(--color-text-secondary); border: 1px dashed var(--color-border); border-radius: 9px; font-size: 12px; line-height: 1.4; }
+.watermark-image-status.is-error { color: var(--color-danger, #dc2626); border-color: currentColor; }
+.watermark-image-dimensions { align-items: end; }
+.watermark-scale-control { display: grid; grid-column: 1 / -1; gap: 6px; color: var(--color-text-primary); font-size: 12px; font-weight: 600; }
+.watermark-scale-control output { justify-self: end; margin-top: -23px; }
+.watermark-placement { display: grid; gap: 8px; }
+.watermark-position-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.watermark-position-grid button { min-height: 38px; font-size: 18px; line-height: 1; }
+#watermark-position-label { color: var(--color-text-secondary); font-size: 12px; }
+.watermark-offset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.watermark-pages { display: grid; gap: 9px; }
+.watermark-pages .form-label { display: grid; gap: 6px; margin: 0; }
+.watermark-inline-help { margin: 0; color: var(--color-text-secondary); font-size: 12px; line-height: 1.45; }
+.pdf-watermark-preview { position: absolute; z-index: 4; overflow: hidden; pointer-events: none; }
+.pdf-watermark-preview-mark { position: absolute; display: block; max-width: 85%; max-height: 85%; object-fit: contain; user-select: none; filter: drop-shadow(0 1px 1px rgba(15, 23, 42, .12)); }
+.pdf-watermark-preview[data-empty="true"]::after { content: "Choose an image or logo to preview it"; position: absolute; inset: auto 12px 12px; padding: 6px 8px; border-radius: 7px; background: rgba(15, 23, 42, .76); color: #fff; font-size: 11px; text-align: center; }
+.premium-editor-workspace > .studio-announcement.sr-only { width: 1px; max-width: 1px; height: 1px; min-height: 1px; margin: -1px; }
+
+@media (max-width: 767px) {
+  .watermark-studio { gap: 18px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .watermark-type-button { min-height: 52px; font-size: 12px; }
+  .watermark-type-button span { overflow-wrap: anywhere; }
+  .watermark-control-grid,
+  .watermark-offset-grid { grid-template-columns: 1fr; }
+  .watermark-image-dimensions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .watermark-image-dimensions .watermark-lock-control { grid-column: 1 / -1; }
+  .watermark-position-grid button { min-height: 44px; }
+  .watermark-presets button { min-height: 36px; padding-inline: 10px; }
+  .watermark-range-row input[type="range"],
+  .watermark-scale-control input[type="range"] { min-height: 32px; }
+  .pdf-watermark-preview-mark { max-width: 90%; }
+}
+
+@media (max-width: 359px) {
+  .watermark-type-options { gap: 5px; }
+  .watermark-type-button { min-height: 48px; padding-inline: 3px; font-size: 10px; }
+  .watermark-image-dimensions { grid-template-columns: 1fr; }
+  .watermark-image-dimensions .watermark-lock-control { grid-column: auto; }
 }

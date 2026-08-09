@@ -18,7 +18,7 @@ Page thumbnails are lazy-rendered and capped at 60 visible thumbnail canvases fo
 | `rotate-pdf` | Rotate | Selected/all pages, 90/180/270 degrees | Functional |
 | `crop-pdf` | Manual crop | Draggable eight-handle crop overlay mapped to PDF points and `setCropBox` | Functional; shared rectangle applies to selected/all pages |
 | `compress-pdf` | Compress | Honest pdf-lib object-stream reserialization | Partial: no image downsampling; no-savings output is rejected |
-| `watermark-pdf` | Watermark | Text watermark on selected/all pages | Partial: image watermark and free positioning are not complete |
+| `watermark-pdf` | Add Watermark | Text, image/logo, and built-in icon/symbol watermarks; position, opacity, rotation, page targets, and optional tiling | Local `pdf-lib` output; source PDF is unchanged |
 | `pagenumber-pdf` | Page numbers | Position, start, prefix, suffix, size, skip first, selection | Functional |
 | `header-footer-pdf` | Header/footer | Tokens, alignment, size, selection, valid PDF | Functional; tokens include page, total, date, filename |
 | `sign-pdf` | Signature appearance | Typed, drawn, or uploaded raster signature flattened into a selected page | Partial: not certificate signing; fixed placement; annotation shapes are not complete |

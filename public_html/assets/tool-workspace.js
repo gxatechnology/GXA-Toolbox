@@ -7,19 +7,19 @@
   let pasteHandler = null;
 
   const blockers = Object.freeze({
-    'protect-pdf': 'Secure PDF protection is temporarily unavailable. No file is uploaded or processed.',
-    'unlock-pdf': 'Password-authorized PDF unlocking is temporarily unavailable. No file is uploaded or processed.',
-    'word-to-pdf': 'This conversion service is temporarily unavailable.',
-    'excel-to-pdf': 'This conversion service is temporarily unavailable.',
-    'ppt-to-pdf': 'This conversion service is temporarily unavailable.',
-    'pdf-to-ppt': 'This conversion service is temporarily unavailable.',
-    'pdf-to-excel': 'This conversion service is temporarily unavailable.',
-    'epub-to-pdf': 'EPUB layout conversion is not available in this deployment.',
-    'pdf-to-epub': 'Standards-compliant EPUB generation is not available in this deployment.',
-    'gif-maker': 'Animated GIF encoding is not available in this deployment.',
-    'gif-to-png': 'Complete animated-GIF frame extraction is not supported by the current browser processor.',
-    'extract-images-pdf': 'Embedded-image extraction is temporarily unavailable. No file is uploaded or processed.',
-    'ocr-pdf': 'OCR processing is temporarily unavailable. No file is uploaded or processed.'
+    'protect-pdf': 'Standard password-protected PDF output requires the qpdf processing engine, which is not included in this deployment. No file is uploaded or processed.',
+    'unlock-pdf': 'Password-authorized PDF unlocking requires the qpdf processing engine, which is not included in this deployment. No file is uploaded or processed.',
+    'word-to-pdf': 'Faithful Word-to-PDF layout conversion requires a document-layout engine such as LibreOffice, which is not included in this deployment. No file is uploaded or processed.',
+    'excel-to-pdf': 'Faithful spreadsheet-to-PDF layout conversion requires a workbook renderer such as LibreOffice, which is not included in this deployment. No file is uploaded or processed.',
+    'ppt-to-pdf': 'Faithful presentation-to-PDF layout conversion requires a presentation renderer such as LibreOffice, which is not included in this deployment. No file is uploaded or processed.',
+    'pdf-to-ppt': 'Editable presentation reconstruction requires a PDF renderer and PPTX generator, which are not included in this deployment. No file is uploaded or processed.',
+    'pdf-to-excel': 'Table extraction to a spreadsheet requires table-recognition and workbook-generation engines, which are not included in this deployment. No file is uploaded or processed.',
+    'epub-to-pdf': 'EPUB layout conversion requires an EPUB renderer with font and pagination support, which is not included in this deployment. No file is uploaded or processed.',
+    'pdf-to-epub': 'Standards-compliant EPUB generation requires a document-reflow engine, which is not included in this deployment. No file is uploaded or processed.',
+    'gif-maker': 'Animated GIF encoding requires a dedicated animation codec, which is not included in this deployment. No file is uploaded or processed.',
+    'gif-to-png': 'Complete animated-GIF frame extraction requires a GIF frame decoder, which is not included in this deployment. No file is uploaded or processed.',
+    'extract-images-pdf': 'Embedded-image extraction requires a PDF object-image extractor, which is not included in this deployment. Rendering pages to PNG would not be true image extraction, so no file is uploaded or processed.',
+    'ocr-pdf': 'OCR requires an OCR engine and language data, which are not included in this deployment. No file is uploaded or processed.'
   });
 
   const serverTools = new Set([]);
@@ -121,7 +121,7 @@
   }
 
   function getProcessingProfile(toolId) {
-    if (blockers[toolId]) return { kind: 'dependency', label: 'Temporarily unavailable', detail: blockers[toolId] };
+    if (blockers[toolId]) return { kind: 'dependency', label: 'Additional local processing engine required', detail: blockers[toolId] };
     if (toolId === 'background-remover') return { kind: 'local', label: 'Runs locally in your browser', detail: 'Background removal runs locally in your browser after the segmentation engine loads. Your image is not uploaded for automatic subject removal.' };
     if (serverTools.has(toolId)) return { kind: 'server', label: 'Secure server processing', detail: 'The selected file is uploaded to the GXA Toolbox server for processing.' };
     if (capabilityTools.has(toolId)) {
@@ -486,6 +486,11 @@
       canvas.height = Math.ceil(viewport.height);
       await page.render({ canvasContext: context, viewport }).promise;
       updateCropOverlayFromFields();
+      canvasWrap.dataset.currentPdfPage = String(currentPage);
+      canvasWrap.dataset.pdfPageCount = String(pdf.numPages);
+      window.dispatchEvent(new CustomEvent('gxa:pdf-preview-page', {
+        detail: { pageNumber: currentPage, pageCount: pdf.numPages, toolId }
+      }));
       controls.querySelector('#pdf-page-indicator').textContent = `Page ${currentPage} of ${pdf.numPages}`;
       const zoomOutput = controls.querySelector('[data-role="pdf-zoom"]');
       if (zoomOutput) {

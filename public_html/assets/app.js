@@ -73,6 +73,15 @@ const premiumEditorState = {
   batchCancelled: false,
   startedAt: 0
 };
+const watermarkEditorState = {
+  imageFile: null,
+  imageUrl: '',
+  imageAspectRatio: 1,
+  imageBaseWidth: 160,
+  previewObserver: null,
+  previewPageHandler: null,
+  previewFrame: 0
+};
 const premiumToolSessions = [];
 let pdfSignatureDrawingDataUrl = '';
 
@@ -343,7 +352,7 @@ const toolsList = [
 const extraTools = [
   { id: 'compress-pdf', name: 'Optimize PDF', category: 'pdf', desc: 'Losslessly reserialize PDF structure and report the actual size change; images are not downsampled.', icon: 'file-archive' },
   { id: 'rotate-pdf', name: 'Rotate PDF', category: 'pdf', desc: 'Rotate individual or all pages inside your PDF document.', icon: 'rotate-cw' },
-  { id: 'watermark-pdf', name: 'Add Text Watermark', category: 'pdf', desc: 'Stamp a configurable text watermark onto selected PDF pages.', icon: 'stamp' },
+  { id: 'watermark-pdf', name: 'Add Watermark', category: 'pdf', desc: 'Add text, logos, images, icons, symbols, or custom watermarks to selected PDF pages.', icon: 'stamp' },
   { id: 'pagenumber-pdf', name: 'Add Page Numbers', category: 'pdf', desc: 'Insert dynamic page numbering headers or footers.', icon: 'binary' },
   { id: 'pdf-metadata', name: 'PDF Metadata Editor', category: 'pdf', desc: 'Modify PDF details: Title, Author, Subject, Keywords.', icon: 'tags' },
   { id: 'excel-to-pdf', name: 'Excel to PDF', category: 'convert', desc: 'Convert spreadsheets and CSV data into tables in PDF.', icon: 'file-spreadsheet' },
@@ -1911,6 +1920,7 @@ function getDirectResultDownloadLabel(toolId) {
   const labels = {
     'compress-image': 'Download Compressed Image',
     'resize-image': 'Download Resized Image',
+    'watermark-pdf': 'Download Watermarked PDF',
     'webp-to-jpg': 'Download Converted Image',
     'svg-to-png': 'Download Converted Image',
     'png-to-svg': 'Download Converted Image',
@@ -2401,17 +2411,95 @@ function renderToolPage(container, toolId) {
     accepts = '.pdf';
     multiple = false;
     optionsHTML = `
-      <div class="form-group">
-        <label class="form-label">Watermark Text</label>
-        <input type="text" id="opt-wm-text" class="form-input-text" value="CONFIDENTIAL">
-      </div>
-      <div class="slider-container">
-        <div class="slider-header">
-          <span>Opacity</span>
-          <span id="slider-wm-opacity">30%</span>
+      <section class="watermark-studio" data-watermark-type="text" aria-label="Watermark controls">
+        <fieldset class="watermark-type-picker">
+          <legend>Watermark type</legend>
+          <div class="watermark-type-options" role="group" aria-label="Choose watermark type">
+            <button type="button" class="watermark-type-button active" data-wm-type="text" aria-pressed="true"><i data-lucide="type"></i><span>Text</span></button>
+            <button type="button" class="watermark-type-button" data-wm-type="image" aria-pressed="false"><i data-lucide="image"></i><span>Image / logo</span></button>
+            <button type="button" class="watermark-type-button" data-wm-type="symbol" aria-pressed="false"><i data-lucide="badge-check"></i><span>Icon / symbol</span></button>
+          </div>
+        </fieldset>
+
+        <div class="watermark-source-panel" data-wm-panel="text">
+          <label class="form-label" for="opt-wm-text">Watermark text</label>
+          <textarea id="opt-wm-text" class="form-input-text watermark-text-input" maxlength="160" rows="2">CONFIDENTIAL</textarea>
+          <div class="watermark-presets" role="group" aria-label="Text watermark presets">
+            <button type="button" data-wm-text="CONFIDENTIAL">Confidential</button>
+            <button type="button" data-wm-text="DRAFT">Draft</button>
+            <button type="button" data-wm-text="COPY">Copy</button>
+            <button type="button" data-wm-text="INTERNAL">Internal</button>
+            <button type="button" data-wm-text="GXA Toolbox">GXA Toolbox</button>
+          </div>
+          <div class="watermark-control-grid">
+            <label class="form-label" for="opt-wm-font">Font family
+              <select id="opt-wm-font" class="form-input-text"><option value="helvetica">Helvetica</option><option value="times">Times</option><option value="courier">Courier</option></select>
+            </label>
+            <label class="form-label" for="opt-wm-font-size">Size (pt)
+              <input id="opt-wm-font-size" type="number" class="form-input-text" min="8" max="160" value="40">
+            </label>
+            <label class="form-label watermark-color-control" for="opt-wm-color">Color
+              <input id="opt-wm-color" type="color" value="#334155">
+            </label>
+            <label class="checkbox-label watermark-bold-control"><input id="opt-wm-bold" type="checkbox"><span class="custom-checkbox"></span>Bold text</label>
+          </div>
+          <label class="watermark-range-row"><span>Letter spacing <output id="opt-wm-letter-spacing-output">0 pt</output></span><input id="opt-wm-letter-spacing" type="range" min="0" max="12" step="0.5" value="0"></label>
         </div>
-        <input type="range" class="custom-range-slider" min="10" max="100" value="30" oninput="setWmOpacity(this.value)">
-      </div>
+
+        <div class="watermark-source-panel hidden" data-wm-panel="image">
+          <label class="form-label" for="opt-wm-image">Choose image or logo</label>
+          <input id="opt-wm-image" class="form-input-text" type="file" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml">
+          <div id="watermark-image-status" class="watermark-image-status" aria-live="polite">PNG, JPG, WebP, or a sanitized SVG. Transparent PNG logos are preserved.</div>
+          <div class="watermark-control-grid watermark-image-dimensions">
+            <label class="form-label" for="opt-wm-image-width">Width (pt)<input id="opt-wm-image-width" type="number" class="form-input-text" min="12" max="1000" value="160"></label>
+            <label class="form-label" for="opt-wm-image-height">Height (pt)<input id="opt-wm-image-height" type="number" class="form-input-text" min="12" max="1000" value="160"></label>
+            <label class="checkbox-label watermark-lock-control"><input id="opt-wm-image-lock" type="checkbox" checked><span class="custom-checkbox"></span>Keep proportions</label>
+            <label class="watermark-scale-control">Scale <output id="opt-wm-image-scale-output">100%</output><input id="opt-wm-image-scale" type="range" min="10" max="200" value="100"></label>
+          </div>
+        </div>
+
+        <div class="watermark-source-panel hidden" data-wm-panel="symbol">
+          <label class="form-label" for="opt-wm-symbol">Icon or symbol</label>
+          <select id="opt-wm-symbol" class="form-input-text">
+            <option value="check">Check mark</option><option value="cross">Cross</option><option value="star">Star</option><option value="copyright" selected>Copyright</option>
+            <option value="registered">Registered</option><option value="trademark">Trademark</option><option value="warning">Warning</option><option value="lock">Lock</option>
+            <option value="approved">APPROVED stamp</option><option value="confidential">CONFIDENTIAL stamp</option>
+          </select>
+          <p class="watermark-inline-help">Built-in marks are created locally and embedded in the exported PDF.</p>
+        </div>
+
+        <fieldset class="watermark-placement">
+          <legend>Position</legend>
+          <div class="watermark-position-grid" role="group" aria-label="Watermark position">
+            <button type="button" data-wm-position="top-left" aria-label="Top left">↖</button><button type="button" data-wm-position="top-center" aria-label="Top center">↑</button><button type="button" data-wm-position="top-right" aria-label="Top right">↗</button>
+            <button type="button" data-wm-position="middle-left" aria-label="Middle left">←</button><button type="button" class="active" data-wm-position="center" aria-label="Center">•</button><button type="button" data-wm-position="middle-right" aria-label="Middle right">→</button>
+            <button type="button" data-wm-position="bottom-left" aria-label="Bottom left">↙</button><button type="button" data-wm-position="bottom-center" aria-label="Bottom center">↓</button><button type="button" data-wm-position="bottom-right" aria-label="Bottom right">↘</button>
+          </div>
+          <small id="watermark-position-label">Center</small>
+          <div class="watermark-offset-grid">
+            <label class="watermark-range-row"><span>Horizontal offset <output id="opt-wm-offset-x-output">50%</output></span><input id="opt-wm-offset-x" type="range" min="0" max="100" value="50"></label>
+            <label class="watermark-range-row"><span>Vertical offset <output id="opt-wm-offset-y-output">50%</output></span><input id="opt-wm-offset-y" type="range" min="0" max="100" value="50"></label>
+          </div>
+        </fieldset>
+
+        <label class="watermark-range-row"><span>Opacity <output id="opt-wm-opacity-output">30%</output></span><input id="opt-wm-opacity" type="range" min="5" max="100" value="30"></label>
+        <label class="watermark-range-row"><span>Rotation <output id="opt-wm-rotation-output">45°</output></span><input id="opt-wm-rotation" type="range" min="-180" max="180" value="45"></label>
+
+        <fieldset class="watermark-pages">
+          <legend>Apply to pages</legend>
+          <label class="form-label" for="opt-wm-pages">Page selection
+            <select id="opt-wm-pages" class="form-input-text"><option value="all">All pages</option><option value="current">Current preview page</option><option value="first">First page</option><option value="last">Last page</option><option value="odd">Odd pages</option><option value="even">Even pages</option><option value="custom">Custom range</option></select>
+          </label>
+          <label id="opt-wm-custom-pages-wrap" class="form-label hidden" for="studio-pdf-page-selection">Custom pages or ranges
+            <input id="studio-pdf-page-selection" class="form-input-text" type="text" inputmode="text" placeholder="For example: 2-4, 8" aria-describedby="opt-wm-custom-pages-help">
+          </label>
+          <small id="opt-wm-custom-pages-help">Use commas and ranges, for example 2-4, 8. PDF thumbnail selection switches this to custom.</small>
+        </fieldset>
+
+        <label class="checkbox-label watermark-tile-control"><input id="opt-wm-tile" type="checkbox"><span class="custom-checkbox"></span>Repeat as a tiled watermark</label>
+        <label id="opt-wm-tile-spacing-wrap" class="watermark-range-row hidden"><span>Tile spacing <output id="opt-wm-tile-spacing-output">72 pt</output></span><input id="opt-wm-tile-spacing" type="range" min="24" max="240" value="72"></label>
+        <p class="watermark-inline-help">The live overlay previews the selected page. Applying the watermark creates a new PDF; source files remain unchanged. Watermarks are placed above document content.</p>
+      </section>
     `;
     appState.activeToolOptions.opacity = 0.3;
   } else if (toolId === 'pagenumber-pdf') {
@@ -3521,14 +3609,14 @@ function renderToolPage(container, toolId) {
     'pdf-to-jpg': 'Convert PDF Pages', 'pdf-to-image': 'Convert PDF Pages', 'pdf-to-png': 'Convert to PNG',
     'jpg-to-pdf': 'Create PDF', 'image-to-pdf': 'Create PDF', 'png-to-pdf': 'Create PDF',
     'pdf-to-text': 'Extract Text', 'pdf-to-html': 'Extract to HTML', 'pdf-to-markdown': 'Extract to Markdown',
-    'rotate-pdf': 'Rotate PDF', 'watermark-pdf': 'Add Watermark', 'pagenumber-pdf': 'Add Page Numbers',
+    'rotate-pdf': 'Rotate PDF', 'watermark-pdf': 'Apply Watermark', 'pagenumber-pdf': 'Add Page Numbers',
     'remove-pdf-pages': 'Remove Selected Pages', 'extract-pdf-pages': 'Extract Selected Pages',
     'crop-pdf': 'Crop PDF', 'header-footer-pdf': 'Add Header & Footer', 'sign-pdf': 'Add Signature Appearance'
   })[toolId] || 'Process File(s)';
   if (dependencyBlocker) {
     optionsHTML = `
       <div class="dependency-required-state" role="alert">
-        <strong>Service temporarily unavailable</strong>
+        <strong>Processing engine required</strong>
         <p>${dependencyBlocker}</p>
       </div>`;
   }
@@ -3625,7 +3713,7 @@ function renderToolPage(container, toolId) {
           ` : dependencyBlocker ? `
             <div class="dependency-service-state" role="status">
               <span class="upload-icon-shell"><i data-lucide="clock-3"></i></span>
-              <h3>Service temporarily unavailable</h3>
+              <h3>Processing engine required</h3>
               <p>${dependencyBlocker}</p>
               <p>Your source file stays on your device because uploads are disabled while this service is unavailable.</p>
             </div>
@@ -3978,6 +4066,7 @@ function renderToolPage(container, toolId) {
   }
   initializePremiumToolEditor(toolId, needsFiles);
   window.GxaPhaseOneStudios?.decorate(toolId, processingProfile);
+  if (toolId === 'watermark-pdf') initializeWatermarkStudio();
   if (toolId === 'sign-pdf') initializePdfSignaturePad();
 }
 
@@ -5570,6 +5659,7 @@ function clearPremiumResult() {
 function disposePremiumToolEditor() {
   window.clearTimeout(premiumEditorState.historyTimer);
   window.clearTimeout(premiumEditorState.backgroundAutoTimer);
+  resetWatermarkEditorState();
   premiumEditorState.previewObserver?.disconnect();
   if (premiumEditorState.keydownHandler) document.removeEventListener('keydown', premiumEditorState.keydownHandler);
   const root = document.querySelector('.premium-editor-workspace');
@@ -5852,6 +5942,7 @@ function resetActiveTool() {
     return;
   }
   window.GxaAdvancedCutoutStudio?.close();
+  if (appState.currentPage === 'tool-watermark-pdf') resetWatermarkEditorState();
   window.clearTimeout(premiumEditorState.backgroundAutoTimer);
   appState.activeFiles = [];
   appState.activeToolOptions = {};
@@ -6476,13 +6567,12 @@ async function executeToolAlgorithm() {
     showToast('PDF pages rotated client-side!', 'success');
   } else if (toolId === 'watermark-pdf') {
     const originalFile = appState.activeFiles[0];
-    const wmText = document.getElementById('opt-wm-text').value || 'CONFIDENTIAL';
-    const opacity = appState.activeToolOptions.opacity || 0.3;
-    const wmBlob = await runPDFWatermark(originalFile, wmText, opacity, getStudioPdfPageSelection());
+    const watermarkSettings = getWatermarkSettings();
+    const wmBlob = await runPDFWatermark(originalFile, watermarkSettings, getWatermarkPageSelection());
     const outputName = 'watermarked_' + originalFile.name;
     registerToolResult(downloadBtn, wmBlob, outputName);
     logHistory(outputName, 'Add Watermark', (wmBlob.size / (1024*1024)).toFixed(2) + ' MB');
-    showToast('Watermark stamped onto PDF!', 'success');
+    showToast('Watermark applied successfully.', 'success');
   } else if (toolId === 'pagenumber-pdf') {
     const originalFile = appState.activeFiles[0];
     const pos = document.getElementById('opt-pn-pos').value || 'bottom-center';
@@ -7715,9 +7805,373 @@ function setOptPdfCompression(lvl, btn) {
   btns.forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
-function setWmOpacity(val) {
-  appState.activeToolOptions.opacity = val / 100;
-  document.getElementById('slider-wm-opacity').innerText = `${val}%`;
+function clampWatermarkNumber(value, minimum, maximum, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
+}
+
+function resetWatermarkEditorState() {
+  if (watermarkEditorState.imageUrl) URL.revokeObjectURL(watermarkEditorState.imageUrl);
+  watermarkEditorState.previewObserver?.disconnect();
+  if (watermarkEditorState.previewPageHandler) window.removeEventListener('gxa:pdf-preview-page', watermarkEditorState.previewPageHandler);
+  if (watermarkEditorState.previewFrame) window.cancelAnimationFrame(watermarkEditorState.previewFrame);
+  Object.assign(watermarkEditorState, {
+    imageFile: null,
+    imageUrl: '',
+    imageAspectRatio: 1,
+    imageBaseWidth: 160,
+    previewObserver: null,
+    previewPageHandler: null,
+    previewFrame: 0
+  });
+}
+
+function watermarkPositionLabel(position) {
+  return ({
+    'top-left': 'Top left', 'top-center': 'Top center', 'top-right': 'Top right',
+    'middle-left': 'Middle left', center: 'Center', 'middle-right': 'Middle right',
+    'bottom-left': 'Bottom left', 'bottom-center': 'Bottom center', 'bottom-right': 'Bottom right',
+    manual: 'Manual offsets'
+  })[position] || 'Center';
+}
+
+function scheduleWatermarkLivePreview() {
+  if (watermarkEditorState.previewFrame) window.cancelAnimationFrame(watermarkEditorState.previewFrame);
+  watermarkEditorState.previewFrame = window.requestAnimationFrame(() => {
+    watermarkEditorState.previewFrame = 0;
+    renderWatermarkLivePreview();
+  });
+}
+
+function sanitizeWatermarkSvg(source) {
+  const svg = String(source || '').trim();
+  if (!/^<svg\b/i.test(svg) || !/<\/svg>\s*$/i.test(svg)) throw new Error('The SVG is not a complete SVG document.');
+  if (/<\s*\/?(?:script|foreignobject|iframe|object|embed|audio|video)\b/i.test(svg)
+    || /\bon[a-z]+\s*=/i.test(svg)
+    || /javascript\s*:/i.test(svg)
+    || /\b(?:href|xlink:href)\s*=\s*["']\s*(?!#|data:image\/(?:png|jpeg|webp);base64,)/i.test(svg)
+    || /url\s*\(/i.test(svg)) {
+    throw new Error('This SVG contains active or external content and cannot be used as a watermark.');
+  }
+  return svg.replace(/<!--([\s\S]*?)-->/g, '');
+}
+
+function getWatermarkImageType(file) {
+  const extension = (file?.name?.split('.').pop() || '').toLowerCase();
+  const type = String(file?.type || '').toLowerCase();
+  if (type === 'image/png' || extension === 'png') return 'png';
+  if (type === 'image/jpeg' || extension === 'jpg' || extension === 'jpeg') return 'jpg';
+  if (type === 'image/webp' || extension === 'webp') return 'webp';
+  if (type === 'image/svg+xml' || extension === 'svg') return 'svg';
+  return '';
+}
+
+function getWatermarkImageDimensions(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    image.onerror = () => reject(new Error('The selected image could not be decoded.'));
+    image.src = url;
+  });
+}
+
+function updateWatermarkImageStatus(message, isError = false) {
+  const status = document.getElementById('watermark-image-status');
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle('is-error', isError);
+}
+
+async function loadWatermarkImage(file) {
+  const type = getWatermarkImageType(file);
+  if (!type) throw new Error('Choose a PNG, JPG, WebP, or SVG image.');
+  if (file.size > 10 * 1024 * 1024) throw new Error('Watermark images must be 10 MB or smaller.');
+  let source = file;
+  if (type === 'svg') {
+    const sanitized = sanitizeWatermarkSvg(await file.text());
+    source = new Blob([sanitized], { type: 'image/svg+xml' });
+  }
+  const url = URL.createObjectURL(source);
+  try {
+    const dimensions = await getWatermarkImageDimensions(url);
+    if (!dimensions.width || !dimensions.height) throw new Error('The selected image has no usable dimensions.');
+    if (watermarkEditorState.imageUrl) URL.revokeObjectURL(watermarkEditorState.imageUrl);
+    watermarkEditorState.imageFile = source;
+    watermarkEditorState.imageUrl = url;
+    watermarkEditorState.imageAspectRatio = dimensions.width / dimensions.height;
+    watermarkEditorState.imageBaseWidth = Math.round(Math.min(220, Math.max(48, dimensions.width > 220 ? 180 : dimensions.width)));
+    const width = document.getElementById('opt-wm-image-width');
+    const height = document.getElementById('opt-wm-image-height');
+    const scale = document.getElementById('opt-wm-image-scale');
+    if (width) width.value = String(watermarkEditorState.imageBaseWidth);
+    if (height) height.value = String(Math.max(12, Math.round(watermarkEditorState.imageBaseWidth / watermarkEditorState.imageAspectRatio)));
+    if (scale) scale.value = '100';
+    updateWatermarkImageStatus(`${file.name || 'Image'} · ${dimensions.width} × ${dimensions.height}px · ready for the live preview.`);
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
+function updateWatermarkImageDimensions(changedId) {
+  const width = document.getElementById('opt-wm-image-width');
+  const height = document.getElementById('opt-wm-image-height');
+  const lock = document.getElementById('opt-wm-image-lock');
+  const scale = document.getElementById('opt-wm-image-scale');
+  const output = document.getElementById('opt-wm-image-scale-output');
+  if (!width || !height) return;
+  const aspect = watermarkEditorState.imageAspectRatio || 1;
+  if (changedId === 'opt-wm-image-scale' && scale) {
+    const value = clampWatermarkNumber(scale.value, 10, 200, 100);
+    width.value = String(Math.round(watermarkEditorState.imageBaseWidth * value / 100));
+    height.value = String(Math.max(12, Math.round(Number(width.value) / aspect)));
+  } else if (lock?.checked && changedId === 'opt-wm-image-width') {
+    height.value = String(Math.max(12, Math.round(clampWatermarkNumber(width.value, 12, 1000, 160) / aspect)));
+  } else if (lock?.checked && changedId === 'opt-wm-image-height') {
+    width.value = String(Math.max(12, Math.round(clampWatermarkNumber(height.value, 12, 1000, 160) * aspect)));
+  }
+  if (scale && changedId !== 'opt-wm-image-scale') {
+    scale.value = String(Math.round(clampWatermarkNumber(width.value, 12, 1000, 160) / watermarkEditorState.imageBaseWidth * 100));
+  }
+  if (output && scale) output.textContent = `${scale.value}%`;
+}
+
+function getWatermarkSettings() {
+  const root = document.querySelector('.watermark-studio');
+  const type = root?.dataset.watermarkType || 'text';
+  const text = document.getElementById('opt-wm-text')?.value.trim().slice(0, 160) || '';
+  const fontSize = clampWatermarkNumber(document.getElementById('opt-wm-font-size')?.value, 8, 160, 40);
+  const imageWidth = clampWatermarkNumber(document.getElementById('opt-wm-image-width')?.value, 12, 1000, 160);
+  const imageHeight = clampWatermarkNumber(document.getElementById('opt-wm-image-height')?.value, 12, 1000, 160);
+  return {
+    type,
+    text,
+    font: document.getElementById('opt-wm-font')?.value || 'helvetica',
+    fontSize,
+    bold: Boolean(document.getElementById('opt-wm-bold')?.checked),
+    color: document.getElementById('opt-wm-color')?.value || '#334155',
+    opacity: clampWatermarkNumber(document.getElementById('opt-wm-opacity')?.value, 5, 100, 30) / 100,
+    rotation: clampWatermarkNumber(document.getElementById('opt-wm-rotation')?.value, -180, 180, 45),
+    letterSpacing: clampWatermarkNumber(document.getElementById('opt-wm-letter-spacing')?.value, 0, 12, 0),
+    symbol: document.getElementById('opt-wm-symbol')?.value || 'copyright',
+    imageWidth,
+    imageHeight,
+    imageFile: watermarkEditorState.imageFile,
+    imageUrl: watermarkEditorState.imageUrl,
+    position: root?.dataset.watermarkPosition || 'center',
+    offsetX: clampWatermarkNumber(document.getElementById('opt-wm-offset-x')?.value, 0, 100, 50),
+    offsetY: clampWatermarkNumber(document.getElementById('opt-wm-offset-y')?.value, 0, 100, 50),
+    tile: Boolean(document.getElementById('opt-wm-tile')?.checked),
+    tileSpacing: clampWatermarkNumber(document.getElementById('opt-wm-tile-spacing')?.value, 24, 240, 72)
+  };
+}
+
+function getWatermarkPageSelection() {
+  const mode = document.getElementById('opt-wm-pages')?.value || 'all';
+  if (mode === 'current') {
+    const page = Number(document.querySelector('.pdf-canvas-wrap')?.dataset.currentPdfPage || 1);
+    return `current:${Number.isFinite(page) && page > 0 ? page : 1}`;
+  }
+  if (mode === 'custom') {
+    const selection = document.getElementById('studio-pdf-page-selection')?.value.trim() || '';
+    if (!selection) throw new Error('Enter at least one page number or range for the custom selection.');
+    return selection;
+  }
+  return mode;
+}
+
+function getWatermarkPreviewPosition(settings) {
+  if (settings.position === 'manual') return { left: `${settings.offsetX}%`, top: `${settings.offsetY}%`, translate: 'translate(-50%, -50%)' };
+  return ({
+    'top-left': { left: '7%', top: '8%', translate: 'translate(0, 0)' },
+    'top-center': { left: '50%', top: '8%', translate: 'translate(-50%, 0)' },
+    'top-right': { left: '93%', top: '8%', translate: 'translate(-100%, 0)' },
+    'middle-left': { left: '7%', top: '50%', translate: 'translate(0, -50%)' },
+    center: { left: '50%', top: '50%', translate: 'translate(-50%, -50%)' },
+    'middle-right': { left: '93%', top: '50%', translate: 'translate(-100%, -50%)' },
+    'bottom-left': { left: '7%', top: '92%', translate: 'translate(0, -100%)' },
+    'bottom-center': { left: '50%', top: '92%', translate: 'translate(-50%, -100%)' },
+    'bottom-right': { left: '93%', top: '92%', translate: 'translate(-100%, -100%)' }
+  })[settings.position] || { left: '50%', top: '50%', translate: 'translate(-50%, -50%)' };
+}
+
+function getWatermarkSymbolText(symbol) {
+  return ({ check: '✓', cross: '×', star: '★', copyright: '©', registered: '®', trademark: '™', warning: '⚠', lock: 'LOCK', approved: 'APPROVED', confidential: 'CONFIDENTIAL' })[symbol] || '©';
+}
+
+function createWatermarkSymbolSvg(symbol, color = '#334155') {
+  const safeColor = /^#[0-9a-f]{6}$/i.test(color) ? color : '#334155';
+  const label = getWatermarkSymbolText(symbol);
+  const textSize = ['approved', 'confidential'].includes(symbol) ? 56 : label.length > 2 ? 64 : 120;
+  const rect = ['approved', 'confidential'].includes(symbol)
+    ? `<rect x="8" y="28" width="304" height="104" rx="12" fill="none" stroke="${safeColor}" stroke-width="10"/>`
+    : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="160" viewBox="0 0 320 160">${rect}<text x="160" y="108" text-anchor="middle" fill="${safeColor}" font-family="Arial, sans-serif" font-size="${textSize}" font-weight="700">${label}</text></svg>`;
+}
+
+function createWatermarkPreviewMark(settings) {
+  let mark;
+  if (settings.type === 'image') {
+    mark = document.createElement('img');
+    mark.src = settings.imageUrl;
+    mark.alt = 'Image watermark preview';
+    mark.style.width = `${Math.min(72, Math.max(12, settings.imageWidth / 6.12))}%`;
+    mark.style.height = 'auto';
+  } else if (settings.type === 'symbol') {
+    mark = document.createElement('img');
+    mark.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(createWatermarkSymbolSvg(settings.symbol, settings.color))}`;
+    mark.alt = `${getWatermarkSymbolText(settings.symbol)} watermark preview`;
+    mark.style.width = `${Math.min(64, Math.max(13, settings.imageWidth / 6.12))}%`;
+    mark.style.height = 'auto';
+  } else {
+    mark = document.createElement('span');
+    mark.textContent = settings.text || 'CONFIDENTIAL';
+    mark.style.fontFamily = ({ helvetica: 'Arial, sans-serif', times: 'Georgia, serif', courier: 'Courier New, monospace' })[settings.font] || 'Arial, sans-serif';
+    mark.style.fontSize = `${Math.min(42, Math.max(12, settings.fontSize * 0.65))}px`;
+    mark.style.fontWeight = settings.bold ? '700' : '500';
+    mark.style.letterSpacing = `${settings.letterSpacing * 0.65}px`;
+    mark.style.color = settings.color;
+    mark.style.whiteSpace = 'pre-wrap';
+    mark.style.textAlign = 'center';
+  }
+  mark.className = 'pdf-watermark-preview-mark';
+  mark.style.opacity = String(settings.opacity);
+  mark.style.transformOrigin = 'center';
+  return mark;
+}
+
+function renderWatermarkLivePreview() {
+  if (appState.currentPage !== 'tool-watermark-pdf') return;
+  const canvasWrap = document.querySelector('#file-preview-workspace .pdf-canvas-wrap');
+  const canvas = canvasWrap?.querySelector('canvas');
+  if (!canvasWrap || !canvas || !canvas.clientWidth || !canvas.clientHeight) return;
+  const settings = getWatermarkSettings();
+  let overlay = canvasWrap.querySelector('.pdf-watermark-preview');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'pdf-watermark-preview';
+    overlay.setAttribute('aria-label', 'Live watermark preview overlay');
+    canvasWrap.appendChild(overlay);
+  }
+  overlay.replaceChildren();
+  Object.assign(overlay.style, {
+    left: `${canvas.offsetLeft}px`, top: `${canvas.offsetTop}px`, width: `${canvas.clientWidth}px`, height: `${canvas.clientHeight}px`
+  });
+  if (settings.type === 'image' && !settings.imageUrl) {
+    overlay.dataset.empty = 'true';
+    return;
+  }
+  overlay.dataset.empty = 'false';
+  const positions = settings.tile
+    ? [[16, 18], [50, 18], [84, 18], [16, 50], [50, 50], [84, 50], [16, 82], [50, 82], [84, 82]]
+    : [[null, null]];
+  positions.forEach(([tileX, tileY]) => {
+    const mark = createWatermarkPreviewMark(settings);
+    const position = settings.tile
+      ? { left: `${tileX}%`, top: `${tileY}%`, translate: 'translate(-50%, -50%)' }
+      : getWatermarkPreviewPosition(settings);
+    mark.style.left = position.left;
+    mark.style.top = position.top;
+    mark.style.transform = `${position.translate} rotate(${-settings.rotation}deg)`;
+    overlay.appendChild(mark);
+  });
+}
+
+function updateWatermarkInterface(changedId = '') {
+  const root = document.querySelector('.watermark-studio');
+  if (!root) return;
+  const pairs = [
+    ['opt-wm-opacity', 'opt-wm-opacity-output', '%'], ['opt-wm-rotation', 'opt-wm-rotation-output', '°'],
+    ['opt-wm-letter-spacing', 'opt-wm-letter-spacing-output', ' pt'], ['opt-wm-offset-x', 'opt-wm-offset-x-output', '%'],
+    ['opt-wm-offset-y', 'opt-wm-offset-y-output', '%'], ['opt-wm-tile-spacing', 'opt-wm-tile-spacing-output', ' pt']
+  ];
+  pairs.forEach(([inputId, outputId, suffix]) => {
+    const input = document.getElementById(inputId);
+    const output = document.getElementById(outputId);
+    if (input && output) output.textContent = `${input.value}${suffix}`;
+  });
+  if (changedId.startsWith('opt-wm-image')) updateWatermarkImageDimensions(changedId);
+  document.getElementById('opt-wm-tile-spacing-wrap')?.classList.toggle('hidden', !document.getElementById('opt-wm-tile')?.checked);
+  appState.activeToolOptions.opacity = clampWatermarkNumber(document.getElementById('opt-wm-opacity')?.value, 5, 100, 30) / 100;
+  scheduleWatermarkLivePreview();
+}
+
+function initializeWatermarkStudio() {
+  resetWatermarkEditorState();
+  const root = document.querySelector('.watermark-studio');
+  if (!root) return;
+  root.dataset.watermarkType = 'text';
+  root.dataset.watermarkPosition = 'center';
+  const typeButtons = root.querySelectorAll('[data-wm-type]');
+  const setType = (type) => {
+    root.dataset.watermarkType = type;
+    typeButtons.forEach(button => {
+      const active = button.dataset.wmType === type;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    root.querySelectorAll('[data-wm-panel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.wmPanel !== type));
+    scheduleWatermarkLivePreview();
+  };
+  typeButtons.forEach(button => button.addEventListener('click', () => setType(button.dataset.wmType)));
+  root.querySelectorAll('[data-wm-text]').forEach(button => button.addEventListener('click', () => {
+    const input = document.getElementById('opt-wm-text');
+    if (input) input.value = button.dataset.wmText;
+    updateWatermarkInterface();
+  }));
+  root.querySelectorAll('[data-wm-position]').forEach(button => button.addEventListener('click', () => {
+    const position = button.dataset.wmPosition;
+    root.dataset.watermarkPosition = position;
+    root.querySelectorAll('[data-wm-position]').forEach(item => item.classList.toggle('active', item === button));
+    const label = document.getElementById('watermark-position-label');
+    if (label) label.textContent = watermarkPositionLabel(position);
+    scheduleWatermarkLivePreview();
+  }));
+  ['opt-wm-offset-x', 'opt-wm-offset-y'].forEach(id => document.getElementById(id)?.addEventListener('input', () => {
+    root.dataset.watermarkPosition = 'manual';
+    root.querySelectorAll('[data-wm-position]').forEach(item => item.classList.remove('active'));
+    const label = document.getElementById('watermark-position-label');
+    if (label) label.textContent = watermarkPositionLabel('manual');
+    updateWatermarkInterface(id);
+  }));
+  const pages = document.getElementById('opt-wm-pages');
+  const customPages = document.getElementById('studio-pdf-page-selection');
+  const customWrap = document.getElementById('opt-wm-custom-pages-wrap');
+  pages?.addEventListener('change', () => {
+    customWrap?.classList.toggle('hidden', pages.value !== 'custom');
+    scheduleWatermarkLivePreview();
+  });
+  ['input', 'change'].forEach(eventName => customPages?.addEventListener(eventName, () => {
+    if (customPages.value.trim()) {
+      pages.value = 'custom';
+      customWrap?.classList.remove('hidden');
+    }
+  }));
+  root.addEventListener('input', event => updateWatermarkInterface(event.target.id || ''));
+  root.addEventListener('change', async event => {
+    const target = event.target;
+    if (target.id === 'opt-wm-image' && target.files?.[0]) {
+      try {
+        await loadWatermarkImage(target.files[0]);
+        updateWatermarkInterface('opt-wm-image');
+      } catch (error) {
+        target.value = '';
+        watermarkEditorState.imageFile = null;
+        updateWatermarkImageStatus(error.message || 'The image could not be used.', true);
+        scheduleWatermarkLivePreview();
+        showToast(error.message || 'The image could not be used.', 'error');
+      }
+      return;
+    }
+    updateWatermarkInterface(target.id || '');
+  });
+  watermarkEditorState.previewPageHandler = () => scheduleWatermarkLivePreview();
+  window.addEventListener('gxa:pdf-preview-page', watermarkEditorState.previewPageHandler);
+  watermarkEditorState.previewObserver = new MutationObserver(records => {
+    if (records.some(record => !record.target.closest?.('.pdf-watermark-preview'))) scheduleWatermarkLivePreview();
+  });
+  watermarkEditorState.previewObserver.observe(document.body, { childList: true, subtree: true });
+  updateWatermarkInterface();
 }
 function setBase64Mode(mode, btn) {
   appState.activeToolOptions.mode = mode;
@@ -7858,8 +8312,16 @@ function getStudioPdfPageSelection() {
 function resolveOptionalPdfPageSelection(selection, pageCount) {
   const value = String(selection || '').trim().toLowerCase();
   if (!value || value === 'all') return Array.from({ length: pageCount }, (_, index) => index);
+  if (value === 'first') return pageCount ? [0] : [];
+  if (value === 'last') return pageCount ? [pageCount - 1] : [];
   if (value === 'odd') return Array.from({ length: pageCount }, (_, index) => index).filter(index => index % 2 === 0);
   if (value === 'even') return Array.from({ length: pageCount }, (_, index) => index).filter(index => index % 2 === 1);
+  const currentPage = value.match(/^current:(\d+)$/);
+  if (currentPage) {
+    const index = Number(currentPage[1]) - 1;
+    if (index < 0 || index >= pageCount) throw new Error(`The selected preview page is outside 1-${pageCount}.`);
+    return [index];
+  }
   return parsePdfPageSelection(value, pageCount);
 }
 
@@ -7878,21 +8340,132 @@ async function runPDFRotate(file, angle, pageSelection = '') {
 }
 
 // --- ALGORITHM: WATERMARK PDF ---
-async function runPDFWatermark(file, text, opacity, pageSelection = '') {
+function watermarkPdfColor(hex) {
+  const normalized = /^#[0-9a-f]{6}$/i.test(hex) ? hex.slice(1) : '334155';
+  return PDFLib.rgb(
+    parseInt(normalized.slice(0, 2), 16) / 255,
+    parseInt(normalized.slice(2, 4), 16) / 255,
+    parseInt(normalized.slice(4, 6), 16) / 255
+  );
+}
+
+function watermarkPdfFontName(font, bold) {
+  const fonts = PDFLib.StandardFonts;
+  if (font === 'times') return bold ? fonts.TimesRomanBold : fonts.TimesRoman;
+  if (font === 'courier') return bold ? fonts.CourierBold : fonts.Courier;
+  return bold ? fonts.HelveticaBold : fonts.Helvetica;
+}
+
+function watermarkPdfPlacement(page, markWidth, markHeight, settings) {
+  const width = page.getWidth();
+  const height = page.getHeight();
+  const margin = Math.min(32, Math.max(16, Math.min(width, height) * 0.05));
+  const middleX = Math.max(margin, (width - markWidth) / 2);
+  const middleY = Math.max(margin, (height - markHeight) / 2);
+  const right = Math.max(margin, width - markWidth - margin);
+  const top = Math.max(margin, height - markHeight - margin);
+  if (settings.position === 'manual') {
+    return {
+      x: Math.max(0, Math.min(Math.max(0, width - markWidth), (width - markWidth) * settings.offsetX / 100)),
+      y: Math.max(0, Math.min(Math.max(0, height - markHeight), (height - markHeight) * (100 - settings.offsetY) / 100))
+    };
+  }
+  return ({
+    'top-left': { x: margin, y: top }, 'top-center': { x: middleX, y: top }, 'top-right': { x: right, y: top },
+    'middle-left': { x: margin, y: middleY }, center: { x: middleX, y: middleY }, 'middle-right': { x: right, y: middleY },
+    'bottom-left': { x: margin, y: margin }, 'bottom-center': { x: middleX, y: margin }, 'bottom-right': { x: right, y: margin }
+  })[settings.position] || { x: middleX, y: middleY };
+}
+
+async function rasterizeWatermarkImage(source) {
+  const url = URL.createObjectURL(source);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error('The watermark image could not be rendered for PDF output.'));
+      element.src = url;
+    });
+    const longestSide = Math.max(image.naturalWidth, image.naturalHeight);
+    const scale = longestSide > 2048 ? 2048 / longestSide : 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) throw new Error('Canvas support is required to prepare this watermark image.');
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error('The watermark image could not be encoded.')), 'image/png'));
+    return new Uint8Array(await blob.arrayBuffer());
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function createPdfWatermarkDrawable(doc, settings) {
+  if (settings.type === 'text') {
+    if (!settings.text) throw new Error('Enter watermark text before applying it.');
+    const font = await doc.embedFont(watermarkPdfFontName(settings.font, settings.bold));
+    const characterSpacing = settings.letterSpacing;
+    const width = font.widthOfTextAtSize(settings.text, settings.fontSize) + Math.max(0, settings.text.length - 1) * characterSpacing;
+    return {
+      width,
+      height: settings.fontSize,
+      draw(page, x, y) {
+        page.drawText(settings.text, {
+          x, y, size: settings.fontSize, font, opacity: settings.opacity,
+          rotate: PDFLib.degrees(settings.rotation), color: watermarkPdfColor(settings.color), characterSpacing
+        });
+      }
+    };
+  }
+
+  let source = settings.imageFile;
+  let imageType = source ? getWatermarkImageType(source) : '';
+  if (settings.type === 'image' && !source) throw new Error('Choose an image or logo before applying the watermark.');
+  if (settings.type === 'symbol') {
+    source = new Blob([createWatermarkSymbolSvg(settings.symbol, settings.color)], { type: 'image/svg+xml' });
+    imageType = 'svg';
+  }
+  let image;
+  if (imageType === 'png') image = await doc.embedPng(new Uint8Array(await source.arrayBuffer()));
+  else if (imageType === 'jpg') image = await doc.embedJpg(new Uint8Array(await source.arrayBuffer()));
+  else image = await doc.embedPng(await rasterizeWatermarkImage(source));
+  return {
+    width: settings.imageWidth,
+    height: settings.imageHeight,
+    draw(page, x, y) {
+      page.drawImage(image, {
+        x, y, width: settings.imageWidth, height: settings.imageHeight,
+        opacity: settings.opacity, rotate: PDFLib.degrees(settings.rotation)
+      });
+    }
+  };
+}
+
+function drawTiledPdfWatermark(page, drawable, settings) {
+  const stepX = Math.max(drawable.width + settings.tileSpacing, 24);
+  const stepY = Math.max(drawable.height + settings.tileSpacing, 24);
+  for (let y = 18; y < page.getHeight(); y += stepY) {
+    for (let x = 18; x < page.getWidth(); x += stepX) drawable.draw(page, x, y);
+  }
+}
+
+async function runPDFWatermark(file, settings, pageSelection = '') {
+  if (!window.PDFLib) throw new Error('The local PDF processing library is unavailable. Please reload and try again.');
   const arrayBuffer = await file.arrayBuffer();
   const doc = await PDFLib.PDFDocument.load(arrayBuffer);
   const pages = doc.getPages();
   const selected = new Set(resolveOptionalPdfPageSelection(pageSelection, pages.length));
+  if (!selected.size) throw new Error('Select at least one page for the watermark.');
+  const drawable = await createPdfWatermarkDrawable(doc, settings);
   pages.forEach((page, index) => {
     if (!selected.has(index)) return;
-    page.drawText(text, {
-      x: page.getWidth() / 4,
-      y: page.getHeight() / 2,
-      size: 40,
-      opacity: opacity,
-      rotate: PDFLib.degrees(45),
-      color: PDFLib.rgb(0.7, 0.7, 0.7)
-    });
+    if (settings.tile) {
+      drawTiledPdfWatermark(page, drawable, settings);
+      return;
+    }
+    const placement = watermarkPdfPlacement(page, drawable.width, drawable.height, settings);
+    drawable.draw(page, placement.x, placement.y);
   });
   const pdfBytes = await doc.save();
   return new Blob([pdfBytes], { type: 'application/pdf' });

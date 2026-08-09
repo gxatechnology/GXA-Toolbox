@@ -84,7 +84,7 @@ The shared home/header/navigation shell was previously measured at 320x568, 3608
 | 21 | ZIP Extractor | `#tool-zip-extractor` | ZIP | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Real ZIP extracted; entries and per-file Save controls shown; corrupt ZIP rejected. |
 | 22 | Optimize PDF | `#tool-compress-pdf` | PDF | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | PDF reserialized, result/download produced, size outcome reported, corrupt PDF rejected. |
 | 23 | Rotate PDF | `#tool-rotate-pdf` | PDF | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Rotation setting changed; real rotated PDF downloaded; corrupt PDF rejected. |
-| 24 | Add Text Watermark | `#tool-watermark-pdf` | PDF | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Watermark settings applied; real PDF result downloaded; corrupt PDF rejected. |
+| 24 | Add Watermark | `#tool-watermark-pdf` | PDF | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | Text, image/logo, and local symbols preview over the selected PDF page; Apply Watermark produces a real PDF result. | Watermark settings applied; real PDF result downloaded; corrupt PDF rejected. |
 | 25 | Add Page Numbers | `#tool-pagenumber-pdf` | PDF | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Page-number settings applied; real PDF downloaded; corrupt PDF rejected. |
 | 26 | PDF Metadata Editor | `#tool-pdf-metadata` | PDF | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | None | Metadata edited; real PDF downloaded; corrupt PDF rejected. |
 | 27 | Excel to PDF | `#tool-excel-to-pdf` | Convert | YES | Disabled | N/A | Blocker UI | YES - emulated | N/A | YES | BLOCKED BY DEPENDENCY | Honest disabled state: spreadsheet layout renderer is not bundled. | Honest disabled state: spreadsheet layout renderer is not bundled. |
@@ -155,7 +155,7 @@ The shared home/header/navigation shell was previously measured at 320x568, 3608
 
 ## Dependency audit
 
-Every blocked route was opened at 390x844. All 13 displayed Temporarily unavailable, disabled file processing, had 0 horizontal overflow, and named the missing capability. Bundling a browser-side substitute remains possible for some routes, but none is a safe quick replacement: qpdf, office/EPUB renderers, animated GIF codecs, PDF object extraction, OCR language models, table recognition, and slide reconstruction all add material size, standards, security, or fidelity work.
+Every blocked route was opened at 390x844. All 13 display a specific “additional local processing engine required” explanation, disable file processing, had 0 horizontal overflow, and name the missing capability. Bundling a browser-side substitute remains possible for some routes, but none is a safe quick replacement: qpdf, office/EPUB renderers, animated GIF codecs, PDF object extraction, OCR language models, table recognition, and slide reconstruction all add material size, standards, security, or fidelity work.
 
 | Tool | Dependency | Why required | Current behavior / what works | What cannot work | Local/browser feasibility | Safe to remove now? |
 |---|---|---|---|---|---|---|
