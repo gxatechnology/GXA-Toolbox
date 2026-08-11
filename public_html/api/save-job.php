@@ -4,7 +4,8 @@
    ========================================================================== */
 
 header('Content-Type: application/json; charset=utf-8');
-session_start();
+header('Cache-Control: no-store');
+require_once '../config/session.php';
 
 require_once '../config/database.php';
 

@@ -2,6 +2,40 @@
   command = "npm run build"
   publish = "."
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/register.php"
+  to = "/.netlify/functions/auth-register"
+  status = 200
+
+[[redirects]]
+  from = "/api/login.php"
+  to = "/.netlify/functions/auth-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/session.php"
+  to = "/.netlify/functions/auth-session"
+  status = 200
+
+[[redirects]]
+  from = "/api/logout.php"
+  to = "/.netlify/functions/auth-logout"
+  status = 200
+
+[[redirects]]
+  from = "/api/get-history.php"
+  to = "/.netlify/functions/auth-history"
+  status = 200
+
+[[redirects]]
+  from = "/api/save-job.php"
+  to = "/.netlify/functions/auth-save-job"
+  status = 200
+
 [[redirects]]
   from = "/background-remover/assets/*"
   to = "/public_html/background-remover/assets/:splat"

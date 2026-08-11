@@ -107,26 +107,54 @@ function hydrateLocalPreferences() {
 }
 
 // --- Session Bootstrap and History Fetching ---
-function initUserSession() {
+function setAuthenticatedUser(user) {
+  if (!user) {
+    appState.user = null;
+    return;
+  }
+  appState.user = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    is_premium: parseInt(user.is_premium) || 0,
+    tier: parseInt(user.is_premium) ? 'Premium' : 'Free',
+    processedCount: 0,
+    history: []
+  };
+}
+
+async function initUserSession() {
   if (window.PHP_SESSION && window.PHP_SESSION.loggedIn) {
-    appState.user = {
-      id: window.PHP_SESSION.user.id,
-      name: window.PHP_SESSION.user.name,
-      email: window.PHP_SESSION.user.email,
-      role: window.PHP_SESSION.user.role,
-      is_premium: parseInt(window.PHP_SESSION.user.is_premium) || 0,
-      processedCount: 0,
-      history: []
+    setAuthenticatedUser(window.PHP_SESSION.user);
+    fetchHistoryFromDB();
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/session.php', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    });
+    const data = await readApiJson(response);
+    if (!data.authenticated || !data.user) return;
+    setAuthenticatedUser(data.user);
+    window.PHP_SESSION = {
+      loggedIn: true,
+      user: data.user,
+      premium_tools: window.PHP_SESSION?.premium_tools || []
     };
     fetchHistoryFromDB();
-  } else {
+  } catch (error) {
+    // Public tools stay available if optional account/session infrastructure is offline.
     appState.user = null;
   }
 }
 
 function fetchHistoryFromDB() {
   if (!appState.user) return;
-  fetch('/api/get-history.php')
+  fetch('/api/get-history.php', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
@@ -429,9 +457,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initApp();
 });
 
-function initApp() {
+async function initApp() {
   hydrateLocalPreferences();
-  initUserSession();
+  await initUserSession();
   renderNavbar();
   renderFooter();
   
@@ -823,7 +851,7 @@ function renderNavbar() {
     authActionsHTML = `
       <a href="/dashboard/index.php" class="btn btn-ghost btn-sm" style="display:inline-flex; align-items:center; gap:4px; font-weight:600;">
         <i data-lucide="user" style="width:14px; height:14px;"></i>
-        <span>${appState.user.name}</span>
+        <span>${escapeHTML(appState.user.name)}</span>
       </a>
       ${appState.user.role === 'developer' ? `<a href="/developer/index.php" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center;">Developer</a>` : ''}
       ${appState.user.role === 'admin' ? `<a href="/admin/index.php" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center;">Admin</a>` : ''}
@@ -1126,8 +1154,6 @@ function navigate(pageId) {
       showAuthModal('login');
       return;
     }
-    window.location.href = '/dashboard/index.php';
-    return;
   }
   
   if (appState.currentPage === 'tool-crop-image' && pageId !== 'tool-crop-image') {
@@ -1150,8 +1176,12 @@ function navigate(pageId) {
 }
 
 function handleLogout() {
-  fetch('/api/logout.php?ajax=1')
-    .then(r => r.json())
+  fetch('/api/logout.php?ajax=1', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' }
+  })
+    .then(readApiJson)
     .then(data => {
       if (data.success) {
         appState.user = null;
@@ -1164,8 +1194,9 @@ function handleLogout() {
         navigate('home');
       }
     })
-    .catch(err => {
-      window.location.href = '/api/logout.php';
+    .catch(error => {
+      console.error('Sign out failed:', error);
+      showToast('Unable to sign out right now. Please try again.', 'error');
     });
 }
 
@@ -1304,7 +1335,7 @@ function getAuthPasswordStrength(password) {
   if (password.length >= 12) score += 1;
   if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
   if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1;
-  const labels = ['Enter a password', 'Weak', 'Fair', 'Good', 'Strong'];
+  const labels = ['Enter a password', 'Weak', 'Medium', 'Medium', 'Strong'];
   return { score, label: labels[score] };
 }
 
@@ -1355,7 +1386,7 @@ async function submitAuth(event, type) {
   successEl?.classList.add('hidden');
   ['name', 'email', 'password', 'confirm'].forEach(clearAuthFieldError);
 
-  const email = document.getElementById('auth-email')?.value.trim() || '';
+  const email = document.getElementById('auth-email')?.value.trim().toLowerCase() || '';
   const password = document.getElementById('auth-password')?.value || '';
   let firstInvalid = null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -1402,10 +1433,14 @@ async function submitAuth(event, type) {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(payload)
     });
-    const data = await response.json();
+    const data = await readApiJson(response);
     if (!data.success) {
+      if (data.errors && typeof data.errors === 'object') {
+        Object.entries(data.errors).forEach(([field, message]) => showAuthFieldError(field, message));
+      }
       if (errorEl) {
         errorEl.textContent = data.message || 'Authentication was not accepted. Check your details and try again.';
         errorEl.classList.remove('hidden');
@@ -1419,6 +1454,7 @@ async function submitAuth(event, type) {
       email: data.user.email,
       role: data.user.role,
       is_premium: parseInt(data.user.is_premium) || 0,
+      tier: parseInt(data.user.is_premium) ? 'Premium' : 'Free',
       processedCount: 0,
       history: []
     };
@@ -1471,6 +1507,16 @@ async function submitAuth(event, type) {
   }
 }
 
+async function readApiJson(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    throw new Error(`Account endpoint returned ${response.status} ${contentType || 'without a content type'}.`);
+  }
+  const data = await response.json();
+  if (!data || typeof data !== 'object') throw new Error('Account endpoint returned an invalid response.');
+  return data;
+}
+
 // --- Contact Support Modal & API Actions ---
 function showContactModal() {
   const modal = document.getElementById('modal-container');
@@ -1489,11 +1535,11 @@ function showContactModal() {
         <div id="contact-status-msg" style="font-size:13px; font-weight:700; margin-bottom:10px; display:none;"></div>
         <div class="form-group" style="margin-bottom:12px;">
           <label for="contact-name" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Full Name</label>
-          <input type="text" id="contact-name" class="form-input-text" placeholder="Tauqeer Ashraf" value="${appState.user ? appState.user.name : ''}" autocomplete="name" style="width:100%; height:44px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
+          <input type="text" id="contact-name" class="form-input-text" placeholder="Tauqeer Ashraf" value="${appState.user ? escapeHTML(appState.user.name) : ''}" autocomplete="name" style="width:100%; height:44px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
         </div>
         <div class="form-group" style="margin-bottom:12px;">
           <label for="contact-email" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Email Address</label>
-          <input type="email" id="contact-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${appState.user ? appState.user.email : ''}" autocomplete="email" inputmode="email" style="width:100%; height:44px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
+          <input type="email" id="contact-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${appState.user ? escapeHTML(appState.user.email) : ''}" autocomplete="email" inputmode="email" style="width:100%; height:44px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
         </div>
         <div class="form-group" style="margin-bottom:15px;">
           <label for="contact-message" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Message Details</label>
@@ -1782,8 +1828,8 @@ function renderDashboard(container) {
         <!-- Sidebar -->
         <aside class="dashboard-sidebar">
           <div class="user-profile-widget">
-            <div class="avatar">${appState.user.name.charAt(0)}</div>
-            <div class="user-profile-name">${appState.user.name}</div>
+            <div class="avatar">${escapeHTML(appState.user.name.charAt(0))}</div>
+            <div class="user-profile-name">${escapeHTML(appState.user.name)}</div>
             <div class="user-profile-tier">${appState.user.tier} Account</div>
           </div>
           
@@ -1796,7 +1842,7 @@ function renderDashboard(container) {
         
         <!-- Main Dashboard content area -->
         <div class="dashboard-content">
-          <h2 class="db-title">Welcome back, ${appState.user.name}!</h2>
+          <h2 class="db-title">Welcome back, ${escapeHTML(appState.user.name)}!</h2>
           
           <!-- Key Statistics -->
           <div class="db-stats-grid">
@@ -1868,11 +1914,11 @@ function renderDashboard(container) {
       appState.user.history.forEach(log => {
         tbody.innerHTML += `
           <tr>
-            <td style="font-weight:700;">${log.name}</td>
-            <td>${log.tool}</td>
-            <td>${log.date}</td>
-            <td>${log.size}</td>
-            <td><span class="badge-history-status status-${log.status === 'done' ? 'done' : 'fail'}">${log.status.toUpperCase()}</span></td>
+            <td style="font-weight:700;">${escapeHTML(log.name)}</td>
+            <td>${escapeHTML(log.tool)}</td>
+            <td>${escapeHTML(log.date)}</td>
+            <td>${escapeHTML(log.size)}</td>
+            <td><span class="badge-history-status status-${log.status === 'done' ? 'done' : 'fail'}">${escapeHTML(log.status.toUpperCase())}</span></td>
           </tr>
         `;
       });

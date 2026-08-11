@@ -3,9 +3,16 @@
    GXA TOOLBOX API - USER LOGOUT
    ========================================================================== */
 
-session_start();
+require_once '../config/session.php';
 session_unset();
 session_destroy();
+setcookie(session_name(), '', [
+    'expires' => time() - 3600,
+    'path' => '/',
+    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 
 // Detect request format to support both browser redirect and dynamic AJAX calls
 $isAjax = isset($_GET['ajax']) || 

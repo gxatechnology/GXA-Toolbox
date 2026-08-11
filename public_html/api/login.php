@@ -4,7 +4,8 @@
    ========================================================================== */
 
 header('Content-Type: application/json; charset=utf-8');
-session_start();
+header('Cache-Control: no-store');
+require_once '../config/session.php';
 
 require_once '../config/database.php';
 
@@ -15,8 +16,8 @@ if (empty($data)) {
     $data = json_decode($raw, true) ?: [];
 }
 
-$email = trim($data['email'] ?? '');
-$password = trim($data['password'] ?? '');
+$email = strtolower(trim($data['email'] ?? ''));
+$password = (string)($data['password'] ?? '');
 
 if (empty($email) || empty($password)) {
     echo json_encode(['success' => false, 'message' => 'Please enter both email and password fields.']);
@@ -30,17 +31,20 @@ try {
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password'])) {
-        echo json_encode(['success' => false, 'message' => 'Invalid email or password combination.']);
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Incorrect email or password.']);
         exit;
     }
 
     // Check account status
     if ($user['status'] !== 'active') {
-        echo json_encode(['success' => false, 'message' => 'Your account has been deactivated. Please contact admin.']);
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Incorrect email or password.']);
         exit;
     }
 
     // Set PHP session parameters
+    session_regenerate_id(true);
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['user_name'] = $user['name'];
     $_SESSION['user_email'] = $user['email'];
@@ -49,7 +53,7 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => 'Logged in successfully!',
+        'message' => 'Signed in successfully.',
         'user' => [
             'id' => $user['id'],
             'name' => $user['name'],
@@ -59,5 +63,7 @@ try {
         ]
     ]);
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'message' => 'Server execution error: ' . $e->getMessage()]);
+    error_log('Login database error: ' . $e->getMessage());
+    http_response_code(503);
+    echo json_encode(['success' => false, 'message' => 'Unable to connect to the authentication service.']);
 }

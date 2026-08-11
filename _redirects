@@ -1,3 +1,9 @@
+/api/register.php /.netlify/functions/auth-register 200
+/api/login.php /.netlify/functions/auth-login 200
+/api/session.php /.netlify/functions/auth-session 200
+/api/logout.php /.netlify/functions/auth-logout 200
+/api/get-history.php /.netlify/functions/auth-history 200
+/api/save-job.php /.netlify/functions/auth-save-job 200
 /background-remover/assets/* /public_html/background-remover/assets/:splat 200
 /background-remover/models/* /public_html/background-remover/models/:splat 200
 /background-remover/vendor/* /public_html/background-remover/vendor/:splat 200

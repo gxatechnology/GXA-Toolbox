@@ -2,7 +2,7 @@
 /* ==========================================================================
    GXA TOOLBOX INDEX PAGE - PHP ENGINE & SESSION BOOTSTRAP
    ========================================================================== */
-session_start();
+require_once 'config/session.php';
 
 define('GXA_ALLOW_DATABASE_OFFLINE', true);
 require_once 'config/database.php';
