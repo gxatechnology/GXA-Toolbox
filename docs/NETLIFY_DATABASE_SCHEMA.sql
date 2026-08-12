@@ -1,0 +1,6 @@
+-- This former standalone schema has been converted into a Netlify Database
+-- deployment migration. The canonical, automatically applied SQL is:
+--
+-- netlify/database/migrations/0001_create_auth_schema.sql
+--
+-- Do not paste schema modifications into the read-only production SQL Console.

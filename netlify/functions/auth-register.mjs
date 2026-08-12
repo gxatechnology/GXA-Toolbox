@@ -1,7 +1,7 @@
 import {
   assertSameOrigin,
   createSessionCookie,
-  getDatabasePool,
+  getDatabaseClient,
   hashPassword,
   jsonResponse,
   methodNotAllowed,
@@ -21,24 +21,24 @@ export default async function handler(request) {
       return jsonResponse({ success: false, message: Object.values(registration.errors)[0], errors: registration.errors }, 400);
     }
 
-    const pool = getDatabasePool();
-    const [existing] = await pool.execute('SELECT id FROM users WHERE email = ? LIMIT 1', [registration.email]);
+    const { sql } = getDatabaseClient();
+    const existing = await sql`
+      SELECT id
+        FROM public.users
+       WHERE email = ${registration.email}
+       LIMIT 1
+    `;
     if (existing.length) {
       return jsonResponse({ success: false, message: 'This email is already registered.' }, 409);
     }
 
     const passwordHash = await hashPassword(registration.password);
-    const [result] = await pool.execute(
-      "INSERT INTO users (name, email, password, role, is_premium, status) VALUES (?, ?, ?, 'user', 0, 'active')",
-      [registration.name, registration.email, passwordHash]
-    );
-    const user = publicUser({
-      id: result.insertId,
-      name: registration.name,
-      email: registration.email,
-      role: 'user',
-      is_premium: 0
-    });
+    const inserted = await sql`
+      INSERT INTO public.users (full_name, email, password_hash, role, is_premium, status)
+      VALUES (${registration.name}, ${registration.email}, ${passwordHash}, 'user', FALSE, 'active')
+      RETURNING id, full_name AS name, email, role, is_premium
+    `;
+    const user = publicUser(inserted[0]);
 
     return jsonResponse(
       { success: true, message: 'Account created successfully.', user },
@@ -46,10 +46,9 @@ export default async function handler(request) {
       { 'Set-Cookie': createSessionCookie(user, request) }
     );
   } catch (error) {
-    if (error?.code === 'ER_DUP_ENTRY') {
+    if (error?.code === '23505') {
       return jsonResponse({ success: false, message: 'This email is already registered.' }, 409);
     }
     return safeErrorResponse(error);
   }
 }
-

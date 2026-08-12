@@ -1,4 +1,4 @@
-import { getDatabasePool, jsonResponse, methodNotAllowed, readSession, safeErrorResponse } from './_auth.mjs';
+import { getDatabaseClient, jsonResponse, methodNotAllowed, readSession, safeErrorResponse } from './_auth.mjs';
 
 export default async function handler(request) {
   if (request.method !== 'GET') return methodNotAllowed(['GET']);
@@ -6,20 +6,27 @@ export default async function handler(request) {
   try {
     const session = readSession(request);
     if (!session) return jsonResponse({ success: false, message: 'Sign in to view account history.' }, 401);
-    const [rows] = await getDatabasePool().execute(
-      `SELECT id, original_file AS name, tool_name AS tool,
-              DATE_FORMAT(created_at, '%Y-%m-%d') AS date,
-              CONCAT(TRIM(TRAILING '0' FROM TRIM(TRAILING '.' FROM size_mb)), ' MB') AS size,
-              status
-         FROM file_jobs
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        LIMIT 100`,
-      [session.id]
-    );
-    return jsonResponse({ success: true, processedCount: rows.filter(row => row.status === 'done').length, history: rows });
+    const { sql } = getDatabaseClient();
+    const countRows = await sql`
+      SELECT COUNT(*)::INTEGER AS processed_count
+        FROM public.file_jobs
+       WHERE user_id = ${session.id}
+         AND status = 'done'
+    `;
+    const rows = await sql`
+      SELECT id,
+             original_file AS name,
+             tool_name AS tool,
+             TO_CHAR(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+             TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM size_mb::TEXT)) || ' MB' AS size,
+             status
+        FROM public.file_jobs
+       WHERE user_id = ${session.id}
+       ORDER BY created_at DESC
+       LIMIT 100
+    `;
+    return jsonResponse({ success: true, processedCount: Number(countRows[0]?.processed_count) || 0, history: rows });
   } catch (error) {
     return safeErrorResponse(error);
   }
 }
-

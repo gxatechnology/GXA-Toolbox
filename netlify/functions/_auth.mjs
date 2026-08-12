@@ -1,11 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import mysql from 'mysql2/promise';
+import { getDatabase, MissingDatabaseConnectionError } from '@netlify/database';
 
 export const SESSION_COOKIE = 'gxa_toolbox_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const MAX_AUTH_BODY_BYTES = 8 * 1024;
-let databasePool;
+let databaseClientOverride;
 
 class ConfigurationError extends Error {}
 
@@ -94,49 +94,13 @@ function isValidEmail(email) {
   return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-export function getDatabasePool() {
-  if (databasePool) return databasePool;
-
-  const connectionUrl = process.env.DATABASE_URL;
-  const hasDiscreteConfig = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS'].every(key => process.env[key]);
-  if (!connectionUrl && !hasDiscreteConfig) {
-    throw new ConfigurationError('Database environment variables are missing.');
-  }
-
-  const ssl = process.env.DB_SSL === 'true'
-    ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
-    : undefined;
-  const connection = connectionUrl ? new URL(connectionUrl) : null;
-  const options = connection
-    ? {
-        host: connection.hostname,
-        port: Number(connection.port || 3306),
-        database: decodeURIComponent(connection.pathname.replace(/^\//, '')),
-        user: decodeURIComponent(connection.username),
-        password: decodeURIComponent(connection.password)
-      }
-    : {
-        host: process.env.DB_HOST,
-        port: Number(process.env.DB_PORT || 3306),
-        database: process.env.DB_NAME,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASS
-      };
-
-  databasePool = mysql.createPool({
-    ...options,
-    ssl,
-    connectionLimit: 4,
-    enableKeepAlive: true,
-    waitForConnections: true,
-    charset: 'utf8mb4'
-  });
-  return databasePool;
+export function getDatabaseClient() {
+  return databaseClientOverride || getDatabase();
 }
 
-export function setDatabasePoolForTests(pool) {
+export function setDatabaseClientForTests(client) {
   if (process.env.NODE_ENV === 'production') throw new Error('Database test adapter is unavailable in production.');
-  databasePool = pool;
+  databaseClientOverride = client;
 }
 
 export async function hashPassword(password) {
@@ -249,7 +213,7 @@ export function publicUser(user) {
 
 export function safeErrorResponse(error) {
   if (error?.status) return jsonResponse({ success: false, message: error.message }, error.status);
-  if (error instanceof ConfigurationError) {
+  if (error instanceof ConfigurationError || error instanceof MissingDatabaseConnectionError) {
     console.error('Authentication configuration error:', error.message);
     return jsonResponse({ success: false, message: 'The account service is not configured for this deployment.' }, 503);
   }

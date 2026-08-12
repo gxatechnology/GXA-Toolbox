@@ -7,8 +7,8 @@
   ],
   "description": "GXA Toolbox — Your Complete Digital Toolbox",
   "scripts": {
-    "lint": "node --check public_html/assets/app.js && node --check public_html/assets/tool-workspace.js && node --check public_html/assets/image-annotations.js && node --check public_html/assets/background-segmentation-engine.js && node --check public_html/assets/advanced-cutout-studio.js && node --check public_html/assets/phase-one-studios.js && node --check netlify/functions/_auth.mjs && node --check netlify/functions/auth-register.mjs && node --check netlify/functions/auth-login.mjs && node --check netlify/functions/auth-session.mjs && node --check netlify/functions/auth-logout.mjs && node --check netlify/functions/auth-history.mjs && node --check netlify/functions/auth-save-job.mjs && node --check app.js && node --check tests/repository-audit.mjs && node --check tests/phase-one-output-validation.mjs && node --check tests/background-remover-qa-contract.mjs && node --check tests/background-remover-transform-mapping.mjs && node --check tests/background-remover-react-contract.mjs && node --check tests/mobile-responsive-contract.mjs && node --check tests/authentication-contract.mjs && node --check tests/fixtures/generate-fixtures.mjs && npm run lint:bg",
-    "test": "node tests/repository-audit.mjs && node tests/phase-one-output-validation.mjs && node tests/background-remover-qa-contract.mjs && node tests/background-remover-transform-mapping.mjs && node tests/background-remover-react-contract.mjs && node tests/mobile-responsive-contract.mjs && node tests/authentication-contract.mjs && npm run test:bg",
+    "lint": "node --check public_html/assets/app.js && node --check public_html/assets/tool-workspace.js && node --check public_html/assets/image-annotations.js && node --check public_html/assets/background-segmentation-engine.js && node --check public_html/assets/advanced-cutout-studio.js && node --check public_html/assets/phase-one-studios.js && node --check netlify/functions/_auth.mjs && node --check netlify/functions/auth-register.mjs && node --check netlify/functions/auth-login.mjs && node --check netlify/functions/auth-session.mjs && node --check netlify/functions/auth-logout.mjs && node --check netlify/functions/auth-history.mjs && node --check netlify/functions/auth-save-job.mjs && node --check app.js && node --check tests/repository-audit.mjs && node --check tests/phase-one-output-validation.mjs && node --check tests/background-remover-qa-contract.mjs && node --check tests/background-remover-transform-mapping.mjs && node --check tests/background-remover-react-contract.mjs && node --check tests/mobile-responsive-contract.mjs && node --check tests/authentication-contract.mjs && node --check tests/postgres-auth-integration.mjs && node --check tests/fixtures/generate-fixtures.mjs && npm run lint:bg",
+    "test": "node tests/repository-audit.mjs && node tests/phase-one-output-validation.mjs && node tests/background-remover-qa-contract.mjs && node tests/background-remover-transform-mapping.mjs && node tests/background-remover-react-contract.mjs && node tests/mobile-responsive-contract.mjs && node tests/authentication-contract.mjs && node tests/postgres-auth-integration.mjs && npm run test:bg",
     "build": "npm run lint && npm test && npm run build:bg",
     "dev:bg": "npm run dev --workspace background-remover-app",
     "build:bg": "npm run build --workspace background-remover-app",
@@ -17,8 +17,11 @@
     "typecheck:bg": "npm run typecheck --workspace background-remover-app"
   },
   "dependencies": {
+    "@netlify/database": "^1.1.0",
     "bcryptjs": "^3.0.3",
-    "mysql2": "^3.23.3",
     "onnxruntime-web": "^1.23.0"
+  },
+  "devDependencies": {
+    "@netlify/database-dev": "^0.10.1"
   }
 }

@@ -1,7 +1,7 @@
 import {
   assertSameOrigin,
   createSessionCookie,
-  getDatabasePool,
+  getDatabaseClient,
   jsonResponse,
   methodNotAllowed,
   publicUser,
@@ -21,12 +21,15 @@ export default async function handler(request) {
       return jsonResponse({ success: false, message: Object.values(login.errors)[0], errors: login.errors }, 400);
     }
 
-    const [rows] = await getDatabasePool().execute(
-      'SELECT id, name, email, password, role, is_premium, status FROM users WHERE email = ? LIMIT 1',
-      [login.email]
-    );
+    const { sql } = getDatabaseClient();
+    const rows = await sql`
+      SELECT id, full_name AS name, email, password_hash, role, is_premium, status
+        FROM public.users
+       WHERE email = ${login.email}
+       LIMIT 1
+    `;
     const account = rows[0];
-    const passwordAccepted = account ? await verifyPassword(login.password, account.password) : false;
+    const passwordAccepted = account ? await verifyPassword(login.password, account.password_hash) : false;
     if (!account || !passwordAccepted || account.status !== 'active') {
       return jsonResponse({ success: false, message: 'Incorrect email or password.' }, 401);
     }
@@ -41,4 +44,3 @@ export default async function handler(request) {
     return safeErrorResponse(error);
   }
 }
-
