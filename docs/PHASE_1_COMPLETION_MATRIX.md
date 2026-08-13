@@ -1,5 +1,7 @@
 # GXA Toolbox Phase 1 Completion Matrix
 
+> Historical Phase 1 snapshot. It is retained as an audit trail and does not describe the current browser-engine status. See [TOOL_ENGINE_AUDIT.md](TOOL_ENGINE_AUDIT.md) for the authoritative 91-tool matrix and current classifications.
+
 This matrix is the evidence gate for the 40 existing Image Studio and PDF Studio route modes. Statuses follow the strict Phase 1 definitions: a browser-capable route remains `UNTESTED` until its real output is generated, downloaded, validated, reopened, reset, invalid-input checked, console checked, and exercised at desktop/mobile and in dark mode.
 
 ## Baseline counts before completion work

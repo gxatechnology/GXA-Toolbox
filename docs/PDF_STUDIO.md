@@ -28,11 +28,13 @@ Page thumbnails are lazy-rendered and capped at 60 visible thumbnail canvases fo
 | `pdf-to-text` | Searchable text extraction | PDF.js selectable-text extraction to TXT | Functional for text PDFs; scanned PDFs require OCR |
 | `pdf-to-word` | Text/RTF extraction | PDF.js selectable text to TXT/RTF | Partial: does not preserve Word layout |
 | `repair-pdf` | Normalize readable PDF | pdf-lib load and reserialize | Partial: cannot recover unreadable/corrupt structures |
-| `protect-pdf`, `unlock-pdf` | Password processing | No output | Dependency required; no fake encryption/decryption |
-| `ocr-pdf` | OCR | No output | Dependency required |
-| `extract-images-pdf` | Embedded image extraction | No output | Dependency required |
-| `word-to-pdf`, `excel-to-pdf`, `ppt-to-pdf` | Office to PDF | No output | Dependency required |
-| `pdf-to-excel`, `pdf-to-ppt` | PDF to Office | No output | Dependency required |
+| `protect-pdf`, `unlock-pdf` | Password processing | qpdf WebAssembly AES-256 encryption / authorized decryption | Functional in isolated worker; 25 MB browser cap |
+| `ocr-pdf` | OCR | PDF.js page stream to Tesseract worker, extracted TXT | Functional with English model download; 20-page/30M-pixel cap; not searchable-PDF output |
+| `extract-images-pdf` | Embedded image extraction | Supported PDF.js raster objects to PNG plus manifest ZIP | Functional with limits; masks, vectors, and unusual/private PDF.js objects may not extract |
+| `word-to-pdf`, `excel-to-pdf` | Semantic Office import | Mammoth/SheetJS data to paginated PDF | Functional with explicit semantic/table and built-in-font limitations |
+| `ppt-to-pdf` | Presentation import | No fabricated output | Faithful PPT/PPTX renderer remains unavailable in this deployment |
+| `pdf-to-excel` | PDF text/table export | Positioned-text heuristic to valid XLSX | Functional for selectable text/simple tables; not layout reconstruction |
+| `pdf-to-ppt` | PDF slide export | One rendered page image per valid PPTX slide | Functional within page/pixel caps; slides are not editable reconstructions |
 
 ## Output validation
 
@@ -40,4 +42,4 @@ Before a successful completion state, local PDF output must have a `%PDF-` heade
 
 ## Genuine remaining scope
 
-Continuous virtualized full-page scrolling, custom named split groups, image watermark positioning, arbitrary annotation objects, editable bookmarks, certificate-based signatures, native Office layout conversion, OCR, embedded-image object extraction, and genuine password encryption/decryption require further reliable engines or dedicated follow-up work. No placeholder controls or fabricated output are shown for these capabilities.
+Continuous virtualized full-page scrolling, custom named split groups, image watermark positioning, arbitrary annotation objects, editable bookmarks, certificate-based signatures, native Word/Excel/PPT layout fidelity, searchable-PDF OCR layers, and complete extraction of every PDF image/mask/vector type remain genuine limitations. No placeholder controls or fabricated output are shown for these capabilities.

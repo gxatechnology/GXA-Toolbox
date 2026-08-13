@@ -64,7 +64,7 @@ assert.match(app, /Watermark applied successfully\./);
 assert.match(styles, /\.watermark-type-options[\s\S]*grid-template-columns:\s*repeat\(3/);
 assert.match(styles, /\.pdf-watermark-preview[\s\S]*pointer-events:\s*none/);
 assert.match(workspace, /gxa:pdf-preview-page/);
-assert.match(workspace, /Additional local processing engine required/);
+assert.match(workspace, /Presentation renderer unavailable/);
 assert.doesNotMatch(workspace, /Temporarily unavailable/);
 assert.match(workspace, /'BarcodeDetector' in window && 'createImageBitmap' in window/);
 assert.match(workspace, /addEventListener\('pointerdown'/);

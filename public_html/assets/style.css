@@ -4137,6 +4137,7 @@ body.dark-mode .favorite-button:hover, body.dark-mode .favorite-button.active { 
 .tool-card-title { margin-top: 3px; }
 .tool-card-desc { margin: 7px 0 16px; }
 .tool-card-footer { margin-top: auto; }
+.tool-card-footer { justify-content: flex-end; }
 .tool-badge { max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
 .tool-card-arrow { width: 16px; color: var(--color-text-muted); transition: transform var(--transition-fast), color var(--transition-fast); }
 .tool-card:hover .tool-card-arrow { color: var(--color-primary); transform: translate(2px, -2px); }

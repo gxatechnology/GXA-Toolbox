@@ -3,23 +3,12 @@
 
   const MAX_FILE_SIZE = 100 * 1024 * 1024;
   const activeObjectUrls = new Set();
+  const scriptLoads = new Map();
   let pdfJsPromise = null;
   let pasteHandler = null;
 
   const blockers = Object.freeze({
-    'protect-pdf': 'Standard password-protected PDF output requires the qpdf processing engine, which is not included in this deployment. No file is uploaded or processed.',
-    'unlock-pdf': 'Password-authorized PDF unlocking requires the qpdf processing engine, which is not included in this deployment. No file is uploaded or processed.',
-    'word-to-pdf': 'Faithful Word-to-PDF layout conversion requires a document-layout engine such as LibreOffice, which is not included in this deployment. No file is uploaded or processed.',
-    'excel-to-pdf': 'Faithful spreadsheet-to-PDF layout conversion requires a workbook renderer such as LibreOffice, which is not included in this deployment. No file is uploaded or processed.',
     'ppt-to-pdf': 'Faithful presentation-to-PDF layout conversion requires a presentation renderer such as LibreOffice, which is not included in this deployment. No file is uploaded or processed.',
-    'pdf-to-ppt': 'Editable presentation reconstruction requires a PDF renderer and PPTX generator, which are not included in this deployment. No file is uploaded or processed.',
-    'pdf-to-excel': 'Table extraction to a spreadsheet requires table-recognition and workbook-generation engines, which are not included in this deployment. No file is uploaded or processed.',
-    'epub-to-pdf': 'EPUB layout conversion requires an EPUB renderer with font and pagination support, which is not included in this deployment. No file is uploaded or processed.',
-    'pdf-to-epub': 'Standards-compliant EPUB generation requires a document-reflow engine, which is not included in this deployment. No file is uploaded or processed.',
-    'gif-maker': 'Animated GIF encoding requires a dedicated animation codec, which is not included in this deployment. No file is uploaded or processed.',
-    'gif-to-png': 'Complete animated-GIF frame extraction requires a GIF frame decoder, which is not included in this deployment. No file is uploaded or processed.',
-    'extract-images-pdf': 'Embedded-image extraction requires a PDF object-image extractor, which is not included in this deployment. Rendering pages to PNG would not be true image extraction, so no file is uploaded or processed.',
-    'ocr-pdf': 'OCR requires an OCR engine and language data, which are not included in this deployment. No file is uploaded or processed.'
   });
 
   const serverTools = new Set([]);
@@ -27,22 +16,36 @@
 
   function loadScriptOnce(src, globalName) {
     if (globalName && window[globalName]) return Promise.resolve(window[globalName]);
+    if (scriptLoads.has(src)) return scriptLoads.get(src);
     const existing = document.querySelector(`script[data-gxa-src="${src}"]`);
-    if (existing) {
-      return new Promise((resolve, reject) => {
-        existing.addEventListener('load', () => resolve(globalName ? window[globalName] : true), { once: true });
-        existing.addEventListener('error', () => reject(new Error(`Unable to load required library: ${src}`)), { once: true });
-      });
-    }
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
+    if (existing?.dataset.gxaLoadState === 'failed') existing.remove();
+    const script = existing?.isConnected ? existing : document.createElement('script');
+    const promise = new Promise((resolve, reject) => {
+      const complete = () => {
+        script.dataset.gxaLoadState = 'loaded';
+        resolve(globalName ? window[globalName] : true);
+      };
+      const fail = () => {
+        script.dataset.gxaLoadState = 'failed';
+        script.remove();
+        reject(new Error('A required processing library could not be loaded. Check your network connection and retry.'));
+      };
+      if (script.dataset.gxaLoadState === 'loaded') {
+        complete();
+        return;
+      }
+      script.addEventListener('load', complete, { once: true });
+      script.addEventListener('error', fail, { once: true });
+      if (script.isConnected) return;
       script.src = src;
       script.async = true;
       script.dataset.gxaSrc = src;
-      script.onload = () => resolve(globalName ? window[globalName] : true);
-      script.onerror = () => reject(new Error('A required processing library could not be loaded. Check your network connection and retry.'));
+      script.dataset.gxaLoadState = 'loading';
       document.head.appendChild(script);
     });
+    scriptLoads.set(src, promise);
+    promise.catch(() => scriptLoads.delete(src));
+    return promise;
   }
 
   async function ensurePdfJs() {
@@ -121,7 +124,7 @@
   }
 
   function getProcessingProfile(toolId) {
-    if (blockers[toolId]) return { kind: 'dependency', label: 'Additional local processing engine required', detail: blockers[toolId] };
+    if (blockers[toolId]) return { kind: 'dependency', label: 'Presentation renderer unavailable', detail: blockers[toolId] };
     if (toolId === 'background-remover') return { kind: 'local', label: 'Runs locally in your browser', detail: 'Background removal runs locally in your browser after the segmentation engine loads. Your image is not uploaded for automatic subject removal.' };
     if (serverTools.has(toolId)) return { kind: 'server', label: 'Secure server processing', detail: 'The selected file is uploaded to the GXA Toolbox server for processing.' };
     if (capabilityTools.has(toolId)) {
@@ -873,6 +876,174 @@
     return pages;
   }
 
+  async function renderPdfPages(file, options = {}) {
+    const pdfjsLib = await ensurePdfJs();
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const scale = Math.max(0.75, Math.min(2, Number(options.scale) || 1.35));
+    const maximumPages = Math.max(1, Number(options.maximumPages) || 60);
+    const maximumTotalPixels = Math.max(1_000_000, Number(options.maximumTotalPixels) || 24_000_000);
+    if (pdf.numPages > maximumPages) throw new Error(`This browser workflow supports up to ${maximumPages} PDF pages per run.`);
+    const results = [];
+    let totalPixels = 0;
+    try {
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        if (options.isCancelled?.()) throw new Error(`Processing cancelled after page ${pageNumber - 1}.`);
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale });
+        const pixelCount = Math.ceil(viewport.width) * Math.ceil(viewport.height);
+        totalPixels += pixelCount;
+        if (pixelCount > 12_000_000) throw new Error(`Page ${pageNumber} exceeds the safe 12-megapixel browser processing limit.`);
+        if (totalPixels > maximumTotalPixels) throw new Error(`This document exceeds the safe ${Math.round(maximumTotalPixels / 1_000_000)}-megapixel browser processing budget.`);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext('2d', { alpha: false });
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        try {
+          await page.render({ canvasContext: context, viewport }).promise;
+          const renderedPage = { canvas, pageNumber, width: canvas.width, height: canvas.height };
+          if (options.onPage) await options.onPage(renderedPage, pdf.numPages);
+          else results.push(renderedPage);
+          options.onProgress?.(pageNumber, pdf.numPages);
+        } finally {
+          if (options.onPage) {
+            canvas.width = 0;
+            canvas.height = 0;
+          }
+          page.cleanup?.();
+        }
+      }
+      return results;
+    } catch (error) {
+      results.forEach(result => {
+        result.canvas.width = 0;
+        result.canvas.height = 0;
+      });
+      throw error;
+    } finally {
+      await pdf.destroy?.();
+    }
+  }
+
+  async function extractPdfTextRows(file) {
+    const pdfjsLib = await ensurePdfJs();
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    if (pdf.numPages > 100) throw new Error('PDF to Excel supports up to 100 pages per browser run.');
+    const pages = [];
+    let totalTextItems = 0;
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      totalTextItems += content.items.length;
+      if (totalTextItems > 200_000) throw new Error('This PDF exceeds the safe 200,000 positioned-text-item spreadsheet limit.');
+      const sorted = content.items
+        .filter(item => String(item.str || '').trim())
+        .map(item => ({ text: String(item.str).trim(), x: item.transform[4], y: item.transform[5] }))
+        .sort((a, b) => Math.abs(b.y - a.y) > 3 ? b.y - a.y : a.x - b.x);
+      const rows = [];
+      sorted.forEach(item => {
+        let row = rows.find(candidate => Math.abs(candidate.y - item.y) <= 3);
+        if (!row) { row = { y: item.y, items: [] }; rows.push(row); }
+        row.items.push(item);
+      });
+      pages.push(rows.map(row => row.items.sort((a, b) => a.x - b.x).map(item => item.text)));
+      page.cleanup?.();
+    }
+    await pdf.destroy?.();
+    return pages;
+  }
+
+  async function extractEmbeddedPdfImages(file) {
+    const pdfjsLib = await ensurePdfJs();
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    if (pdf.numPages > 100) throw new Error('Embedded image extraction supports up to 100 PDF pages per browser run.');
+    const output = [];
+    const seen = new Set();
+    let totalPixels = 0;
+    const imageOperations = new Set([
+      pdfjsLib.OPS.paintImageXObject,
+      pdfjsLib.OPS.paintJpegXObject,
+      pdfjsLib.OPS.paintImageXObjectRepeat,
+      pdfjsLib.OPS.paintInlineImageXObject,
+      pdfjsLib.OPS.paintInlineImageXObjectGroup
+    ].filter(Number.isFinite));
+    const resolveObject = (page, name) => new Promise((resolve, reject) => {
+      try {
+        const immediate = page.objs.get(name);
+        if (immediate) return resolve(immediate);
+      } catch (_) {
+        // PDF.js throws until asynchronously decoded objects are ready.
+      }
+      try { page.objs.get(name, resolve); } catch (error) { reject(error); }
+    });
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const operators = await page.getOperatorList();
+      for (let index = 0; index < operators.fnArray.length; index += 1) {
+        if (!imageOperations.has(operators.fnArray[index])) continue;
+        const args = operators.argsArray[index] || [];
+        const name = typeof args[0] === 'string' ? args[0] : '';
+        let image = name ? await resolveObject(page, name) : args.find(value => (value?.data || value?.bitmap) && value?.width && value?.height);
+        if (Array.isArray(image)) image = image[0];
+        if ((!image?.data && !image?.bitmap) || !image.width || !image.height) continue;
+        const pixelCount = image.width * image.height;
+        if (pixelCount > 12_000_000) throw new Error(`An embedded image on page ${pageNumber} exceeds the safe 12-megapixel extraction limit.`);
+        totalPixels += pixelCount;
+        if (totalPixels > 36_000_000) throw new Error('The embedded images exceed the safe 36-megapixel extraction budget.');
+        let signature = `${pageNumber}:${name || index}:${image.width}x${image.height}:bitmap`;
+        if (image.data) {
+          let hash = 2166136261;
+          for (let byteIndex = 0; byteIndex < image.data.length; byteIndex += 1) {
+            hash ^= image.data[byteIndex];
+            hash = Math.imul(hash, 16777619);
+          }
+          signature = `${image.width}x${image.height}:${image.kind || 0}:${image.data.length}:${hash >>> 0}`;
+        }
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        if (image.bitmap) {
+          context.drawImage(image.bitmap, 0, 0, image.width, image.height);
+        } else {
+          const pixels = context.createImageData(image.width, image.height);
+          const packedGrayscale = image.kind === pdfjsLib.ImageKind?.GRAYSCALE_1BPP
+            || image.data.length === Math.ceil(image.width / 8) * image.height;
+          const channels = packedGrayscale ? 0 : image.data.length / pixelCount;
+          if (!packedGrayscale && ![1, 3, 4].includes(channels)) {
+            canvas.width = 0;
+            canvas.height = 0;
+            continue;
+          }
+          for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+            const target = pixel * 4;
+            if (packedGrayscale) {
+              const row = Math.floor(pixel / image.width);
+              const column = pixel % image.width;
+              const value = image.data[row * Math.ceil(image.width / 8) + (column >> 3)] & (0x80 >> (column & 7)) ? 255 : 0;
+              pixels.data.set([value, value, value, 255], target);
+            } else {
+              const source = pixel * channels;
+              if (channels >= 3) pixels.data.set([image.data[source], image.data[source + 1], image.data[source + 2], channels === 4 ? image.data[source + 3] : 255], target);
+              else pixels.data.set([image.data[source], image.data[source], image.data[source], 255], target);
+            }
+          }
+          context.putImageData(pixels, 0, 0);
+        }
+        const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Decoded PDF image export failed.')), 'image/png'));
+        output.push({ pageNumber, name: name || `inline-${index}`, width: image.width, height: image.height, blob });
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      page.cleanup?.();
+    }
+    await pdf.destroy?.();
+    return output;
+  }
+
   async function renderCode(data, format, color, container, options = {}) {
     if (!data.trim()) throw new Error('Enter content before generating a code.');
     container.innerHTML = '';
@@ -928,6 +1099,10 @@
     dispose,
     pdfToImagesZip,
     extractPdfText,
+    extractPdfTextRows,
+    extractEmbeddedPdfImages,
+    renderPdfPages,
+    loadScriptOnce,
     renderCode,
     detectBarcode,
     readExif

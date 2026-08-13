@@ -371,7 +371,7 @@ const toolsList = [
   { id: 'unlock-pdf', name: 'Unlock PDF', category: 'pdf', desc: 'Remove password protection settings from your PDF.', icon: 'unlock' },
   { id: 'pdf-to-jpg', name: 'PDF to JPG', category: 'pdf', desc: 'Convert PDF document pages to JPG/PNG images.', icon: 'image' },
   { id: 'jpg-to-pdf', name: 'JPG to PDF', category: 'pdf', desc: 'Convert and merge JPG/PNG/WEBP images into a PDF.', icon: 'file-text' },
-  { id: 'word-to-pdf', name: 'Word to PDF', category: 'pdf', desc: 'Convert Docx/Doc or text structures to PDF templates.', icon: 'file-text' },
+  { id: 'word-to-pdf', name: 'Word to PDF', category: 'pdf', desc: 'Convert DOCX documents or plain text into a readable, reflowed PDF.', icon: 'file-text' },
   { id: 'pdf-to-word', name: 'PDF to Text/RTF', category: 'pdf', desc: 'Extract selectable PDF text to TXT or RTF without claiming native Word layout preservation.', icon: 'file-type' },
   { id: 'epub-to-pdf', name: 'EPUB to PDF', category: 'convert', desc: 'Convert ebook EPUB scripts to document sheets.', icon: 'book-open' },
   { id: 'pdf-to-epub', name: 'PDF to EPUB', category: 'convert', desc: 'Compile PDF layout pages into standard ebook packages.', icon: 'book' },
@@ -387,7 +387,7 @@ const extraTools = [
   { id: 'pagenumber-pdf', name: 'Add Page Numbers', category: 'pdf', desc: 'Insert dynamic page numbering headers or footers.', icon: 'binary' },
   { id: 'pdf-metadata', name: 'PDF Metadata Editor', category: 'pdf', desc: 'Modify PDF details: Title, Author, Subject, Keywords.', icon: 'tags' },
   { id: 'excel-to-pdf', name: 'Excel to PDF', category: 'convert', desc: 'Convert spreadsheets and CSV data into tables in PDF.', icon: 'file-spreadsheet' },
-  { id: 'ppt-to-pdf', name: 'PPT to PDF', category: 'convert', desc: 'Compile presentation texts and structures into PDF slides.', icon: 'presentation' },
+  { id: 'ppt-to-pdf', name: 'PPT to PDF', category: 'convert', desc: 'Create a faithful PDF only when a full PPT/PPTX presentation renderer is available.', icon: 'presentation' },
   { id: 'pdf-to-text', name: 'PDF to Text', category: 'convert', desc: 'Extract and download all plain text characters from PDF.', icon: 'file-text' },
   { id: 'html-to-pdf', name: 'HTML to PDF', category: 'convert', desc: 'Render HTML structures directly to a PDF template.', icon: 'code' },
   { id: 'pdf-to-html', name: 'PDF to HTML', category: 'convert', desc: 'Convert document structure and text content to HTML.', icon: 'globe' },
@@ -1760,7 +1760,6 @@ function renderToolsGrid(categoryFilter = 'all', searchQuery = '') {
     card.className = `tool-card cat-${tool.category}`;
     card.href = `#tool-${tool.id}`;
     card.setAttribute('aria-label', `Open ${tool.name}`);
-    const profile = window.GxaWorkspace ? window.GxaWorkspace.getProcessingProfile(tool.id) : null;
     const isFavorite = appState.favorites.includes(tool.id);
     
     // Fallback icon resolver
@@ -1772,7 +1771,7 @@ function renderToolsGrid(categoryFilter = 'all', searchQuery = '') {
       <div class="tool-card-category">${tool.category}</div>
       <h3 class="tool-card-title">${tool.name}</h3>
       <p class="tool-card-desc">${tool.desc}</p>
-      <div class="tool-card-footer">${profile ? `<span class="tool-badge processing-${profile.kind}">${profile.label}</span>` : ''}<i data-lucide="arrow-up-right" class="tool-card-arrow"></i></div>
+      <div class="tool-card-footer"><i data-lucide="arrow-up-right" class="tool-card-arrow"></i></div>
     `;
 
     card.addEventListener('click', (e) => {
@@ -2354,13 +2353,13 @@ function renderToolPage(container, toolId) {
     appState.activeToolOptions.setup = 'a4';
     appState.activeToolOptions.orientation = 'portrait';
   } else if (toolId === 'word-to-pdf') {
-    accepts = '.txt,.doc,.docx';
+    accepts = '.txt,.docx';
     multiple = false;
     optionsHTML = `
       <div class="backend-warning-banner" style="background: rgba(245, 158, 11, 0.1); border: 1px dashed var(--color-warning); border-radius: var(--radius-md); padding: 12px; margin-bottom: 15px; display: flex; gap: 8px; align-items: flex-start; color: var(--color-warning);">
         <i data-lucide="alert-triangle" style="width: 18px; height: 18px; shrink: 0; margin-top: 2px;"></i>
         <span style="font-size: 12px; line-height: 1.4; font-weight: 500;">
-          DOC/DOCX layout conversion is unavailable until a document-rendering dependency is configured.
+          DOCX is converted from its semantic content. Complex Word pagination, floating objects, and exact fonts may differ. Legacy .doc files are not accepted.
         </span>
       </div>
       <div class="form-group">
@@ -2401,6 +2400,7 @@ function renderToolPage(container, toolId) {
           <button class="preset-btn active" onclick="setEpubSetup('a4', this)">A4 Portrait</button>
         </div>
       </div>
+      <p class="processing-disclosure">Reflowable EPUB chapter text is paginated locally. Fixed-layout books, scripts, custom fonts, and advanced CSS are simplified.</p>
     `;
   } else if (toolId === 'pdf-to-epub') {
     accepts = '.pdf';
@@ -2410,6 +2410,7 @@ function renderToolPage(container, toolId) {
         <label class="form-label">Ebook Title</label>
         <input type="text" id="epub-title" class="form-input-text" value="My Epub Ebook">
       </div>
+      <p class="processing-disclosure">Selectable PDF text is reflowed into EPUB chapters. Exact PDF page geometry, complex tables, and image-only pages are not reconstructed.</p>
       <div class="form-group">
         <label class="form-label">Author Name</label>
         <input type="text" id="epub-author" class="form-input-text" value="GXA Technologies">
@@ -2599,7 +2600,7 @@ function renderToolPage(container, toolId) {
     accepts = '.csv,.xlsx,.xls';
     multiple = false;
     optionsHTML = `
-      <p class="processing-disclosure">Workbook layout conversion is unavailable in this deployment. Your source file is not processed.</p>
+      <p class="processing-disclosure">Workbook cells are rendered as readable PDF tables. Excel print layouts, macros, charts, and formula recalculation are not reproduced.</p>
     `;
   } else if (toolId === 'ppt-to-pdf') {
     accepts = '.txt,.ppt,.pptx';
@@ -3559,7 +3560,8 @@ function renderToolPage(container, toolId) {
     accepts = '.pdf';
     multiple = false;
     optionsHTML = `
-      <p class="processing-disclosure">OCR is unavailable until a real text-recognition engine is configured. No searchable output is generated.</p>
+      <label class="form-label" for="opt-ocr-lang">OCR language<select id="opt-ocr-lang" class="form-input-text"><option value="eng">English</option></select></label>
+      <p class="processing-disclosure">PDF pages are rendered sequentially and recognized in a local Tesseract Web Worker. The output is extracted TXT, not a searchable PDF. The first run downloads the OCR core and English language model; the PDF itself is not uploaded.</p>
     `;
   } else if (toolId === 'image-to-pdf') {
     accepts = 'image/*';
@@ -3619,13 +3621,13 @@ function renderToolPage(container, toolId) {
     accepts = '.pdf';
     multiple = false;
     optionsHTML = `
-      <p class="processing-disclosure">This conversion service is temporarily unavailable.</p>
+      <p class="processing-disclosure">Selectable text is grouped into rows by PDF coordinates and written to XLSX. Complex spanning cells, borderless tables, and scanned pages may require manual cleanup.</p>
     `;
   } else if (toolId === 'pdf-to-ppt') {
     accepts = '.pdf';
     multiple = false;
     optionsHTML = `
-      <p class="processing-disclosure">This conversion service is temporarily unavailable.</p>
+      <p class="processing-disclosure">Each PDF page becomes a full-slide image in PPTX. The slides preserve appearance but their page content is not editable.</p>
     `;
   }
   
@@ -3665,7 +3667,7 @@ function renderToolPage(container, toolId) {
   if (dependencyBlocker) {
     optionsHTML = `
       <div class="dependency-required-state" role="alert">
-        <strong>Processing engine required</strong>
+        <strong>Presentation renderer unavailable</strong>
         <p>${dependencyBlocker}</p>
       </div>`;
   }
@@ -3762,9 +3764,9 @@ function renderToolPage(container, toolId) {
           ` : dependencyBlocker ? `
             <div class="dependency-service-state" role="status">
               <span class="upload-icon-shell"><i data-lucide="clock-3"></i></span>
-              <h3>Processing engine required</h3>
+              <h3>Presentation renderer unavailable</h3>
               <p>${dependencyBlocker}</p>
-              <p>Your source file stays on your device because uploads are disabled while this service is unavailable.</p>
+              <p>Your source file stays on your device because this deployment does not include a faithful presentation renderer.</p>
             </div>
           ` : `
             <!-- Generator Preview Box -->
@@ -4144,11 +4146,11 @@ function getFAQForTool(toolId, toolName) {
       { q: "What if the output is not smaller?", a: "Some PDFs are already optimized. The tool reports the actual before-and-after sizes and will not claim savings that did not occur." }
     ],
     'word-to-pdf': [
-      { q: "Why is Word to PDF unavailable?", a: "This conversion service is temporarily unavailable. Files cannot be uploaded while the service is unavailable." }
+      { q: "How does Word to PDF work?", a: "DOCX paragraph text is extracted locally with Mammoth and paginated into a PDF. Complex Word layout, floating objects, and native pagination are not preserved." }
     ],
     'ocr-pdf': [
       { q: "What is OCR PDF?", a: "Optical Character Recognition scans non-selectable texts in scanned PDFs or images and converts them into searchable, copyable text characters." },
-      { q: "Which languages are supported by the OCR tool?", a: "OCR processing is temporarily unavailable, so no language support is currently claimed." }
+      { q: "Which languages are supported by the OCR tool?", a: "This deployment enables English OCR. The OCR core and English language model are downloaded on first use, while the selected PDF pages remain in your browser." }
     ],
     'background-remover': [
       { q: "How does the Background Remover work?", a: "GXA Toolbox lazy-loads a local U2NetP ONNX segmentation model in your browser, creates a soft alpha mask, and opens that mask in Advanced Cutout Studio for refinement." },
@@ -6049,6 +6051,23 @@ async function validateGeneratedOutputBlob(blob, filename) {
     const header = new TextDecoder('latin1').decode(bytes.slice(0, 8));
     const trailer = new TextDecoder('latin1').decode(bytes.slice(Math.max(0, bytes.length - 2048)));
     if (!header.startsWith('%PDF-') || !trailer.includes('%%EOF')) throw new Error('The generated PDF failed its signature validation.');
+  } else if (extension === 'gif' || blob.type === 'image/gif') {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const header = String.fromCharCode(...bytes.slice(0, 6));
+    if (!['GIF87a', 'GIF89a'].includes(header) || bytes[bytes.length - 1] !== 0x3b) throw new Error('The generated GIF failed its signature validation.');
+  } else if (['epub', 'xlsx', 'pptx', 'docx'].includes(extension)) {
+    if (!window.JSZip) throw new Error('The package validation library is unavailable.');
+    const archive = await window.JSZip.loadAsync(await blob.arrayBuffer(), { checkCRC32: true });
+    const names = Object.keys(archive.files);
+    const required = extension === 'epub'
+      ? ['mimetype', 'META-INF/container.xml', 'EPUB/package.opf']
+      : extension === 'xlsx'
+        ? ['[Content_Types].xml', 'xl/workbook.xml']
+        : extension === 'pptx'
+          ? ['[Content_Types].xml', 'ppt/presentation.xml']
+          : ['[Content_Types].xml', 'word/document.xml'];
+    if (required.some(name => !names.includes(name))) throw new Error(`The generated ${extension.toUpperCase()} package is missing required files.`);
+    if (extension === 'epub' && (await archive.file('mimetype').async('text')).trim() !== 'application/epub+zip') throw new Error('The generated EPUB has an invalid mimetype entry.');
   } else if (blob.type.startsWith('image/') && blob.type !== 'image/svg+xml') {
     if (!('createImageBitmap' in window)) return true;
     const bitmap = await createImageBitmap(blob);
@@ -6142,10 +6161,10 @@ async function runFileProcessingPipeline() {
     mobileDownloadBtn.onclick = null;
   }
   if (cancelBtn) {
-    const supportsBatchCancel = appState.activeFiles.length > 1 && ['compress-image', 'resize-image', 'webp-to-jpg'].includes(toolId);
+    const supportsBatchCancel = (appState.activeFiles.length > 1 && ['compress-image', 'resize-image', 'webp-to-jpg', 'gif-maker'].includes(toolId)) || ['ocr-pdf', 'pdf-to-ppt'].includes(toolId);
     cancelBtn.classList.toggle('hidden', !supportsBatchCancel);
     cancelBtn.disabled = false;
-    cancelBtn.textContent = 'Cancel after current file';
+    cancelBtn.textContent = ['ocr-pdf', 'pdf-to-ppt'].includes(toolId) ? 'Cancel after current page' : 'Cancel after current file';
   }
   progressBar.style.width = '8%';
   updateProcessingStage('validate');
@@ -6954,10 +6973,10 @@ async function executeToolAlgorithm() {
     const originalFile = appState.activeFiles[0];
     const lang = document.getElementById('opt-ocr-lang')?.value || 'eng';
     const processedBlob = await runPDFOCR(originalFile, lang);
-    const outputName = 'ocr_' + originalFile.name;
+    const outputName = originalFile.name.replace(/\.pdf$/i, '') + '_ocr.txt';
     registerToolResult(downloadBtn, processedBlob, outputName);
     logHistory(outputName, 'OCR PDF', (processedBlob.size / (1024*1024)).toFixed(2) + ' MB');
-    showToast('Searchable text overlay generated via OCR!', 'success');
+    showToast('OCR text extracted locally and is ready to download.', 'success');
   } else if (toolId === 'image-to-pdf') {
     const size = document.getElementById('opt-img2pdf-size').value || 'a4';
     const processedBlob = await runJPGToPDF(size, 'portrait');
@@ -6995,17 +7014,17 @@ async function executeToolAlgorithm() {
   } else if (toolId === 'pdf-to-excel') {
     const originalFile = appState.activeFiles[0];
     const excelBlob = await runPDFToExcel(originalFile);
-    const outputName = originalFile.name.split('.')[0] + '_tables.csv';
+    const outputName = originalFile.name.split('.')[0] + '_tables.xlsx';
     registerToolResult(downloadBtn, excelBlob, outputName);
     logHistory(outputName, 'PDF to Excel', (excelBlob.size / 1024).toFixed(2) + ' KB');
     showToast('Spreadsheet extracted successfully!', 'success');
   } else if (toolId === 'pdf-to-ppt') {
     const originalFile = appState.activeFiles[0];
     const pptBlob = await runPDFToPPT(originalFile);
-    const outputName = originalFile.name.split('.')[0] + '_presentation.txt';
+    const outputName = originalFile.name.split('.')[0] + '_presentation.pptx';
     registerToolResult(downloadBtn, pptBlob, outputName);
     logHistory(outputName, 'PDF to PPT', (pptBlob.size / 1024).toFixed(2) + ' KB');
-    showToast('Presentation conversion complete!', 'success');
+    showToast('Image-based presentation generated successfully.', 'success');
   } else if (toolId === 'ai-pdf-summarizer') {
     const originalFile = appState.activeFiles[0];
     const depth = document.getElementById('opt-ai-summary-depth').value || 'standard';
@@ -7706,12 +7725,40 @@ async function runPDFSplit(mode, rangeStr, everyN = 2) {
 
 // --- ALGORITHM: PDF PROTECT PASSWORD ---
 async function runPDFProtect(password) {
-  throw new Error(window.GxaWorkspace.getBlocker('protect-pdf'));
+  return runQpdfOperation('protect', appState.activeFiles[0], password);
 }
 
 // --- ALGORITHM: PDF UNLOCK PASSWORD ---
 async function runPDFUnlock(password) {
-  throw new Error(window.GxaWorkspace.getBlocker('unlock-pdf'));
+  if (!password) throw new Error('Enter the PDF password before unlocking.');
+  return runQpdfOperation('unlock', appState.activeFiles[0], password);
+}
+
+async function runQpdfOperation(operation, file, password) {
+  const maximumQpdfBytes = 25 * 1024 * 1024;
+  if (!file || file.size > maximumQpdfBytes) throw new Error('Protect and Unlock PDF support files up to 25 MB in this browser to prevent WebAssembly memory exhaustion.');
+  const worker = new Worker('/assets/qpdf-worker.js');
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const bytes = await file.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      worker.terminate();
+      reject(new Error('The local PDF security engine timed out. Try a smaller file.'));
+    }, 90_000);
+    worker.addEventListener('message', event => {
+      if (event.data?.id !== id) return;
+      window.clearTimeout(timeout);
+      worker.terminate();
+      if (event.data.error) reject(new Error(event.data.error));
+      else resolve(new Blob([event.data.output], { type: 'application/pdf' }));
+    });
+    worker.addEventListener('error', () => {
+      window.clearTimeout(timeout);
+      worker.terminate();
+      reject(new Error('The local qpdf WebAssembly engine could not initialize.'));
+    }, { once: true });
+    worker.postMessage({ id, operation, bytes, password }, [bytes]);
+  });
 }
 
 // --- ALGORITHM: PDF TO IMAGE EXPORTER ---
@@ -7721,16 +7768,57 @@ async function runPDFToJPG(format) {
 }
 
 // --- ALGORITHM: IMAGES CONVERSION TO PDF ---
+async function loadDecodedImageSource(file) {
+  if ('createImageBitmap' in window) {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+    } catch (_) {
+      // Some mobile/browser decoders reject otherwise valid images through createImageBitmap.
+    }
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error(`The source image ${file.name} could not be decoded.`));
+      element.src = url;
+    });
+    return { source: image, width: image.naturalWidth, height: image.naturalHeight, close: () => URL.revokeObjectURL(url) };
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
 async function runJPGToPDF(pageSize, orientation) {
   const pdfDoc = await PDFLib.PDFDocument.create();
   
   for (const file of appState.activeFiles) {
-    const buffer = await file.arrayBuffer();
+    const lowerName = file.name.toLowerCase();
+    const isPng = file.type === 'image/png' || lowerName.endsWith('.png');
+    const isJpeg = file.type === 'image/jpeg' || /\.jpe?g$/.test(lowerName);
     let img;
-    if (file.type === 'image/png') {
-      img = await pdfDoc.embedPng(buffer);
-    } else {
-      img = await pdfDoc.embedJpg(buffer);
+    if (isPng) img = await pdfDoc.embedPng(await file.arrayBuffer());
+    else if (isJpeg) img = await pdfDoc.embedJpg(await file.arrayBuffer());
+    else {
+      const decoded = await loadDecodedImageSource(file);
+      if (decoded.width * decoded.height > 20_000_000) {
+        decoded.close();
+        throw new Error(`${file.name} exceeds the safe 20-megapixel image-to-PDF limit.`);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = decoded.width;
+      canvas.height = decoded.height;
+      const context = canvas.getContext('2d');
+      context.drawImage(decoded.source, 0, 0);
+      decoded.close();
+      const normalized = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error(`${file.name} could not be normalized for PDF embedding.`)), 'image/png'));
+      const normalizedBytes = await normalized.arrayBuffer();
+      canvas.width = 0;
+      canvas.height = 0;
+      img = await pdfDoc.embedPng(normalizedBytes);
     }
     
     // Page sizes mapping
@@ -7773,27 +7861,88 @@ async function runJPGToPDF(pageSize, orientation) {
 // --- ALGORITHM: WORD/TEXT TO PDF ---
 async function runWordToPDF(fontName) {
   const file = appState.activeFiles[0];
-  const text = await file.text();
+  if (file.size > 25 * 1024 * 1024) throw new Error('Word to PDF supports DOCX or text files up to 25 MB in this browser.');
+  let text;
+  if (file.name.toLowerCase().endsWith('.docx')) {
+    await window.GxaWorkspace.loadScriptOnce('/assets/vendor/mammoth/mammoth.browser.min.js', 'mammoth');
+    const result = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    text = result.value;
+    if (!text.trim()) throw new Error('No readable paragraph text was found in this DOCX file.');
+  } else {
+    text = await file.text();
+  }
+  if (text.length > 5_000_000) throw new Error('The extracted document text exceeds the 5-million-character browser limit.');
+  return createTextPdf(text, { fontName, title: file.name.replace(/\.[^.]+$/, '') });
+}
+
+async function createTextPdf(text, options = {}) {
   const pdfDoc = await PDFLib.PDFDocument.create();
-  
-  // Custom wrapping lines
-  const lines = text.split('\n');
-  const page = pdfDoc.addPage([595.28, 841.89]);
-  
-  let y = 800;
-  lines.forEach(line => {
-    if (y < 50) return; // simple overflow protection
-    page.drawText(line.substring(0, 80), {
-      x: 50,
-      y: y,
-      size: 11,
-      color: PDFLib.rgb(0.1, 0.1, 0.1)
+  const fontKey = String(options.fontName || 'Helvetica').replace('-', '');
+  const standardFont = PDFLib.StandardFonts[fontKey] || PDFLib.StandardFonts.Helvetica;
+  const font = await pdfDoc.embedFont(standardFont);
+  const pageSize = [595.28, 841.89];
+  const margin = 48;
+  const fontSize = 11;
+  const lineHeight = 16;
+  const maxWidth = pageSize[0] - margin * 2;
+  const normalizeForStandardFont = (value, replaceUnsupported = false) => {
+    const punctuation = new Map([
+      ['\u2018', "'"], ['\u2019', "'"], ['\u201c', '"'], ['\u201d', '"'],
+      ['\u2013', '-'], ['\u2014', '--'], ['\u2026', '...'], ['\u2022', '*'],
+      ['\u00a0', ' '], ['\u2212', '-']
+    ]);
+    const normalized = Array.from(String(value || '').normalize('NFKD'))
+      .filter(character => !/\p{M}/u.test(character))
+      .map(character => punctuation.get(character) || (character === '\t' ? ' ' : character));
+    const output = [];
+    const unsupported = new Set();
+    normalized.forEach(character => {
+      if (character === '\n' || character === '\r') { output.push(character); return; }
+      try {
+        font.encodeText(character);
+        output.push(character);
+      } catch (_) {
+        unsupported.add(character);
+        if (replaceUnsupported) output.push('?');
+      }
     });
-    y -= 18;
+    if (unsupported.size && !replaceUnsupported) {
+      throw new Error(`This browser PDF font cannot encode ${unsupported.size} character${unsupported.size === 1 ? '' : 's'} in the source text. Use a Latin-script document or export the text directly.`);
+    }
+    return output.join('');
+  };
+  const paragraphs = normalizeForStandardFont(text).replace(/\r\n?/g, '\n').split('\n');
+  const lines = [];
+  paragraphs.forEach(paragraph => {
+    if (!paragraph.trim()) { lines.push(''); return; }
+    let line = '';
+    paragraph.split(/\s+/).forEach(word => {
+      const next = line ? `${line} ${word}` : word;
+      if (font.widthOfTextAtSize(next, fontSize) <= maxWidth) line = next;
+      else {
+        if (line) lines.push(line);
+        line = word;
+      }
+    });
+    if (line) lines.push(line);
   });
-  
-  const bytes = await pdfDoc.save();
-  return new Blob([bytes], { type: 'application/pdf' });
+  let page;
+  let y;
+  const newPage = () => {
+    page = pdfDoc.addPage(pageSize);
+    y = pageSize[1] - margin;
+    if (options.title) {
+      page.drawText(normalizeForStandardFont(String(options.title).slice(0, 100), true), { x: margin, y, size: 15, font, color: PDFLib.rgb(0.08, 0.18, 0.35) });
+      y -= 26;
+    }
+  };
+  newPage();
+  lines.forEach(line => {
+    if (y < margin) newPage();
+    if (line) page.drawText(line, { x: margin, y, size: fontSize, font, color: PDFLib.rgb(0.1, 0.1, 0.1) });
+    y -= lineHeight;
+  });
+  return new Blob([await pdfDoc.save()], { type: 'application/pdf' });
 }
 
 // --- ALGORITHM: PDF TO WORD/TEXT ---
@@ -7810,17 +7959,151 @@ async function runPDFToWord(format) {
 
 // --- ALGORITHM: EPUB TO PDF ---
 async function runEPUBToPDF() {
-  throw new Error(window.GxaWorkspace.getBlocker('epub-to-pdf'));
+  const file = appState.activeFiles[0];
+  if (file.size > 30 * 1024 * 1024) throw new Error('EPUB to PDF supports files up to 30 MB in this browser.');
+  const archive = await JSZip.loadAsync(await file.arrayBuffer(), { checkCRC32: true });
+  const archiveEntries = Object.values(archive.files);
+  if (archiveEntries.length > 5000) throw new Error('This EPUB contains too many archive entries for safe browser processing.');
+  const readLimitedText = async (entry, label, maximumBytes) => {
+    const declaredSize = Number(entry?._data?.uncompressedSize || 0);
+    if (declaredSize > maximumBytes) throw new Error(`${label} exceeds the safe browser expansion limit.`);
+    const value = await entry.async('text');
+    if (new Blob([value]).size > maximumBytes) throw new Error(`${label} exceeds the safe browser expansion limit.`);
+    return value;
+  };
+  const resolveArchivePath = (base, href) => {
+    let clean = String(href || '').split(/[?#]/, 1)[0].replace(/\\/g, '/');
+    try { clean = decodeURIComponent(clean); } catch (_) { throw new Error('The EPUB contains an invalid encoded chapter path.'); }
+    if (!clean || clean.startsWith('/')) return '';
+    const parts = [];
+    `${base}${clean}`.split('/').forEach(part => {
+      if (!part || part === '.') return;
+      if (part === '..') parts.pop();
+      else parts.push(part);
+    });
+    return parts.join('/');
+  };
+  const containerFile = archive.file('META-INF/container.xml');
+  if (!containerFile) throw new Error('The EPUB is missing META-INF/container.xml.');
+  const containerXml = new DOMParser().parseFromString(await readLimitedText(containerFile, 'EPUB container metadata', 512 * 1024), 'application/xml');
+  if (containerXml.querySelector('parsererror')) throw new Error('The EPUB container metadata is malformed.');
+  const packagePath = containerXml.getElementsByTagNameNS('*', 'rootfile')[0]?.getAttribute('full-path');
+  const packageFile = packagePath ? archive.file(packagePath) : null;
+  if (!packageFile) throw new Error('The EPUB package document could not be found.');
+  const packageXml = new DOMParser().parseFromString(await readLimitedText(packageFile, 'EPUB package metadata', 2 * 1024 * 1024), 'application/xml');
+  if (packageXml.querySelector('parsererror')) throw new Error('The EPUB package metadata is malformed.');
+  const packageDirectory = packagePath.includes('/') ? packagePath.slice(0, packagePath.lastIndexOf('/') + 1) : '';
+  const manifest = new Map(Array.from(packageXml.getElementsByTagNameNS('*', 'item')).map(item => [item.getAttribute('id'), item.getAttribute('href')]));
+  const chapters = [];
+  const spineItems = Array.from(packageXml.getElementsByTagNameNS('*', 'itemref'));
+  if (spineItems.length > 500) throw new Error('This EPUB contains more than 500 spine items and exceeds the browser conversion limit.');
+  let expandedChapterBytes = 0;
+  for (const item of spineItems) {
+    const href = manifest.get(item.getAttribute('idref'));
+    const chapterPath = href ? resolveArchivePath(packageDirectory, href) : '';
+    const chapter = chapterPath ? archive.file(chapterPath) : null;
+    if (!chapter) continue;
+    const declaredSize = Number(chapter._data?.uncompressedSize || 0);
+    if (declaredSize > 5 * 1024 * 1024) throw new Error(`EPUB chapter ${chapterPath} exceeds the 5 MB expansion limit.`);
+    expandedChapterBytes += declaredSize;
+    if (expandedChapterBytes > 30 * 1024 * 1024) throw new Error('The expanded EPUB chapters exceed the safe 30 MB browser limit.');
+    const html = await readLimitedText(chapter, `EPUB chapter ${chapterPath}`, 5 * 1024 * 1024);
+    const documentNode = new DOMParser().parseFromString(html, 'text/html');
+    documentNode.querySelectorAll('script,style,noscript').forEach(node => node.remove());
+    documentNode.body?.querySelectorAll('br').forEach(node => node.replaceWith('\n'));
+    documentNode.body?.querySelectorAll('p,div,section,article,h1,h2,h3,h4,h5,h6,li,blockquote,pre,tr').forEach(node => node.append('\n'));
+    const text = documentNode.body?.textContent?.replace(/[\t ]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+    if (text) chapters.push(text);
+  }
+  if (!chapters.length) throw new Error('No readable reflowable chapter text was found in this EPUB.');
+  const combinedText = chapters.join('\n\n');
+  if (combinedText.length > 5_000_000) throw new Error('The extracted EPUB text exceeds the 5-million-character browser limit.');
+  return createTextPdf(combinedText, { title: file.name.replace(/\.epub$/i, '') });
 }
 
 // --- ALGORITHM: PDF TO EPUB ---
 async function runPDFToEPUB(title, author) {
-  throw new Error(window.GxaWorkspace.getBlocker('pdf-to-epub'));
+  const file = appState.activeFiles[0];
+  const pages = await window.GxaWorkspace.extractPdfText(file);
+  if (!pages.some(page => page.trim())) throw new Error('This PDF has no selectable text to reflow. Use OCR PDF first for scanned pages.');
+  const zip = new JSZip();
+  zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+  zip.file('META-INF/container.xml', '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+  const identifier = `urn:uuid:${crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+  const manifest = [];
+  const spine = [];
+  const navigation = [];
+  pages.forEach((pageText, index) => {
+    const number = index + 1;
+    const filename = `chapter-${String(number).padStart(3, '0')}.xhtml`;
+    const paragraphs = String(pageText || '').split(/\n+/).map(value => value.trim()).filter(Boolean);
+    zip.file(`EPUB/${filename}`, `<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Page ${number}</title><meta charset="utf-8"/></head><body><h1>Page ${number}</h1>${paragraphs.map(value => `<p>${escapeHTML(value)}</p>`).join('')}</body></html>`);
+    manifest.push(`<item id="chapter-${number}" href="${filename}" media-type="application/xhtml+xml"/>`);
+    spine.push(`<itemref idref="chapter-${number}"/>`);
+    navigation.push(`<li><a href="${filename}">Page ${number}</a></li>`);
+  });
+  zip.file('EPUB/nav.xhtml', `<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Contents</title></head><body><nav epub:type="toc"><h1>Contents</h1><ol>${navigation.join('')}</ol></nav></body></html>`);
+  zip.file('EPUB/package.opf', `<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="book-id">${escapeHTML(identifier)}</dc:identifier><dc:title>${escapeHTML(title)}</dc:title><dc:creator>${escapeHTML(author)}</dc:creator><dc:language>en</dc:language><meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')}</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>${manifest.join('')}</manifest><spine>${spine.join('')}</spine></package>`);
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }
 
 // --- ALGORITHM: GIF ANIMATED SLIDESHOW MAKER ---
-function runGIFMaker(speed) {
-  return Promise.reject(new Error(window.GxaWorkspace.getBlocker('gif-maker')));
+async function runGIFMaker(speed) {
+  const files = appState.activeFiles;
+  if (files.length < 2) throw new Error('Choose at least two images to create an animation.');
+  if (files.length > 80) throw new Error('GIF Maker supports up to 80 frames per run.');
+  const first = await loadDecodedImageSource(files[0]);
+  const maximumDimension = Math.min(1024, Math.max(first.width, first.height));
+  const scale = Math.min(1, maximumDimension / Math.max(first.width, first.height));
+  const width = Math.max(1, Math.round(first.width * scale));
+  const height = Math.max(1, Math.round(first.height * scale));
+  first.close();
+  if (width * height * files.length > 24_000_000) throw new Error('These frames exceed the safe 24-megapixel browser GIF budget. Reduce frame count or dimensions.');
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  const worker = new Worker('/assets/gif-encoder-worker.js', { type: 'module' });
+  const pending = new Map();
+  let requestNumber = 0;
+  worker.addEventListener('message', event => {
+    const request = pending.get(event.data?.id);
+    if (!request) return;
+    pending.delete(event.data.id);
+    if (event.data.error) request.reject(new Error(event.data.error));
+    else request.resolve(event.data);
+  });
+  worker.addEventListener('error', () => {
+    pending.forEach(request => request.reject(new Error('The local GIF encoder worker could not initialize.')));
+    pending.clear();
+  });
+  const request = (type, payload = {}, transfer = []) => new Promise((resolve, reject) => {
+    const id = `gif-${Date.now()}-${requestNumber += 1}`;
+    pending.set(id, { resolve, reject });
+    worker.postMessage({ id, type, ...payload }, transfer);
+  });
+  try {
+    await request('initialize', { width, height, delay: Number(speed) || 500 });
+    for (let index = 0; index < files.length; index += 1) {
+      if (premiumEditorState.batchCancelled) throw new Error(`GIF creation cancelled after ${index} frame${index === 1 ? '' : 's'}.`);
+      const bitmap = await loadDecodedImageSource(files[index]);
+      context.clearRect(0, 0, width, height);
+      context.drawImage(bitmap.source, 0, 0, width, height);
+      bitmap.close();
+      const rgba = context.getImageData(0, 0, width, height).data;
+      await request('frame', { rgba: rgba.buffer }, [rgba.buffer]);
+      const progress = document.getElementById('global-progress-bar');
+      if (progress) progress.style.width = `${25 + Math.round(((index + 1) / files.length) * 55)}%`;
+    }
+    const result = await request('finish');
+    return new Blob([result.output], { type: 'image/gif' });
+  } finally {
+    pending.forEach(item => item.reject(new Error('GIF encoding stopped.')));
+    pending.clear();
+    worker.terminate();
+    canvas.width = 0;
+    canvas.height = 0;
+  }
 }
 
 // --- ALGORITHM: ZIP ARCHIVE EXTRACTOR ---
@@ -8571,7 +8854,27 @@ async function runPDFMetadataEdit(file, title, author, subject = '', keywords = 
 
 // --- ALGORITHM: EXCEL TO PDF ---
 async function runExcelToPDF(file, fontName) {
-  throw new Error(window.GxaWorkspace.getBlocker('excel-to-pdf'));
+  if (file.size > 15 * 1024 * 1024) throw new Error('Excel to PDF supports workbook or CSV files up to 15 MB in this browser.');
+  await window.GxaWorkspace.loadScriptOnce('/assets/vendor/sheetjs/xlsx.full.min.js', 'XLSX');
+  const workbook = window.XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+  if (!workbook.SheetNames.length) throw new Error('The workbook contains no worksheets.');
+  if (workbook.SheetNames.length > 40) throw new Error('This workbook contains more than 40 worksheets and exceeds the browser conversion limit.');
+  const sections = [];
+  let totalCells = 0;
+  workbook.SheetNames.forEach(sheetName => {
+    const sheet = workbook.Sheets[sheetName];
+    const decodedRange = window.XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
+    const rowCount = decodedRange.e.r - decodedRange.s.r + 1;
+    const columnCount = decodedRange.e.c - decodedRange.s.c + 1;
+    if (rowCount > 5000 || columnCount > 200) throw new Error(`${sheetName} exceeds the safe 5,000-row or 200-column browser limit.`);
+    totalCells += rowCount * columnCount;
+    if (totalCells > 300_000) throw new Error('The workbook exceeds the safe 300,000-cell browser conversion limit.');
+    const rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, range: decodedRange });
+    sections.push(`[Worksheet: ${sheetName}]`);
+    rows.forEach(row => sections.push(row.map(value => String(value)).join('    ')));
+    sections.push('');
+  });
+  return createTextPdf(sections.join('\n'), { fontName, title: file.name.replace(/\.[^.]+$/, '') });
 }
 
 // --- ALGORITHM: PPT TO PDF ---
@@ -8704,8 +9007,35 @@ function runWebpToJpg(file, format) {
 }
 
 // --- ALGORITHM: GIF TO PNG ---
-function runGifToPng(file) {
-  return Promise.reject(new Error(window.GxaWorkspace.getBlocker('gif-to-png')));
+async function runGifToPng(file) {
+  if (!window.GxaGifDecoder) await window.GxaWorkspace.loadScriptOnce('/assets/gif-decoder.js', 'GxaGifDecoder');
+  const decoded = window.GxaGifDecoder.decode(await file.arrayBuffer(), {
+    maximumDimension: 4096,
+    maximumFramePixels: 12_000_000,
+    maximumTotalPixels: 24_000_000,
+    maximumFrames: 120
+  });
+  const zip = new JSZip();
+  const canvas = document.createElement('canvas');
+  canvas.width = decoded.width;
+  canvas.height = decoded.height;
+  const context = canvas.getContext('2d');
+  try {
+    for (let index = 0; index < decoded.frames.length; index += 1) {
+      if (premiumEditorState.batchCancelled) throw new Error(`GIF frame export cancelled after ${index} frame${index === 1 ? '' : 's'}.`);
+      const frame = decoded.frames[index];
+      context.putImageData(new ImageData(frame.rgba, decoded.width, decoded.height), 0, 0);
+      const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('PNG frame export failed.')), 'image/png'));
+      zip.file(`frame-${String(index + 1).padStart(3, '0')}.png`, blob);
+      const progress = document.getElementById('global-progress-bar');
+      if (progress) progress.style.width = `${25 + Math.round(((index + 1) / decoded.frames.length) * 55)}%`;
+    }
+    zip.file('frames.json', JSON.stringify({ source: file.name, width: decoded.width, height: decoded.height, frames: decoded.frames.map((frame, index) => ({ frame: index + 1, delayMs: frame.delay })) }, null, 2));
+    return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
 }
 
 // --- ALGORITHM: TEXT TO SPEECH ---
@@ -9598,7 +9928,17 @@ async function runPDFExtractPages(file, rangeStr) {
 
 // --- ALGORITHM: EXTRACT PDF IMAGES ---
 async function runPDFExtractImages(file) {
-  throw new Error(window.GxaWorkspace.getBlocker('extract-images-pdf'));
+  if (file.size > 30 * 1024 * 1024) throw new Error('Embedded image extraction supports PDFs up to 30 MB in this browser.');
+  const images = await window.GxaWorkspace.extractEmbeddedPdfImages(file);
+  if (!images.length) throw new Error('No decoded embedded raster image objects were found. Use PDF to Image if you need rendered page images.');
+  const archive = new JSZip();
+  images.forEach((image, index) => archive.file(`page-${String(image.pageNumber).padStart(3, '0')}-image-${String(index + 1).padStart(3, '0')}.png`, image.blob));
+  archive.file('manifest.json', JSON.stringify({
+    source: file.name,
+    extraction: 'Decoded PDF image objects; these are not rendered pages or guaranteed original compressed byte streams.',
+    images: images.map((image, index) => ({ file: `page-${String(image.pageNumber).padStart(3, '0')}-image-${String(index + 1).padStart(3, '0')}.png`, page: image.pageNumber, object: image.name, width: image.width, height: image.height }))
+  }, null, 2));
+  return archive.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
 // --- ALGORITHM: CROP PDF ---
@@ -9784,17 +10124,87 @@ async function runPDFRepair(file) {
 
 // --- ALGORITHM: OCR PDF ---
 async function runPDFOCR(file, lang) {
-  throw new Error(window.GxaWorkspace.getBlocker('ocr-pdf'));
+  if (file.size > 30 * 1024 * 1024) throw new Error('OCR PDF supports files up to 30 MB in this browser.');
+  await window.GxaWorkspace.loadScriptOnce('/assets/vendor/tesseract/tesseract.min.js', 'Tesseract');
+  const stage = document.getElementById('processing-stage-label');
+  let worker;
+  const text = [];
+  try {
+    worker = await window.Tesseract.createWorker(lang, 1, {
+      workerPath: '/assets/vendor/tesseract/worker.min.js',
+      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v7.0.0',
+      langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int',
+      logger(message) {
+        if (stage && message?.status) stage.textContent = `${message.status}${Number.isFinite(message.progress) ? ` ${Math.round(message.progress * 100)}%` : ''}`;
+      }
+    });
+    await window.GxaWorkspace.renderPdfPages(file, {
+      scale: 1.5,
+      maximumPages: 20,
+      maximumTotalPixels: 30_000_000,
+      isCancelled: () => premiumEditorState.batchCancelled,
+      onPage: async (page, total) => {
+        if (premiumEditorState.batchCancelled) throw new Error(`OCR cancelled after ${text.length} page${text.length === 1 ? '' : 's'}.`);
+        if (stage) stage.textContent = `Recognizing page ${page.pageNumber} of ${total}…`;
+        const result = await worker.recognize(page.canvas);
+        text.push(`--- Page ${page.pageNumber} ---\n${result.data.text.trim()}`);
+        const progress = document.getElementById('global-progress-bar');
+        if (progress) progress.style.width = `${25 + Math.round((page.pageNumber / total) * 55)}%`;
+      },
+      onProgress: (pageNumber, total) => { if (stage) stage.textContent = `Completed OCR page ${pageNumber} of ${total}`; }
+    });
+  } finally {
+    if (worker) await worker.terminate();
+  }
+  return new Blob([text.join('\n\n')], { type: 'text/plain;charset=utf-8' });
 }
 
 // --- ALGORITHM: PDF TO EXCEL ---
 async function runPDFToExcel(file) {
-  throw new Error(window.GxaWorkspace.getBlocker('pdf-to-excel'));
+  if (file.size > 30 * 1024 * 1024) throw new Error('PDF to Excel supports files up to 30 MB in this browser.');
+  await window.GxaWorkspace.loadScriptOnce('/assets/vendor/sheetjs/xlsx.full.min.js', 'XLSX');
+  const pages = await window.GxaWorkspace.extractPdfTextRows(file);
+  if (!pages.some(rows => rows.length)) throw new Error('No selectable text rows were found. OCR scanned PDFs before spreadsheet extraction.');
+  const workbook = window.XLSX.utils.book_new();
+  pages.forEach((rows, index) => {
+    const worksheet = window.XLSX.utils.aoa_to_sheet(rows.length ? rows : [['']]);
+    window.XLSX.utils.book_append_sheet(workbook, worksheet, `Page ${index + 1}`.slice(0, 31));
+  });
+  const output = window.XLSX.write(workbook, { type: 'array', bookType: 'xlsx', compression: true });
+  return new Blob([output], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
 // --- ALGORITHM: PDF TO PPT ---
 async function runPDFToPPT(file) {
-  throw new Error(window.GxaWorkspace.getBlocker('pdf-to-ppt'));
+  if (file.size > 30 * 1024 * 1024) throw new Error('PDF to PPT supports files up to 30 MB in this browser.');
+  await window.GxaWorkspace.loadScriptOnce('/assets/vendor/pptxgenjs/pptxgen.min.js', 'PptxGenJS');
+  const presentation = new window.PptxGenJS();
+  presentation.layout = 'LAYOUT_WIDE';
+  presentation.author = 'GXA Technologies';
+  presentation.subject = 'Image-based PDF page conversion';
+  presentation.title = file.name.replace(/\.pdf$/i, '');
+  await window.GxaWorkspace.renderPdfPages(file, {
+    scale: 1.25,
+    maximumPages: 30,
+    maximumTotalPixels: 30_000_000,
+    isCancelled: () => premiumEditorState.batchCancelled,
+    onPage: page => {
+      const slide = presentation.addSlide();
+      slide.background = { color: 'FFFFFF' };
+      const data = page.canvas.toDataURL('image/jpeg', 0.88);
+      const pageRatio = page.width / page.height;
+      const slideRatio = 13.333 / 7.5;
+      let width = 13.333;
+      let height = 7.5;
+      let x = 0;
+      let y = 0;
+      if (pageRatio > slideRatio) { height = width / pageRatio; y = (7.5 - height) / 2; }
+      else { width = height * pageRatio; x = (13.333 - width) / 2; }
+      slide.addImage({ data, x, y, w: width, h: height });
+    }
+  });
+  const output = await presentation.write({ outputType: 'arraybuffer', compression: true });
+  return new Blob([output], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 }
 
 

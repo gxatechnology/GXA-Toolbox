@@ -27,7 +27,8 @@ tools.forEach(tool => {
 const requiredTools = ['merge-pdf', 'compress-image', 'pdf-to-jpg', 'qr-reader', 'hash-tool', 'currency-converter', 'time-calculator'];
 requiredTools.forEach(id => assert(tools.some(tool => tool.id === id), `Missing registered tool: ${id}`));
 
-const blockerIds = [...workspace.matchAll(/^\s*'([^']+)':\s*'[^']+'/gm)].map(match => match[1]);
+const blockerSource = workspace.slice(workspace.indexOf('const blockers'), workspace.indexOf('const serverTools'));
+const blockerIds = [...blockerSource.matchAll(/^\s*'([^']+)':\s*'[^']+'/gm)].map(match => match[1]);
 blockerIds.forEach(id => assert(tools.some(tool => tool.id === id), `Dependency blocker references unknown tool: ${id}`));
 assert(workspace.includes('validateFiles'), 'Shared file validation is missing.');
 assert(workspace.includes('renderFilePreview'), 'Shared preview rendering is missing.');
@@ -151,7 +152,7 @@ const modes = tools.reduce((summary, tool) => {
   const mode = blockerIds.includes(tool.id)
     ? 'dependency-required'
     : tool.id === 'background-remover'
-      ? 'server'
+      ? 'local-wasm'
       : ['qr-reader', 'barcode-reader'].includes(tool.id)
         ? 'browser-capability'
         : 'local';

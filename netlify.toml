@@ -125,6 +125,12 @@
     Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
+  for = "/assets/vendor/qpdf/*.wasm"
+  [headers.values]
+    Content-Type = "application/wasm"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
   for = "/assets/vendor/onnxruntime-web/*.mjs"
   [headers.values]
     Content-Type = "application/javascript; charset=utf-8"

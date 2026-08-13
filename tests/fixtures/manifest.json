@@ -1,0 +1,26 @@
+{
+  "synthetic": true,
+  "encryptedPdfPassword": "gxa-fixture",
+  "ocrPhrase": "GXA OCR FIXTURE 2026",
+  "gifFrames": 2,
+  "required": [
+    "one-page.pdf",
+    "multi-page.pdf",
+    "encrypted-password.pdf",
+    "scanned.pdf",
+    "embedded-image.pdf",
+    "landscape.png",
+    "sample.jpg",
+    "sample.webp",
+    "sample.svg",
+    "sample.gif",
+    "sample.docx",
+    "sample.xlsx",
+    "sample.pptx",
+    "sample.epub",
+    "sample.zip",
+    "sample.txt",
+    "sample.json",
+    "sample.csv"
+  ]
+}
