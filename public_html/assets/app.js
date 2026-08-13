@@ -63,6 +63,7 @@ const premiumEditorState = {
   inputHandler: null,
   clickHandler: null,
   previewObserver: null,
+  previewUpdateFrame: 0,
   resultUrl: '',
   resultBlob: null,
   resultFilename: '',
@@ -73,6 +74,8 @@ const premiumEditorState = {
   batchCancelled: false,
   startedAt: 0
 };
+let navigationCloseTimer = 0;
+let navigationDocumentEventsBound = false;
 const watermarkEditorState = {
   imageFile: null,
   imageUrl: '',
@@ -785,7 +788,10 @@ function toggleMobileNavigation() {
 
 function closeMobileNavigation() {
   document.body.classList.remove('mobile-menu-open');
-  document.querySelectorAll('.nav-item.menu-expanded').forEach(item => item.classList.remove('menu-expanded'));
+  document.querySelectorAll('.nav-item.menu-expanded').forEach(item => {
+    item.classList.remove('menu-expanded');
+    delete item.dataset.navigationPinned;
+  });
   document.querySelectorAll('.nav-item > button[aria-haspopup="true"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
   const menu = document.querySelector('.header-nav .nav-menu');
   if (window.matchMedia('(max-width: 1100px)').matches && menu) {
@@ -822,6 +828,110 @@ function navigateToToolCategory(category = 'all') {
     if (tab) filterTools(category, tab);
     document.getElementById('tools-grid-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+}
+
+function renderHeaderToolMenu(category) {
+  const categoryTools = toolsList.filter(tool => tool.category === category);
+  const titles = {
+    pdf: ['Edit & organize', 'Convert & export', 'More PDF tools'],
+    image: ['Optimize', 'Edit', 'Inspect & enhance'],
+    calculator: ['Everyday', 'Finance', 'More calculators']
+  }[category] || ['Tools', 'More tools', 'Utilities'];
+  const columnSize = Math.ceil(categoryTools.length / 3);
+  const columns = Array.from({ length: 3 }, (_, index) => categoryTools.slice(index * columnSize, (index + 1) * columnSize));
+  const toolButton = tool => `<button type="button" class="mega-list-link" data-tool-id="${tool.id}" onclick="navigate('tool-${tool.id}')">${escapeHTML(tool.name)}</button>`;
+
+  return columns.map((column, index) => `
+    <div>
+      <div class="mega-col-title">${titles[index]}</div>
+      <div class="mega-list">${column.map(toolButton).join('')}</div>
+    </div>
+  `).join('') + `
+    <div class="mega-popular">
+      <div class="mega-popular-title">Popular ${category === 'calculator' ? 'calculators' : `${category.toUpperCase()} tools`}</div>
+      ${categoryTools.slice(0, 2).map(toolButton).join('')}
+    </div>
+  `;
+}
+
+function closeCategoryNavigation({ restoreFocus = false } = {}) {
+  window.clearTimeout(navigationCloseTimer);
+  navigationCloseTimer = 0;
+  document.querySelectorAll('.header-nav .nav-item.menu-expanded').forEach(item => {
+    item.classList.remove('menu-expanded');
+    delete item.dataset.navigationPinned;
+    const trigger = item.querySelector(':scope > button[aria-haspopup="true"]');
+    trigger?.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) trigger?.focus();
+  });
+}
+
+function setCategoryNavigationOpen(item, open, { pinned = false } = {}) {
+  window.clearTimeout(navigationCloseTimer);
+  navigationCloseTimer = 0;
+  document.querySelectorAll('.header-nav .nav-item.menu-expanded').forEach(openItem => {
+    if (openItem === item) return;
+    openItem.classList.remove('menu-expanded');
+    delete openItem.dataset.navigationPinned;
+    openItem.querySelector(':scope > button[aria-haspopup="true"]')?.setAttribute('aria-expanded', 'false');
+  });
+  item.classList.toggle('menu-expanded', open);
+  if (!open) delete item.dataset.navigationPinned;
+  else if (pinned) item.dataset.navigationPinned = 'true';
+  item.querySelector(':scope > button[aria-haspopup="true"]')?.setAttribute('aria-expanded', String(open));
+}
+
+function isDesktopHoverNavigation() {
+  return window.matchMedia('(min-width: 1101px) and (hover: hover) and (pointer: fine)').matches;
+}
+
+function scheduleCategoryNavigationClose(item, { force = false } = {}) {
+  if (!force && item.dataset.navigationPinned === 'true') return;
+  window.clearTimeout(navigationCloseTimer);
+  navigationCloseTimer = window.setTimeout(() => {
+    if (!item.matches(':hover') && !item.contains(document.activeElement)) setCategoryNavigationOpen(item, false);
+  }, 200);
+}
+
+function initializeCategoryNavigation(nav) {
+  nav.querySelectorAll('.nav-item[data-nav-category]').forEach(item => {
+    const trigger = item.querySelector(':scope > button[aria-haspopup="true"]');
+    const menu = item.querySelector(':scope > .mega-menu');
+    if (!trigger || !menu) return;
+    trigger.setAttribute('aria-expanded', 'false');
+    const togglePinnedMenu = () => {
+      const shouldOpen = item.dataset.navigationPinned !== 'true';
+      setCategoryNavigationOpen(item, shouldOpen, { pinned: shouldOpen });
+    };
+    trigger.addEventListener('click', togglePinnedMenu);
+    trigger.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      togglePinnedMenu();
+    });
+    item.addEventListener('pointerenter', () => {
+      if (isDesktopHoverNavigation()) setCategoryNavigationOpen(item, true);
+    });
+    item.addEventListener('pointerleave', () => {
+      if (isDesktopHoverNavigation()) scheduleCategoryNavigationClose(item);
+    });
+    item.addEventListener('focusout', event => {
+      if (!item.contains(event.relatedTarget)) scheduleCategoryNavigationClose(item, { force: true });
+    });
+  });
+
+  if (!navigationDocumentEventsBound) {
+    document.addEventListener('pointerdown', event => {
+      if (!event.target.closest('.header-nav .nav-item[data-nav-category]')) closeCategoryNavigation();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && document.querySelector('.header-nav .nav-item.menu-expanded')) {
+        event.preventDefault();
+        closeCategoryNavigation({ restoreFocus: true });
+      }
+    });
+    navigationDocumentEventsBound = true;
+  }
 }
 
 // --- Navigation Renderers ---
@@ -885,109 +995,17 @@ function renderNavbar() {
         <li class="mobile-all-tools-link">
           <button type="button" class="nav-link" onclick="navigateToToolCategory('all')"><i data-lucide="grid-2x2"></i><span>All Tools</span></button>
         </li>
-        <li class="nav-item">
-          <button type="button" class="nav-link${navState('pdf')}" aria-haspopup="true"${currentPageAttribute('pdf')}><i data-lucide="file-text"></i><span>${t('pdf')}</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
-          <div class="mega-menu">
-            <div>
-              <div class="mega-col-title">Optimize</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-merge-pdf')">Merge PDF</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-organize-pdf')">Organize PDF</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-split-pdf')">Split PDF</a></li>
-              </ul>
-            </div>
-            <div>
-              <div class="mega-col-title">Convert To</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-jpg-to-pdf')">JPG to PDF</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-word-to-pdf')">Word to PDF</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-excel-to-pdf')">Excel to PDF</a></li>
-              </ul>
-            </div>
-            <div>
-              <div class="mega-col-title">Convert From</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-pdf-to-jpg')">PDF to JPG</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-pdf-to-word')">PDF to Word</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-pdf-to-text')">PDF to Text</a></li>
-              </ul>
-            </div>
-            <div class="mega-popular">
-              <div class="mega-popular-title">Most Popular</div>
-              <a class="mega-list-link" onclick="navigate('tool-merge-pdf')"><i data-lucide="zap"></i> Merge Files</a>
-              <a class="mega-list-link" onclick="navigate('tool-compress-image')"><i data-lucide="image"></i> Compress JPG</a>
-            </div>
-          </div>
+        <li class="nav-item has-mega-menu" data-nav-category="pdf">
+          <button id="nav-pdf-trigger" type="button" class="nav-link${navState('pdf')}" aria-haspopup="true" aria-controls="nav-pdf-menu" aria-expanded="false"${currentPageAttribute('pdf')}><i data-lucide="file-text"></i><span>${t('pdf')}</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
+          <div id="nav-pdf-menu" class="mega-menu" aria-labelledby="nav-pdf-trigger">${renderHeaderToolMenu('pdf')}</div>
         </li>
-        <li class="nav-item">
-          <button type="button" class="nav-link${navState('image')}" aria-haspopup="true"${currentPageAttribute('image')}><i data-lucide="image"></i><span>${t('image')}</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
-          <div class="mega-menu">
-            <div>
-              <div class="mega-col-title">Optimize</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-compress-image')">Compress Image</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-resize-image')">Resize Image</a></li>
-              </ul>
-            </div>
-            <div>
-              <div class="mega-col-title">Edit</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-crop-image')">Crop Image</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-crop-image')">Circle Crop</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-background-remover')" >Background Remover</a></li>
-              </ul>
-            </div>
-            <div>
-              <div class="mega-col-title">Palette</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-color-extractor')">Color Extract</a></li>
-              </ul>
-            </div>
-            <div class="mega-popular">
-              <div class="mega-popular-title">Image Compress</div>
-              <p style="font-size:11px; color:var(--color-text-secondary);">Adjust image quality and compare the actual before-and-after size.</p>
-            </div>
-          </div>
+        <li class="nav-item has-mega-menu" data-nav-category="image">
+          <button id="nav-image-trigger" type="button" class="nav-link${navState('image')}" aria-haspopup="true" aria-controls="nav-image-menu" aria-expanded="false"${currentPageAttribute('image')}><i data-lucide="image"></i><span>${t('image')}</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
+          <div id="nav-image-menu" class="mega-menu" aria-labelledby="nav-image-trigger">${renderHeaderToolMenu('image')}</div>
         </li>
-        <li class="nav-item">
-          <button type="button" class="nav-link${navState('calculator')}" aria-haspopup="true"${currentPageAttribute('calculator')}><i data-lucide="calculator"></i><span>Calculators</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
-          <div class="mega-menu">
-            <div>
-              <div class="mega-col-title">Basic Calculators</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-calculator')">Simple Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-scientific-calculator')">Scientific Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-percentage-calculator')">Percentage Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-age-calculator')">Age Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-date-calculator')">Date Calculator</a></li>
-              </ul>
-            </div>
-            <div>
-              <div class="mega-col-title">Finance Calculators</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-emi-calculator')">EMI Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-loan-calculator')">Loan Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-interest-calculator')">Interest Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-gst-calculator')">GST Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-sip-calculator')">SIP Calculator</a></li>
-              </ul>
-            </div>
-            <div>
-              <div class="mega-col-title">Daily Use</div>
-              <ul class="mega-list">
-                <li><a class="mega-list-link" onclick="navigate('tool-bmi-calculator')">BMI Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-discount-calculator')">Discount Calculator</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-unit-converter')">Unit Converter</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-currency-converter')">Currency Converter</a></li>
-                <li><a class="mega-list-link" onclick="navigate('tool-time-calculator')">Time Calculator</a></li>
-              </ul>
-            </div>
-            <div class="mega-popular">
-              <div class="mega-popular-title">Daily Calculator</div>
-              <a class="mega-list-link" onclick="navigate('tool-calculator')"><i data-lucide="calculator"></i> Simple Calc</a>
-              <a class="mega-list-link" onclick="navigate('tool-emi-calculator')"><i data-lucide="indian-rupee"></i> EMI Calc</a>
-            </div>
-          </div>
+        <li class="nav-item has-mega-menu" data-nav-category="calculator">
+          <button id="nav-calculator-trigger" type="button" class="nav-link${navState('calculator')}" aria-haspopup="true" aria-controls="nav-calculator-menu" aria-expanded="false"${currentPageAttribute('calculator')}><i data-lucide="calculator"></i><span>Calculators</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
+          <div id="nav-calculator-menu" class="mega-menu" aria-labelledby="nav-calculator-trigger">${renderHeaderToolMenu('calculator')}</div>
         </li>
         <li class="nav-item">
           <a class="nav-link${navState('dashboard')}" onclick="navigate('dashboard')"${currentPageAttribute('dashboard')}><i data-lucide="layout-dashboard"></i><span>${t('dashboard')}</span></a>
@@ -1058,22 +1076,7 @@ function renderNavbar() {
       link.setAttribute('aria-current', 'page');
     }
   });
-  nav.querySelectorAll('.nav-item > button[aria-haspopup="true"]').forEach(button => {
-    button.setAttribute('aria-expanded', 'false');
-    button.addEventListener('click', () => {
-      const item = button.closest('.nav-item');
-      const expanded = window.matchMedia('(max-width: 1100px)').matches
-        ? item.classList.toggle('menu-expanded')
-        : true;
-      button.setAttribute('aria-expanded', String(expanded));
-    });
-    button.closest('.nav-item').addEventListener('focusout', event => {
-      const item = button.closest('.nav-item');
-      if (!item.contains(event.relatedTarget) && !item.classList.contains('menu-expanded')) {
-        button.setAttribute('aria-expanded', 'false');
-      }
-    });
-  });
+  initializeCategoryNavigation(nav);
   syncMobileNavigationState();
   
   lucide.createIcons();
@@ -3967,10 +3970,10 @@ function renderToolPage(container, toolId) {
       document.getElementById('btn-generator-download').classList.add('hidden');
       document.getElementById('opt-plag-text').addEventListener('input', generatePlagiarismCheck);
     } else if (toolId === 'calculator') {
-      generateSimpleCalc();
+      generateSimpleCalc(true);
       document.getElementById('btn-generator-download').classList.add('hidden');
     } else if (toolId === 'scientific-calculator') {
-      generateScientificCalc();
+      generateScientificCalc(true);
       document.getElementById('btn-generator-download').classList.add('hidden');
     } else if (toolId === 'age-calculator') {
       generateAgeCalc();
@@ -5230,8 +5233,8 @@ let html2CanvasPromise = null;
 
 function runActiveCalculator() {
   const calculatorRunners = {
-    calculator: generateSimpleCalc,
-    'scientific-calculator': generateScientificCalc,
+    calculator: () => pressCalcKey('='),
+    'scientific-calculator': () => pressSciKey('='),
     'percentage-calculator': generatePercentageCalc,
     'age-calculator': generateAgeCalc,
     'date-calculator': generateDateCalc,
@@ -5287,7 +5290,13 @@ function initializePremiumToolEditor(toolId, needsFiles) {
 
   const preview = document.getElementById('generator-preview-mount');
   if (preview) {
-    premiumEditorState.previewObserver = new MutationObserver(updatePremiumLiveStats);
+    premiumEditorState.previewObserver = new MutationObserver(() => {
+      if (premiumEditorState.previewUpdateFrame) return;
+      premiumEditorState.previewUpdateFrame = window.requestAnimationFrame(() => {
+        premiumEditorState.previewUpdateFrame = 0;
+        updatePremiumLiveStats();
+      });
+    });
     premiumEditorState.previewObserver.observe(preview, { childList: true, subtree: true, characterData: true });
   }
   premiumEditorState.keydownHandler = handlePremiumEditorKeydown;
@@ -5437,7 +5446,7 @@ function updatePremiumLiveStats() {
         ['Result text', outputText ? outputText.length + ' chars' : 'Waiting'],
         ['Live update', preview ? 'Active' : 'Unavailable']
       ];
-  mount.innerHTML = '<div class="premium-stats-heading"><i data-lucide="activity"></i><span>Live statistics</span></div>' +
+  mount.innerHTML = '<div class="premium-stats-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-7 4 14 2-7h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Live statistics</span></div>' +
     '<div class="premium-stats-grid">' +
     items.map(item => '<div><span>' + escapeHTML(item[0]) + '</span><strong title="' + escapeHTML(item[1]) + '">' + escapeHTML(item[1]) + '</strong></div>').join('') +
     '</div>';
@@ -5462,7 +5471,6 @@ function updatePremiumLiveStats() {
       mount.insertAdjacentHTML('beforeend', '<div class="premium-trend-chart"><span>Live result history</span><svg viewBox="0 0 100 40" role="img" aria-label="Chart of recent calculated values"><polyline points="' + points + '" fill="none" stroke="currentColor" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg></div>');
     }
   }
-  lucide.createIcons();
 }
 
 function renderCalculatorFormulaReference() {
@@ -5705,6 +5713,7 @@ function clearPremiumResult() {
 function disposePremiumToolEditor() {
   window.clearTimeout(premiumEditorState.historyTimer);
   window.clearTimeout(premiumEditorState.backgroundAutoTimer);
+  window.cancelAnimationFrame(premiumEditorState.previewUpdateFrame);
   resetWatermarkEditorState();
   premiumEditorState.previewObserver?.disconnect();
   if (premiumEditorState.keydownHandler) document.removeEventListener('keydown', premiumEditorState.keydownHandler);
@@ -5729,6 +5738,7 @@ function disposePremiumToolEditor() {
     inputHandler: null,
     clickHandler: null,
     previewObserver: null,
+    previewUpdateFrame: 0,
     auxiliaryUrls: [],
     backgroundAutoTimer: null,
     backgroundPreviewUrl: '',
@@ -9926,9 +9936,9 @@ function numberWithCommas(x) {
 }
 
 function evaluateSimpleExpression(expr) {
-  const cleanExpr = expr.replace(/[^-+*/().0-9]/g, '');
+  const cleanExpr = expr.replace(/[^-+*/%().0-9]/g, '');
   try {
-    if (/^[0-9-+*/(). ]+$/.test(cleanExpr)) {
+    if (/^[0-9-+*/%(). ]+$/.test(cleanExpr)) {
       const result = Function('"use strict"; return (' + cleanExpr + ')')();
       if (result === Infinity || result === -Infinity) return 'Error: Div by 0';
       if (isNaN(result)) return 'Error';
@@ -9942,6 +9952,9 @@ function evaluateSimpleExpression(expr) {
 
 window.pressCalcKey = function(key) {
   if (!appState.calcExpression) appState.calcExpression = '';
+  const inputKeys = new Set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '-', '*', '/', '%', '(', ')', '.']);
+  if (!inputKeys.has(key) && !['C', 'back', '='].includes(key)) return;
+  if (inputKeys.has(key) && appState.calcExpression.length >= 256) return;
   
   const screenExpr = document.getElementById('calc-expr-display');
   const screenResult = document.getElementById('calc-res-display');
@@ -9972,47 +9985,60 @@ window.pressCalcKey = function(key) {
   }
 };
 
-function generateSimpleCalc() {
+function initializeSimpleCalculator(preview) {
+  if (preview.dataset.simpleCalculatorBound === 'true') return;
+  preview.dataset.simpleCalculatorBound = 'true';
+  preview.addEventListener('click', event => {
+    const button = event.target.closest('[data-calc-key]');
+    if (!button || !preview.contains(button)) return;
+    pressCalcKey(button.dataset.calcKey);
+  });
+}
+
+function generateSimpleCalc(resetExpression = false) {
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
-  
-  appState.calcExpression = '';
-  
+  if (resetExpression || typeof appState.calcExpression !== 'string') appState.calcExpression = '';
+  const currentResult = appState.calcExpression ? evaluateSimpleExpression(appState.calcExpression) : '0';
+
   preview.innerHTML = `
     <div style="width: 100%; max-width: 320px; margin: 0 auto; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 15px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);">
       <div style="background: rgba(0,0,0,0.03); border-radius: var(--radius-md); padding: 12px; text-align: right; margin-bottom: 15px; border: 1px solid var(--color-border);">
-        <input type="text" id="calc-expr-display" readonly style="width:100%; border:none; outline:none; background:transparent; font-family:var(--font-mono); font-size:16px; text-align:right; color:var(--color-text-secondary);" placeholder="0">
-        <div id="calc-res-display" style="font-family:var(--font-mono); font-size:28px; font-weight:800; color:var(--color-text-primary); margin-top:5px; overflow-x:auto; white-space:nowrap;">0</div>
+        <input type="text" id="calc-expr-display" value="${escapeHTML(appState.calcExpression)}" readonly aria-label="Calculator expression" style="width:100%; border:none; outline:none; background:transparent; font-family:var(--font-mono); font-size:16px; text-align:right; color:var(--color-text-secondary);" placeholder="0">
+        <div id="calc-res-display" aria-live="polite" style="font-family:var(--font-mono); font-size:28px; font-weight:800; color:var(--color-text-primary); margin-top:5px; overflow-x:auto; white-space:nowrap;">${escapeHTML(currentResult)}</div>
       </div>
-      
+
       <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-        <button class="preset-btn" style="padding:12px; font-weight:700; color:var(--color-primary);" onclick="pressCalcKey('C')">C</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('(')">(</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey(')')">)</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700; color:var(--color-accent);" onclick="pressCalcKey('/')">/</button>
-        
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('7')">7</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('8')">8</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('9')">9</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700; color:var(--color-accent);" onclick="pressCalcKey('*')">×</button>
-        
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('4')">4</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('5')">5</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('6')">6</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700; color:var(--color-accent);" onclick="pressCalcKey('-')">-</button>
-        
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('1')">1</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('2')">2</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('3')">3</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700; color:var(--color-accent);" onclick="pressCalcKey('+')">+</button>
-        
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('0')">0</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700;" onclick="pressCalcKey('.')">.</button>
-        <button class="preset-btn" style="padding:12px; font-weight:700; display:flex; align-items:center; justify-content:center;" onclick="pressCalcKey('back')"><i data-lucide="delete" style="width:16px;"></i></button>
-        <button class="btn btn-primary" style="padding:12px; font-weight:800;" onclick="pressCalcKey('=')">=</button>
+        <button type="button" class="preset-btn" data-calc-key="C" style="padding:12px; font-weight:700; color:var(--color-primary);">C</button>
+        <button type="button" class="preset-btn" data-calc-key="(" style="padding:12px; font-weight:700;">(</button>
+        <button type="button" class="preset-btn" data-calc-key=")" style="padding:12px; font-weight:700;">)</button>
+        <button type="button" class="preset-btn" data-calc-key="back" aria-label="Backspace" style="padding:12px; font-weight:700; display:flex; align-items:center; justify-content:center;"><i data-lucide="delete" style="width:16px;"></i></button>
+
+        <button type="button" class="preset-btn" data-calc-key="7" style="padding:12px; font-weight:700;">7</button>
+        <button type="button" class="preset-btn" data-calc-key="8" style="padding:12px; font-weight:700;">8</button>
+        <button type="button" class="preset-btn" data-calc-key="9" style="padding:12px; font-weight:700;">9</button>
+        <button type="button" class="preset-btn" data-calc-key="/" style="padding:12px; font-weight:700; color:var(--color-accent);">÷</button>
+
+        <button type="button" class="preset-btn" data-calc-key="4" style="padding:12px; font-weight:700;">4</button>
+        <button type="button" class="preset-btn" data-calc-key="5" style="padding:12px; font-weight:700;">5</button>
+        <button type="button" class="preset-btn" data-calc-key="6" style="padding:12px; font-weight:700;">6</button>
+        <button type="button" class="preset-btn" data-calc-key="*" style="padding:12px; font-weight:700; color:var(--color-accent);">×</button>
+
+        <button type="button" class="preset-btn" data-calc-key="1" style="padding:12px; font-weight:700;">1</button>
+        <button type="button" class="preset-btn" data-calc-key="2" style="padding:12px; font-weight:700;">2</button>
+        <button type="button" class="preset-btn" data-calc-key="3" style="padding:12px; font-weight:700;">3</button>
+        <button type="button" class="preset-btn" data-calc-key="-" style="padding:12px; font-weight:700; color:var(--color-accent);">−</button>
+
+        <button type="button" class="preset-btn" data-calc-key="0" style="padding:12px; font-weight:700;">0</button>
+        <button type="button" class="preset-btn" data-calc-key="." style="padding:12px; font-weight:700;">.</button>
+        <button type="button" class="preset-btn" data-calc-key="%" style="padding:12px; font-weight:700; color:var(--color-accent);">%</button>
+        <button type="button" class="preset-btn" data-calc-key="+" style="padding:12px; font-weight:700; color:var(--color-accent);">+</button>
+
+        <button type="button" class="btn btn-primary" data-calc-key="=" style="grid-column:1 / -1; padding:12px; font-weight:800;">=</button>
       </div>
     </div>
   `;
+  initializeSimpleCalculator(preview);
   lucide.createIcons();
 }
 
@@ -10086,17 +10112,17 @@ window.pressSciKey = function(key) {
   }
 };
 
-function generateScientificCalc() {
+function generateScientificCalc(resetExpression = false) {
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
-  
-  appState.sciExpression = '';
+  if (resetExpression || typeof appState.sciExpression !== 'string') appState.sciExpression = '';
+  const currentResult = appState.sciExpression ? evaluateSciExpression(appState.sciExpression) : '0';
   
   preview.innerHTML = `
     <div style="width: 100%; max-width: 440px; margin: 0 auto; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 15px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);">
       <div style="background: rgba(0,0,0,0.03); border-radius: var(--radius-md); padding: 12px; text-align: right; margin-bottom: 15px; border: 1px solid var(--color-border);">
-        <input type="text" id="sci-expr-display" readonly style="width:100%; border:none; outline:none; background:transparent; font-family:var(--font-mono); font-size:14px; text-align:right; color:var(--color-text-secondary);" placeholder="0">
-        <div id="sci-res-display" style="font-family:var(--font-mono); font-size:24px; font-weight:800; color:var(--color-text-primary); margin-top:5px; overflow-x:auto; white-space:nowrap;">0</div>
+        <input type="text" id="sci-expr-display" value="${escapeHTML(appState.sciExpression)}" readonly aria-label="Scientific calculator expression" style="width:100%; border:none; outline:none; background:transparent; font-family:var(--font-mono); font-size:14px; text-align:right; color:var(--color-text-secondary);" placeholder="0">
+        <div id="sci-res-display" aria-live="polite" style="font-family:var(--font-mono); font-size:24px; font-weight:800; color:var(--color-text-primary); margin-top:5px; overflow-x:auto; white-space:nowrap;">${escapeHTML(currentResult)}</div>
       </div>
       
       <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;">
