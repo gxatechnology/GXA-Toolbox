@@ -10,6 +10,14 @@ import registerHandler from '../netlify/functions/auth-register.mjs';
 import saveJobHandler from '../netlify/functions/auth-save-job.mjs';
 import sessionHandler from '../netlify/functions/auth-session.mjs';
 
+if (process.env.RUN_POSTGRES_INTEGRATION !== 'true') {
+  console.log('PostgreSQL auth integration skipped.');
+  console.log('Set RUN_POSTGRES_INTEGRATION=true to run the isolated database integration test.');
+} else {
+  await runPostgresAuthIntegration();
+}
+
+async function runPostgresAuthIntegration() {
 process.env.AUTH_SESSION_SECRET = 'postgres-integration-session-secret-at-least-32-chars';
 
 const migrationsDirectory = fileURLToPath(new URL('../netlify/database/migrations', import.meta.url));
@@ -157,4 +165,5 @@ try {
 } finally {
   await database?.pool.end();
   await localDatabase.stop();
+}
 }
