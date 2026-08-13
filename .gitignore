@@ -10,6 +10,7 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+dist/
 background-remover-app/dist/
 public_html/uploads/
 public_html/outputs/

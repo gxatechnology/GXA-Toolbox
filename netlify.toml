@@ -1,10 +1,39 @@
 [build]
   command = "npm run build"
-  publish = "."
+  publish = "dist"
 
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+[[redirects]]
+  from = "https://www.gxatoolbox.in/*"
+  to = "https://gxatoolbox.in/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://gxatoolbox.netlify.app/*"
+  to = "https://gxatoolbox.in/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/index.html"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/all-tools"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon-32x32.png"
+  status = 301
 
 [[redirects]]
   from = "/api/register.php"
@@ -36,45 +65,80 @@
   to = "/.netlify/functions/auth-save-job"
   status = 200
 
-[[redirects]]
-  from = "/background-remover/assets/*"
-  to = "/public_html/background-remover/assets/:splat"
-  status = 200
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    X-Permitted-Cross-Domain-Policies = "none"
 
-[[redirects]]
-  from = "/background-remover/models/*"
-  to = "/public_html/background-remover/models/:splat"
-  status = 200
+[[headers]]
+  for = "/robots.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+    Cache-Control = "public, max-age=3600, must-revalidate"
 
-[[redirects]]
-  from = "/background-remover/vendor/*"
-  to = "/public_html/background-remover/vendor/:splat"
-  status = 200
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+    Cache-Control = "public, max-age=3600, must-revalidate"
 
-[[redirects]]
-  from = "/background-remover"
-  to = "/public_html/background-remover/index.html"
-  status = 200
+[[headers]]
+  for = "/site.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json; charset=utf-8"
+    Cache-Control = "public, max-age=3600, must-revalidate"
 
-[[redirects]]
-  from = "/background-remover/"
-  to = "/public_html/background-remover/index.html"
-  status = 200
+[[headers]]
+  for = "/dashboard/*"
+  [headers.values]
+    Cache-Control = "private, no-store, max-age=0, must-revalidate"
+    X-Robots-Tag = "noindex, nofollow, noarchive"
 
-[[redirects]]
-  from = "/background-remover/*"
-  to = "/public_html/background-remover/index.html"
-  status = 200
+[[headers]]
+  for = "/404.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Robots-Tag = "noindex, nofollow, noarchive"
 
-[[redirects]]
-  from = "/assets/*"
-  to = "/public_html/assets/:splat"
-  status = 200
+[[headers]]
+  for = "/assets/app.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[[headers]]
+  for = "/assets/style.css"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+[[headers]]
+  for = "/assets/tool-workspace.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+[[headers]]
+  for = "/assets/image-annotations.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+[[headers]]
+  for = "/assets/phase-one-studios.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+[[headers]]
+  for = "/favicon-*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+[[headers]]
+  for = "/gxa-logo.png"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
 
 [[headers]]
   for = "/background-remover/assets/*.wasm"
@@ -98,19 +162,19 @@
   for = "/background-remover/vendor/ort/*.wasm"
   [headers.values]
     Content-Type = "application/wasm"
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=604800, must-revalidate"
 
 [[headers]]
   for = "/background-remover/vendor/ort/*.mjs"
   [headers.values]
     Content-Type = "application/javascript; charset=utf-8"
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=604800, must-revalidate"
 
 [[headers]]
   for = "/background-remover/models/*.onnx"
   [headers.values]
     Content-Type = "application/octet-stream"
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=86400, must-revalidate"
 
 [[headers]]
   for = "/background-remover/models/*.json"
@@ -122,31 +186,31 @@
   for = "/assets/vendor/onnxruntime-web/*.wasm"
   [headers.values]
     Content-Type = "application/wasm"
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=604800, must-revalidate"
 
 [[headers]]
   for = "/assets/vendor/qpdf/*.wasm"
   [headers.values]
     Content-Type = "application/wasm"
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=604800, must-revalidate"
 
 [[headers]]
   for = "/assets/vendor/onnxruntime-web/*.mjs"
   [headers.values]
     Content-Type = "application/javascript; charset=utf-8"
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=604800, must-revalidate"
 
 [[headers]]
   for = "/assets/vendor/onnxruntime-web/*.js"
   [headers.values]
     Content-Type = "application/javascript; charset=utf-8"
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=604800, must-revalidate"
 
 [[headers]]
   for = "/assets/models/background-remover/*.onnx"
   [headers.values]
     Content-Type = "application/octet-stream"
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=86400, must-revalidate"
 
 [[headers]]
   for = "/assets/models/background-remover/*.json"

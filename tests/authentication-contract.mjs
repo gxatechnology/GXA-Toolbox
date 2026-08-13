@@ -37,7 +37,8 @@ for (const route of ['register', 'login', 'session', 'logout', 'get-history', 's
   assert.match(netlifyConfig, new RegExp(`/api/${route}\\.php`), `Netlify ${route} route is missing.`);
   assert.match(redirects, new RegExp(`/api/${route}\\.php /.netlify/functions/[^ ]+ 200`));
 }
-assert(netlifyConfig.indexOf('/api/register.php') < netlifyConfig.indexOf('from = "/*"'), 'Auth routes must precede the SPA fallback.');
+assert.match(netlifyConfig, /publish\s*=\s*"dist"/, 'Netlify must publish the generated static site.');
+assert.doesNotMatch(netlifyConfig, /from\s*=\s*"\/\*"/, 'A broad SPA catch-all would bypass generated routes and real 404s.');
 assert.match(packageJson, /"@netlify\/database"/);
 assert.doesNotMatch(packageJson, /"mysql2"/);
 assert.match(functions, /from '@netlify\/database'/);

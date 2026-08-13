@@ -49,7 +49,8 @@ assert(vite.includes("outDir: '../public_html/background-remover'"), 'Vite outpu
 assert(css.includes('@media (max-width: 820px)'), 'Mobile editor breakpoint is missing.');
 assert(css.includes('.bottom-toolbar { position: fixed'), 'Mobile bottom toolbar styling is missing.');
 assert(css.includes('overflow-x: hidden'), 'Global horizontal overflow protection is missing.');
-assert(netlify.indexOf('from = "/background-remover/assets/*"') < netlify.indexOf('from = "/*"'), 'Background Remover asset rewrites must precede the root SPA fallback.');
+assert(/publish\s*=\s*"dist"/.test(netlify), 'Netlify must publish the generated static site containing the Background Remover build.');
+assert(!/from\s*=\s*"\/\*"/.test(netlify), 'Netlify must not restore a broad SPA fallback over generated routes and real 404s.');
 assert(netlify.includes('Content-Type = "application/wasm"'), 'Netlify WASM MIME header is missing.');
 assert(netlify.includes('Content-Type = "application/octet-stream"'), 'Netlify ONNX MIME header is missing.');
 assert(legacyApp.includes("window.location.assign('/background-remover/')"), 'Legacy navigation must hard-navigate to the React route.');

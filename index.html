@@ -2,49 +2,75 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>GXA Toolbox — Your Complete Digital Toolbox</title>
   <meta name="description" content="Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.">
+  <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#2563EB">
+  <link rel="canonical" href="https://gxatoolbox.in/">
   
   <!-- SEO & Social Media Metadata -->
   <meta property="og:title" content="GXA Toolbox — Your Complete Digital Toolbox">
   <meta property="og:description" content="Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.">
   <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:site_name" content="GXA Toolbox">
+  <meta property="og:url" content="https://gxatoolbox.in/">
+  <meta property="og:image" content="https://gxatoolbox.in/gxa-logo.png">
+  <meta property="og:image:alt" content="GXA Toolbox logo">
+  <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="GXA Toolbox — Your Complete Digital Toolbox">
   <meta name="twitter:description" content="Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.">
-  <link rel="icon" href="favicon-32x32.png" sizes="32x32" type="image/png">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
-  <link rel="manifest" href="site.webmanifest">
+  <meta name="twitter:image" content="https://gxatoolbox.in/gxa-logo.png">
+  <meta name="twitter:image:alt" content="GXA Toolbox logo">
+  <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+  <link rel="manifest" href="/site.webmanifest">
 
-  <script type="application/ld+json">
+  <script id="gxa-structured-data" type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "GXA Toolbox",
-    "alternateName": "Your Complete Digital Toolbox",
-    "description": "Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.",
-    "applicationCategory": "UtilitiesApplication",
-    "operatingSystem": "Any",
-    "brand": {
-      "@type": "Brand",
-      "name": "GXA Toolbox"
-    },
-    "publisher": {
-      "@type": "Organization",
-      "name": "GXA Technologies"
-    }
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://gxatoolbox.in/#organization",
+        "name": "GXA Technologies",
+        "url": "https://gxatoolbox.in/",
+        "logo": "https://gxatoolbox.in/gxa-logo.png",
+        "brand": { "@type": "Brand", "name": "GXA Toolbox" }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://gxatoolbox.in/#website",
+        "name": "GXA Toolbox",
+        "url": "https://gxatoolbox.in/",
+        "publisher": { "@id": "https://gxatoolbox.in/#organization" }
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "https://gxatoolbox.in/#application",
+        "name": "GXA Toolbox",
+        "slogan": "Your Complete Digital Toolbox",
+        "description": "Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.",
+        "url": "https://gxatoolbox.in/",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Any",
+        "brand": { "@type": "Brand", "name": "GXA Toolbox" },
+        "publisher": { "@id": "https://gxatoolbox.in/#organization" },
+        "isPartOf": { "@id": "https://gxatoolbox.in/#website" }
+      }
+    ]
   }
   </script>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <!-- Custom Stylesheets -->
-  <link rel="stylesheet" href="/assets/style.css?v=background-remover-react-20260808">
+  <link rel="stylesheet" href="/assets/style.css?v=seo-20260813">
 
   <!-- Core Utility Libraries (CDN) -->
   <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -62,7 +88,14 @@
     <header id="navbar" class="header-nav" aria-label="GXA Toolbox primary navigation"></header>
 
     <!-- Main Dynamic Content Mount Point -->
-    <main id="main-content" class="main-body" role="main"></main>
+    <main id="main-content" class="main-body" role="main">
+      <section class="hero-section premium-hero static-route-shell static-home-shell" data-static-route-shell>
+        <div class="container hero-content">
+          <h1 class="hero-headline">Your Complete <span>Digital Toolbox</span></h1>
+          <p class="hero-subheadline">Access powerful browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations — all in one place.</p>
+        </div>
+      </section>
+    </main>
 
     <!-- Footer -->
     <footer id="footer" class="footer-nav"></footer>
@@ -80,6 +113,6 @@
   <script defer src="/assets/tool-workspace.js"></script>
 
   <!-- Core App Controller Script -->
-  <script defer src="/assets/app.js?v=background-remover-react-20260808"></script>
+  <script defer src="/assets/app.js?v=seo-20260813"></script>
 </body>
 </html>

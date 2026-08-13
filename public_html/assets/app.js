@@ -30,6 +30,12 @@ const appState = {
   recentSearches: []
 };
 
+const HOME_META_DESCRIPTION = 'Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.';
+const SITE_NAME = 'GXA Toolbox';
+const PRODUCTION_ORIGIN = 'https://gxatoolbox.in';
+const NOT_FOUND_PAGE = 'not-found';
+let routeEventsBound = false;
+
 // Crop Image owns a dedicated, route-scoped editor. Cropper.js is loaded only
 // after this route is opened so the rest of GXA Toolbox keeps its current payload.
 const CROP_IMAGE_LIBRARY_VERSION = '1.6.2';
@@ -134,11 +140,14 @@ async function initUserSession() {
     return;
   }
 
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 5000);
   try {
     const response = await fetch('/api/session.php', {
       method: 'GET',
       credentials: 'same-origin',
-      headers: { Accept: 'application/json' }
+      headers: { Accept: 'application/json' },
+      signal: controller.signal
     });
     const data = await readApiJson(response);
     if (!data.authenticated || !data.user) return;
@@ -152,6 +161,8 @@ async function initUserSession() {
   } catch (error) {
     // Public tools stay available if optional account/session infrastructure is offline.
     appState.user = null;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -462,35 +473,106 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initApp() {
   hydrateLocalPreferences();
-  await initUserSession();
+  const replacedLegacyHash = syncPageFromLocation({ replaceLegacyHash: true });
+  const initialPath = pathForPage(appState.currentPage);
+  if (!replacedLegacyHash && shouldNormalizeCurrentUrl(appState.currentPage)) {
+    history.replaceState({ pageId: appState.currentPage }, '', initialPath);
+  }
+  setupTheme();
   renderNavbar();
   renderFooter();
-  
-  // Detect deep links to clean calculator and background remover paths
-  const path = window.location.pathname.replace(/^\/|\/$/g, '');
-  const validDeepLinkPaths = [
-    'background-remover', 'calculator', 'scientific-calculator', 'percentage-calculator', 'age-calculator',
-    'date-calculator', 'emi-calculator', 'loan-calculator', 'interest-calculator',
-    'gst-calculator', 'sip-calculator', 'bmi-calculator', 'discount-calculator',
-    'unit-converter', 'currency-converter', 'time-calculator'
-  ];
-  if (validDeepLinkPaths.includes(path)) {
-    appState.currentPage = 'tool-' + path;
-  }
-  const hashToolId = window.location.hash.match(/^#tool-([a-z0-9-]+)$/)?.[1];
-  if (hashToolId && toolsList.some(tool => tool.id === hashToolId)) {
-    appState.currentPage = 'tool-' + hashToolId;
-  }
-  
-  setupTheme();
   renderPage();
   setTheme(appState.theme);
   setupGlobalExperience();
+
+  if (!routeEventsBound) {
+    window.addEventListener('popstate', () => {
+      const previousPage = appState.currentPage;
+      syncPageFromLocation();
+      disposeRouteEditors(previousPage, appState.currentPage);
+      appState.activeFiles = [];
+      transitionToCurrentPage();
+    });
+    routeEventsBound = true;
+  }
+
+  await initUserSession();
+  renderNavbar();
+  if (appState.currentPage === 'dashboard') renderPage();
   
   // Set window resize listener to verify layout
   window.addEventListener('resize', () => {
     // Force redraw layout properties if required
   });
+}
+
+function normalizeRoutePath(pathname = window.location.pathname) {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length === 0 || (segments.length === 1 && ['index.html', 'index.php'].includes(segments[0].toLowerCase()))) return '';
+  return segments.length === 1 ? segments[0].toLowerCase() : null;
+}
+
+function pageIdFromLocation() {
+  const path = normalizeRoutePath();
+  if (path === '') return 'home';
+  if (path === 'dashboard') return 'dashboard';
+  if (path && toolsList.some(tool => tool.id === path)) return `tool-${path}`;
+  return NOT_FOUND_PAGE;
+}
+
+function pathForPage(pageId) {
+  if (pageId === 'home') return '/';
+  if (pageId === 'dashboard') return '/dashboard/';
+  if (pageId.startsWith('tool-')) {
+    const toolId = pageId.replace('tool-', '');
+    if (toolsList.some(tool => tool.id === toolId)) return `/${toolId}/`;
+  }
+  return window.location.pathname || '/';
+}
+
+function shouldNormalizeCurrentUrl(pageId) {
+  if (pageId === NOT_FOUND_PAGE) return false;
+  if (window.location.search) return true;
+  const normalizedPath = normalizeRoutePath();
+  if (pageId === 'home') return normalizedPath !== '';
+  if (pageId === 'dashboard') return normalizedPath !== 'dashboard';
+  return window.location.pathname !== pathForPage(pageId);
+}
+
+function syncPageFromLocation({ replaceLegacyHash = false } = {}) {
+  const hashToolId = window.location.hash.match(/^#tool-([a-z0-9-]+)$/)?.[1];
+  if (hashToolId && toolsList.some(tool => tool.id === hashToolId)) {
+    appState.currentPage = `tool-${hashToolId}`;
+    if (replaceLegacyHash) history.replaceState({ pageId: appState.currentPage }, '', `/${hashToolId}/`);
+    return Boolean(replaceLegacyHash);
+  }
+  appState.currentPage = pageIdFromLocation();
+  return false;
+}
+
+function disposeRouteEditors(previousPage, nextPage) {
+  if (previousPage === 'tool-crop-image' && nextPage !== 'tool-crop-image') disposeCropImageEditor();
+  if (previousPage.startsWith('tool-') && nextPage !== previousPage) {
+    disposePremiumToolEditor();
+    window.GxaPhaseOneStudios?.dispose();
+  }
+}
+
+function shouldHandleNavigationEvent(event) {
+  return !event || (
+    !event.defaultPrevented &&
+    (event.button === undefined || event.button === 0) &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
+}
+
+function handleRouteLink(event, pageId) {
+  if (!shouldHandleNavigationEvent(event)) return;
+  event.preventDefault();
+  navigate(pageId);
 }
 
 // --- Theme Switcher ---
@@ -839,7 +921,7 @@ function renderHeaderToolMenu(category) {
   }[category] || ['Tools', 'More tools', 'Utilities'];
   const columnSize = Math.ceil(categoryTools.length / 3);
   const columns = Array.from({ length: 3 }, (_, index) => categoryTools.slice(index * columnSize, (index + 1) * columnSize));
-  const toolButton = tool => `<button type="button" class="mega-list-link" data-tool-id="${tool.id}" onclick="navigate('tool-${tool.id}')">${escapeHTML(tool.name)}</button>`;
+  const toolButton = tool => `<a href="/${tool.id}/" class="mega-list-link" data-tool-id="${tool.id}" onclick="handleRouteLink(event, 'tool-${tool.id}')">${escapeHTML(tool.name)}</a>`;
 
   return columns.map((column, index) => `
     <div>
@@ -959,7 +1041,7 @@ function renderNavbar() {
   let authActionsHTML = '';
   if (appState.user) {
     authActionsHTML = `
-      <a href="/dashboard/index.php" class="btn btn-ghost btn-sm" style="display:inline-flex; align-items:center; gap:4px; font-weight:600;">
+      <a href="/dashboard/" onclick="handleRouteLink(event, 'dashboard')" class="btn btn-ghost btn-sm" style="display:inline-flex; align-items:center; gap:4px; font-weight:600;">
         <i data-lucide="user" style="width:14px; height:14px;"></i>
         <span>${escapeHTML(appState.user.name)}</span>
       </a>
@@ -976,8 +1058,8 @@ function renderNavbar() {
   
   nav.innerHTML = `
     <div class="container nav-container">
-      <a class="logo" onclick="navigate('home')" aria-label="GXA Toolbox home" title="GXA Toolbox home">
-        <div class="logo-icon" aria-hidden="true"><img src="/gxa-logo.png" alt=""></div>
+      <a href="/" class="logo" onclick="handleRouteLink(event, 'home')" aria-label="GXA Toolbox home" title="GXA Toolbox home">
+        <div class="logo-icon" aria-hidden="true"><img src="/gxa-logo.png" alt="" width="256" height="256" decoding="async"></div>
         <div class="logo-text">GXA <span class="brand-suffix">Toolbox</span></div>
       </a>
       
@@ -990,7 +1072,7 @@ function renderNavbar() {
           <button type="button" class="mobile-drawer-search" onclick="closeMobileNavigation(); openCommandPalette()"><i data-lucide="search"></i><span>Search tools</span></button>
         </li>
         <li class="nav-item">
-          <a class="nav-link${navState('home')}" onclick="navigate('home')"${currentPageAttribute('home')}><i data-lucide="house"></i><span>${t('home')}</span></a>
+          <a href="/" class="nav-link${navState('home')}" onclick="handleRouteLink(event, 'home')"${currentPageAttribute('home')}><i data-lucide="house"></i><span>${t('home')}</span></a>
         </li>
         <li class="mobile-all-tools-link">
           <button type="button" class="nav-link" onclick="navigateToToolCategory('all')"><i data-lucide="grid-2x2"></i><span>All Tools</span></button>
@@ -1008,7 +1090,7 @@ function renderNavbar() {
           <div id="nav-calculator-menu" class="mega-menu" aria-labelledby="nav-calculator-trigger">${renderHeaderToolMenu('calculator')}</div>
         </li>
         <li class="nav-item">
-          <a class="nav-link${navState('dashboard')}" onclick="navigate('dashboard')"${currentPageAttribute('dashboard')}><i data-lucide="layout-dashboard"></i><span>${t('dashboard')}</span></a>
+          <a href="/dashboard/" class="nav-link${navState('dashboard')}" onclick="handleRouteLink(event, 'dashboard')"${currentPageAttribute('dashboard')}><i data-lucide="layout-dashboard"></i><span>${t('dashboard')}</span></a>
         </li>
         <li class="mobile-tool-category-links" aria-label="More tool categories">
           <button type="button" onclick="navigateToToolCategory('convert')"><i data-lucide="repeat-2"></i><span>Converters</span></button>
@@ -1069,8 +1151,8 @@ function renderNavbar() {
   document.getElementById('theme-toggle-btn').addEventListener('click', () => {
     setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark');
   });
-  nav.querySelectorAll('.mega-list-link[onclick*="navigate"]').forEach(link => {
-    const route = link.getAttribute('onclick')?.match(/navigate\('([^']+)'\)/)?.[1];
+  nav.querySelectorAll('.mega-list-link[data-tool-id]').forEach(link => {
+    const route = `tool-${link.dataset.toolId}`;
     if (route === appState.currentPage) {
       link.classList.add('is-active');
       link.setAttribute('aria-current', 'page');
@@ -1090,8 +1172,8 @@ function renderFooter() {
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand">
-          <a class="logo" onclick="navigate('home')" aria-label="GXA Toolbox home" title="GXA Toolbox home">
-            <div class="logo-icon" aria-hidden="true"><img src="/gxa-logo.png" alt=""></div>
+          <a href="/" class="logo" onclick="handleRouteLink(event, 'home')" aria-label="GXA Toolbox home" title="GXA Toolbox home">
+            <div class="logo-icon" aria-hidden="true"><img src="/gxa-logo.png" alt="" width="256" height="256" decoding="async"></div>
             <div class="logo-text">GXA <span class="brand-suffix">Toolbox</span></div>
           </a>
           <p class="footer-tagline">${t('tagline')}</p>
@@ -1104,10 +1186,10 @@ function renderFooter() {
         <div class="footer-col">
           <div class="footer-col-title">Products</div>
           <ul class="footer-links">
-            <li><a class="footer-link" onclick="navigate('tool-merge-pdf')">Merge PDF</a></li>
-            <li><a class="footer-link" onclick="navigate('tool-compress-image')">Compress Image</a></li>
-            <li><a class="footer-link" onclick="navigate('tool-color-extractor')">Color Extractor</a></li>
-            <li><a class="footer-link" onclick="navigate('tool-password-generator')">Password Tool</a></li>
+            <li><a href="/merge-pdf/" class="footer-link" onclick="handleRouteLink(event, 'tool-merge-pdf')">Merge PDF</a></li>
+            <li><a href="/compress-image/" class="footer-link" onclick="handleRouteLink(event, 'tool-compress-image')">Compress Image</a></li>
+            <li><a href="/color-extractor/" class="footer-link" onclick="handleRouteLink(event, 'tool-color-extractor')">Color Extractor</a></li>
+            <li><a href="/password-generator/" class="footer-link" onclick="handleRouteLink(event, 'tool-password-generator')">Password Tool</a></li>
           </ul>
         </div>
         
@@ -1145,8 +1227,10 @@ function renderFooter() {
 }
 
 // --- Page Navigator (Routing) ---
-function navigate(pageId) {
+function navigate(pageId, { replace = false, scroll = true } = {}) {
   closeMobileNavigation();
+  const isKnownTool = pageId.startsWith('tool-') && toolsList.some(tool => `tool-${tool.id}` === pageId);
+  if (!['home', 'dashboard', NOT_FOUND_PAGE].includes(pageId) && !isKnownTool) pageId = NOT_FOUND_PAGE;
   if (pageId === 'tool-background-remover') {
     window.location.assign('/background-remover/');
     return;
@@ -1159,12 +1243,17 @@ function navigate(pageId) {
     }
   }
   
-  if (appState.currentPage === 'tool-crop-image' && pageId !== 'tool-crop-image') {
-    disposeCropImageEditor();
+  disposeRouteEditors(appState.currentPage, pageId);
+  const nextPath = pathForPage(pageId);
+  if (pageId === NOT_FOUND_PAGE) {
+    history.replaceState({ pageId }, '', nextPath);
+    appState.currentPage = pageId;
+    appState.activeFiles = [];
+    transitionToCurrentPage({ scroll });
+    return;
   }
-  if (appState.currentPage.startsWith('tool-') && pageId !== appState.currentPage) {
-    disposePremiumToolEditor();
-    window.GxaPhaseOneStudios?.dispose();
+  if (window.location.pathname !== nextPath) {
+    history[replace ? 'replaceState' : 'pushState']({ pageId }, '', nextPath);
   }
   appState.currentPage = pageId;
   if (pageId.startsWith('tool-')) {
@@ -1173,9 +1262,13 @@ function navigate(pageId) {
     localStorage.setItem(STORAGE_KEYS.recentTools, JSON.stringify(appState.recentTools));
   }
   appState.activeFiles = []; // Clear current file state when navigating
+  transitionToCurrentPage({ scroll });
+}
+
+function transitionToCurrentPage({ scroll = true } = {}) {
   renderNavbar();
   renderPage();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function handleLogout() {
@@ -1208,6 +1301,8 @@ function renderPage() {
   if (!content) return;
   
   const pageId = appState.currentPage;
+  document.body.classList.toggle('background-remover-dedicated-active', pageId === 'tool-background-remover');
+  applyPageMetadata(pageId);
   
   if (pageId === 'home') {
     renderHome(content);
@@ -1216,7 +1311,160 @@ function renderPage() {
   } else if (pageId.startsWith('tool-')) {
     const toolId = pageId.replace('tool-', '');
     renderToolPage(content, toolId);
+  } else {
+    renderNotFound(content);
   }
+}
+
+function ensureMetaElement(selector, attributes) {
+  let element = document.head.querySelector(selector);
+  if (!element) {
+    element = document.createElement('meta');
+    Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
+    document.head.appendChild(element);
+  }
+  return element;
+}
+
+function ensureCanonicalLink() {
+  let canonical = document.head.querySelector('link[rel="canonical"]');
+  if (!canonical) {
+    canonical = document.createElement('link');
+    canonical.rel = 'canonical';
+    document.head.appendChild(canonical);
+  }
+  return canonical;
+}
+
+function setStructuredData(data) {
+  let script = document.getElementById('gxa-structured-data') || document.head.querySelector('script[type="application/ld+json"]');
+  if (!script) {
+    script = document.createElement('script');
+    script.type = 'application/ld+json';
+    document.head.appendChild(script);
+  }
+  script.id = 'gxa-structured-data';
+  script.textContent = JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
+function applyPageMetadata(pageId) {
+  const origin = PRODUCTION_ORIGIN;
+  let title = 'GXA Toolbox — Your Complete Digital Toolbox';
+  let description = HOME_META_DESCRIPTION;
+  let path = '/';
+  let robots = 'index, follow';
+  let schema = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        '@id': `${origin}/#organization`,
+        name: 'GXA Technologies',
+        url: `${origin}/`,
+        logo: `${origin}/gxa-logo.png`,
+        brand: { '@type': 'Brand', name: SITE_NAME }
+      },
+      {
+        '@type': 'WebSite',
+        '@id': `${origin}/#website`,
+        name: SITE_NAME,
+        url: `${origin}/`,
+        publisher: { '@id': `${origin}/#organization` }
+      },
+      {
+        '@type': 'WebApplication',
+        '@id': `${origin}/#application`,
+        name: SITE_NAME,
+        slogan: 'Your Complete Digital Toolbox',
+        url: `${origin}/`,
+        description,
+        applicationCategory: 'UtilitiesApplication',
+        operatingSystem: 'Any',
+        brand: { '@type': 'Brand', name: SITE_NAME },
+        publisher: { '@id': `${origin}/#organization` },
+        isPartOf: { '@id': `${origin}/#website` }
+      }
+    ]
+  };
+
+  if (pageId.startsWith('tool-')) {
+    const tool = toolsList.find(item => item.id === pageId.replace('tool-', ''));
+    if (tool) {
+      title = `${tool.name} | GXA Toolbox`;
+      description = `${tool.desc} Use it with GXA Toolbox.`;
+      path = `/${tool.id}/`;
+      robots = tool.id === 'ppt-to-pdf' ? 'noindex, follow' : robots;
+      schema = {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'WebApplication',
+            '@id': `${origin}${path}#application`,
+            name: tool.name,
+            url: `${origin}${path}`,
+            description,
+            applicationCategory: tool.category === 'utility' ? 'DeveloperApplication' : 'UtilitiesApplication',
+            operatingSystem: 'Any',
+            browserRequirements: 'Requires a modern web browser',
+            brand: { '@type': 'Brand', name: SITE_NAME },
+            isPartOf: { '@id': `${origin}/#website` },
+            publisher: { '@id': `${origin}/#organization` }
+          },
+          {
+            '@type': 'BreadcrumbList',
+            '@id': `${origin}${path}#breadcrumb`,
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: SITE_NAME, item: `${origin}/` },
+              { '@type': 'ListItem', position: 2, name: tool.name, item: `${origin}${path}` }
+            ]
+          }
+        ]
+      };
+    }
+  } else if (pageId === 'dashboard') {
+    title = 'Dashboard | GXA Toolbox';
+    description = 'Sign in to access your private GXA Toolbox processing history and account dashboard.';
+    path = '/dashboard/';
+    robots = 'noindex, nofollow, noarchive';
+    schema = { '@context': 'https://schema.org', '@graph': [{ '@type': 'WebPage', name: title, url: `${origin}${path}` }] };
+  } else if (pageId === NOT_FOUND_PAGE) {
+    title = 'Page Not Found | GXA Toolbox';
+    description = 'The requested GXA Toolbox page could not be found.';
+    path = window.location.pathname;
+    robots = 'noindex, nofollow';
+    schema = { '@context': 'https://schema.org', '@graph': [{ '@type': 'WebPage', name: title, url: `${origin}${path}` }] };
+  }
+
+  const canonicalUrl = `${origin}${path}`;
+  document.title = title;
+  ensureMetaElement('meta[name="description"]', { name: 'description' }).content = description;
+  ensureMetaElement('meta[name="robots"]', { name: 'robots' }).content = robots;
+  ensureMetaElement('meta[property="og:title"]', { property: 'og:title' }).content = title;
+  ensureMetaElement('meta[property="og:description"]', { property: 'og:description' }).content = description;
+  ensureMetaElement('meta[property="og:type"]', { property: 'og:type' }).content = 'website';
+  ensureMetaElement('meta[property="og:url"]', { property: 'og:url' }).content = canonicalUrl;
+  ensureMetaElement('meta[property="og:site_name"]', { property: 'og:site_name' }).content = SITE_NAME;
+  ensureMetaElement('meta[property="og:image"]', { property: 'og:image' }).content = `${origin}/gxa-logo.png`;
+  ensureMetaElement('meta[property="og:image:alt"]', { property: 'og:image:alt' }).content = 'GXA Toolbox logo';
+  ensureMetaElement('meta[name="twitter:card"]', { name: 'twitter:card' }).content = 'summary';
+  ensureMetaElement('meta[name="twitter:title"]', { name: 'twitter:title' }).content = title;
+  ensureMetaElement('meta[name="twitter:description"]', { name: 'twitter:description' }).content = description;
+  ensureMetaElement('meta[name="twitter:image"]', { name: 'twitter:image' }).content = `${origin}/gxa-logo.png`;
+  ensureMetaElement('meta[name="twitter:image:alt"]', { name: 'twitter:image:alt' }).content = 'GXA Toolbox logo';
+  ensureCanonicalLink().href = canonicalUrl;
+  setStructuredData(schema);
+}
+
+function renderNotFound(container) {
+  container.innerHTML = `
+    <section class="container" style="padding: clamp(80px, 14vh, 160px) 0; text-align: center; max-width: 680px;">
+      <span class="section-kicker">404</span>
+      <h1 class="section-title">Page not found</h1>
+      <p class="section-desc">The page you requested does not exist. Return home to explore all GXA Toolbox utilities.</p>
+      <a href="/" class="btn btn-primary btn-lg" onclick="handleRouteLink(event, 'home')">Explore Tools</a>
+    </section>
+  `;
+  lucide.createIcons();
 }
 
 // --- Auth Modal & Session Actions (Database Integrated) ---
@@ -1625,11 +1873,11 @@ function renderHome(container) {
       </div>
       <div class="personal-tools-grid">
         ${personalTools.map(tool => `
-          <button class="personal-tool-card" onclick="navigate('tool-${tool.id}')">
+          <a href="/${tool.id}/" class="personal-tool-card" onclick="handleRouteLink(event, 'tool-${tool.id}')">
             <span class="personal-tool-icon cat-${tool.category}"><i data-lucide="${tool.icon}"></i></span>
             <span><strong>${tool.name}</strong><small>${tool.category}</small></span>
             <i data-lucide="arrow-up-right"></i>
-          </button>`).join('')}
+          </a>`).join('')}
       </div>
     </section>` : '';
 
@@ -1758,7 +2006,7 @@ function renderToolsGrid(categoryFilter = 'all', searchQuery = '') {
   filtered.forEach(tool => {
     const card = document.createElement('a');
     card.className = `tool-card cat-${tool.category}`;
-    card.href = `#tool-${tool.id}`;
+    card.href = `/${tool.id}/`;
     card.setAttribute('aria-label', `Open ${tool.name}`);
     const isFavorite = appState.favorites.includes(tool.id);
     
@@ -1775,6 +2023,7 @@ function renderToolsGrid(categoryFilter = 'all', searchQuery = '') {
     `;
 
     card.addEventListener('click', (e) => {
+      if (!shouldHandleNavigationEvent(e)) return;
       e.preventDefault();
       navigate(`tool-${tool.id}`);
     });
@@ -1811,6 +2060,19 @@ function startStatsCounters() {
 
 // --- RENDER PAGE: USER DASHBOARD ---
 function renderDashboard(container) {
+  if (!appState.user) {
+    container.innerHTML = `
+      <section class="container" style="padding: clamp(80px, 14vh, 160px) 0; text-align: center; max-width: 680px;">
+        <span class="section-kicker">Private workspace</span>
+        <h1 class="section-title">Sign in to view your dashboard</h1>
+        <p class="section-desc">Your dashboard and saved processing history are available after authentication.</p>
+        <button type="button" class="btn btn-primary btn-lg" onclick="showAuthModal('login')">Sign In</button>
+        <a href="/" class="btn btn-ghost btn-lg" onclick="handleRouteLink(event, 'home')">Explore Tools</a>
+      </section>
+    `;
+    lucide.createIcons();
+    return;
+  }
   const history = Array.isArray(appState.user.history) ? appState.user.history : [];
   const totalFiles = history.filter(item => item.status === 'done').length;
   const failedFiles = history.filter(item => item.status !== 'done').length;
@@ -1980,7 +2242,6 @@ function getDirectResultDownloadLabel(toolId) {
 function renderToolPage(container, toolId) {
   const tool = toolsList.find(t => t.id === toolId);
   if (!tool) return;
-  document.body.classList.toggle('background-remover-dedicated-active', toolId === 'background-remover');
 
   // Premium tool gating check
   const isPremiumTool = isToolPremiumRestricted(toolId);
@@ -3681,16 +3942,6 @@ function renderToolPage(container, toolId) {
     </div>
   `).join('');
 
-  // Dynamic SEO Title and Meta Description
-  document.title = `${tool.name} | GXA Toolbox`;
-  let metaDesc = document.querySelector('meta[name="description"]');
-  if (!metaDesc) {
-    metaDesc = document.createElement('meta');
-    metaDesc.setAttribute('name', 'description');
-    document.head.appendChild(metaDesc);
-  }
-  metaDesc.setAttribute('content', tool.desc);
-
   if (toolId === 'crop-image') {
     renderCropImageEditor(container, tool, processingProfile, faqHTML);
     return;
@@ -3705,7 +3956,7 @@ function renderToolPage(container, toolId) {
       <!-- Header Breadcrumbs -->
       <div class="tool-header">
         <div class="breadcrumb">
-          <span class="breadcrumb-link" onclick="navigate('home')">Home</span>
+          <a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a>
           <span>&gt;</span>
           <span class="breadcrumb-link" style="text-transform: uppercase;">${tool.category}</span>
           <span>&gt;</span>
@@ -4219,7 +4470,7 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
     <section class="container tool-container crop-image-page">
       <div class="tool-header">
         <div class="breadcrumb">
-          <span class="breadcrumb-link" onclick="navigate('home')">Home</span><span>&gt;</span>
+          <a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span>&gt;</span>
           <span class="breadcrumb-link" style="text-transform:uppercase;">${tool.category}</span><span>&gt;</span>
           <span>${tool.name}</span>
         </div>
@@ -5076,7 +5327,7 @@ function renderBackgroundRemoverRoute(container, tool, processingProfile, faqHTM
       <div class="bg-remover-hero">
         <div>
           <div class="breadcrumb">
-            <span class="breadcrumb-link" onclick="navigate('home')">Home</span>
+            <a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a>
             <span>&gt;</span>
             <span>Background Remover</span>
           </div>
@@ -5210,6 +5461,7 @@ function renderRelatedTools(currentToolId, category) {
   related.forEach(tool => {
     const card = document.createElement('a');
     card.className = `tool-card cat-${tool.category}`;
+    card.href = `/${tool.id}/`;
     card.style.position = 'relative';
     card.innerHTML = `
       <div class="tool-card-icon"><i data-lucide="${tool.icon}"></i></div>
@@ -5217,6 +5469,7 @@ function renderRelatedTools(currentToolId, category) {
       <p class="tool-card-desc">${tool.desc}</p>
     `;
     card.addEventListener('click', (e) => {
+      if (!shouldHandleNavigationEvent(e)) return;
       e.preventDefault();
       navigate(`tool-${tool.id}`);
     });

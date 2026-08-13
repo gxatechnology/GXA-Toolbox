@@ -11,7 +11,7 @@ export function Header({ editing, onDownload }: HeaderProps) {
       <div className="gxa-header-inner">
         <a className="back-link" href="/" aria-label="Back to GXA Toolbox tools"><Icon name="back" /> <span>All tools</span></a>
         <a className="brand" href="/" aria-label="GXA Toolbox home">
-          <span className="brand-mark"><img src="/gxa-logo.png" alt="" /></span>
+          <span className="brand-mark"><img src="/gxa-logo.png" width="256" height="256" decoding="async" alt="" /></span>
           <span className="brand-name"><strong>GXA</strong><span className="brand-suffix"> Toolbox</span></span>
         </a>
         <nav className="header-links" aria-label="GXA Toolbox navigation">

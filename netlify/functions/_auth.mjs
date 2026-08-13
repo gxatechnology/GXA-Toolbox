@@ -15,6 +15,9 @@ export function jsonResponse(payload, status = 200, headers = {}) {
     headers: {
       'Cache-Control': 'no-store',
       'Content-Type': 'application/json; charset=utf-8',
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Robots-Tag': 'noindex, nofollow, noarchive',
       ...headers
     }
   });

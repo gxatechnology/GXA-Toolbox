@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap');
-
 :root {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #0f172a;
@@ -18,6 +16,9 @@
 * { box-sizing: border-box; }
 html, body, #root { min-height: 100%; margin: 0; }
 body { min-width: 320px; overflow-x: hidden; }
+.static-background-shell { max-width: 760px; margin: 0 auto; padding: 96px 24px; text-align: center; }
+.static-background-shell h1 { margin: 0 0 12px; font: 800 clamp(2rem, 7vw, 3.5rem)/1.05 Outfit, Inter, sans-serif; }
+.static-background-shell p { margin: 0; color: var(--muted); font-size: 1.05rem; }
 button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 a { color: inherit; text-decoration: none; }

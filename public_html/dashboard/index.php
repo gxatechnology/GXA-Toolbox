@@ -3,6 +3,9 @@
    GXA TOOLBOX USER PORTAL DASHBOARD - SERVER SIDE RENDERED
    ========================================================================== */
 session_start();
+header('Cache-Control: private, no-store, max-age=0, must-revalidate');
+header('Pragma: no-cache');
+header('X-Robots-Tag: noindex, nofollow, noarchive');
 
 // Redirect to index page login form if session is not active
 if (!isset($_SESSION['user_id'])) {
@@ -62,6 +65,7 @@ try {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User Dashboard | GXA Toolbox</title>
   <meta name="description" content="Manage your GXA Toolbox account, processing history, and tool access.">
+  <meta name="robots" content="noindex, nofollow, noarchive">
   <meta name="theme-color" content="#2563EB">
   <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
