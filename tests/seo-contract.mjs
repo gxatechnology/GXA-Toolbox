@@ -13,6 +13,8 @@ import {
 
 const projectRoot = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const distRoot = join(projectRoot, 'dist');
+const GTM_CONTAINER_ID = 'GTM-TBQN2SJ4';
+const GA4_MEASUREMENT_ID = 'G-E16HBF4R7W';
 
 const escapeRegex = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const decodeHtml = value => String(value)
@@ -54,6 +56,48 @@ function assertSocialMetadata(html, { route, title, description, canonical }) {
   assert.match(attribute(html, 'name', 'twitter:image'), /^https:\/\//, `${route} Twitter image must be absolute.`);
 }
 
+function countOccurrences(value, needle) {
+  return value.split(needle).length - 1;
+}
+
+function assertGoogleTagManager(html, route) {
+  const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1];
+  const body = html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i)?.[1];
+  assert.notEqual(head, undefined, `${route} has no head element.`);
+  assert.notEqual(body, undefined, `${route} has no body element.`);
+
+  const loaderScripts = (head.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) || [])
+    .filter(script => script.includes('https://www.googletagmanager.com/gtm.js'));
+  assert.equal(loaderScripts.length, 1, `${route} must contain exactly one GTM head loader.`);
+  assert.equal(countOccurrences(head, GTM_CONTAINER_ID), 1, `${route} must contain the GTM container ID once in head.`);
+  assert.equal(countOccurrences(head, 'https://www.googletagmanager.com/gtm.js'), 1, `${route} has a duplicate GTM loader URL.`);
+  assert.ok(head.indexOf('https://www.googletagmanager.com/gtm.js') < head.search(/<title\b/i), `${route} GTM loader must precede the title.`);
+  assert.match(loaderScripts[0], /w\[l\]=w\[l\]\|\|\[\]/, `${route} GTM dataLayer bootstrap is incomplete.`);
+  assert.match(loaderScripts[0], /['"]gtm\.start['"]/, `${route} GTM start event is missing.`);
+  assert.match(loaderScripts[0], /j\.async=true/, `${route} GTM loader must remain asynchronous.`);
+
+  const noscriptBlocks = body.match(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi) || [];
+  assert.equal(noscriptBlocks.length, 1, `${route} must contain exactly one GTM noscript block.`);
+  assert.equal(countOccurrences(body, GTM_CONTAINER_ID), 1, `${route} must contain the GTM container ID once in body.`);
+  assert.equal(countOccurrences(body, 'https://www.googletagmanager.com/ns.html'), 1, `${route} has a duplicate GTM noscript URL.`);
+  assert.match(
+    noscriptBlocks[0],
+    new RegExp(`<iframe\\b[^>]*src=["']https://www\\.googletagmanager\\.com/ns\\.html\\?id=${GTM_CONTAINER_ID}["'][^>]*>[\\s\\S]*?<\\/iframe>`, 'i'),
+    `${route} GTM noscript iframe is invalid.`
+  );
+  assert.match(
+    body,
+    /^\s*<!-- Google Tag Manager \(noscript\) -->\s*<noscript\b/i,
+    `${route} GTM noscript block must immediately follow the opening body tag.`
+  );
+
+  assert.equal(countOccurrences(html, GTM_CONTAINER_ID), 2, `${route} must contain one head and one noscript container ID.`);
+  assert.doesNotMatch(html, /googletagmanager\.com\/gtag\/js/i, `${route} must not load direct GA4 gtag.js.`);
+  assert.doesNotMatch(html, /\bgtag\s*\(/i, `${route} must not call direct GA4 gtag().`);
+  assert.doesNotMatch(html, /google-analytics\.com/i, `${route} must not load Google Analytics directly.`);
+  assert.ok(!html.includes(GA4_MEASUREMENT_ID), `${route} must configure GA4 through GTM, not source HTML.`);
+}
+
 async function listFiles(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -64,18 +108,22 @@ async function listFiles(directory) {
   return files;
 }
 
-const [tools, blockedIds, netlify, robots, manifestSource] = await Promise.all([
+const [tools, blockedIds, netlify, robots, manifestSource, rootTemplate, backgroundTemplate] = await Promise.all([
   loadToolRegistry(),
   loadBlockedToolIds(),
   readFile(join(projectRoot, 'netlify.toml'), 'utf8'),
   readFile(join(distRoot, 'robots.txt'), 'utf8'),
-  readFile(join(distRoot, 'site.webmanifest'), 'utf8')
+  readFile(join(distRoot, 'site.webmanifest'), 'utf8'),
+  readFile(join(projectRoot, 'index.html'), 'utf8'),
+  readFile(join(projectRoot, 'background-remover-app', 'index.html'), 'utf8')
 ]);
 
 assert.equal(tools.length, 91, 'SEO generation must preserve all 91 registered tools.');
 assert.deepEqual([...blockedIds], ['ppt-to-pdf'], 'Only PPT to PDF may be excluded from indexing.');
 assert.match(netlify, /publish\s*=\s*["']dist["']/, 'Netlify must publish the generated dist directory.');
 assert.doesNotMatch(netlify, /from\s*=\s*["']\/\*["']/, 'Netlify must not restore a broad SPA catch-all.');
+assertGoogleTagManager(rootTemplate, 'root HTML template');
+assertGoogleTagManager(backgroundTemplate, 'Background Remover HTML template');
 
 assert.match(robots, /^User-agent:\s*\*/mi);
 assert.match(robots, /^Allow:\s*\/\s*$/mi);
@@ -112,7 +160,9 @@ assertSocialMetadata(home, {
 assert.match(home, /data-static-route-shell/);
 assert.match(home, /<h1\b[^>]*>[\s\S]*Your Complete[\s\S]*Digital Toolbox[\s\S]*<\/h1>/i);
 structuredData(home, '/');
+assertGoogleTagManager(home, '/');
 
+let generatedPublicPageCount = 1;
 for (const tool of tools) {
   const route = `/${tool.id}/`;
   const html = await readFile(join(distRoot, tool.id, 'index.html'), 'utf8');
@@ -132,7 +182,10 @@ for (const tool of tools) {
   );
   const graph = structuredData(html, route);
   assert.ok(JSON.stringify(graph).includes(canonical), `${route} JSON-LD does not identify its canonical URL.`);
+  assertGoogleTagManager(html, route);
+  generatedPublicPageCount += 1;
 }
+assert.equal(generatedPublicPageCount, 92, 'GTM contract must cover the homepage and all 91 public tool routes.');
 
 const files = await listFiles(distRoot);
 const forbiddenExtensions = new Set(['.php', '.sql']);
@@ -145,4 +198,4 @@ for (const file of files) {
   assert.ok(!forbiddenNames.has(path.toLowerCase()), `Repository source leaked into dist: ${path}`);
 }
 
-console.log('SEO contract passed: 91 tools, 91 sitemap URLs, route metadata/JSON-LD, robots, manifest, and artifact isolation.');
+console.log('SEO contract passed: 91 tools, 91 sitemap URLs, 92 GTM-verified public pages, route metadata/JSON-LD, robots, manifest, and artifact isolation.');

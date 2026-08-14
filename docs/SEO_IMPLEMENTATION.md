@@ -29,16 +29,13 @@ Every generated public tool shell has a unique title and description, self-refer
 
 The browser router updates the same metadata after in-app navigation and supports normal links, History API navigation, refresh, back, and forward. Static route shells remain meaningful when JavaScript is delayed or unavailable.
 
-## Google Tag Manager preparation
+## Google Tag Manager
 
-No Google Analytics, Google Tag Manager, advertising, or placeholder measurement ID is installed. When the real `GTM-XXXXXXX` container ID is supplied, add the official GTM head snippet once to the root HTML template and its matching noscript iframe once immediately after `<body>`. The build generator will then carry that single implementation into every static route. Configure GA4 inside GTM rather than also adding direct `gtag.js`; this avoids duplicate page views and competing consent/configuration paths.
+The official Google Tag Manager container `GTM-TBQN2SJ4` is installed once in each of the two source HTML templates: the shared GXA Toolbox template and the standalone Background Remover Vite template. Each has one asynchronous head loader and one matching noscript iframe immediately after the opening body tag. The build system propagates those templates to all 92 public HTML routes (the homepage plus 91 tools), and the SEO contract rejects missing or duplicate installations.
 
-Before adding GTM:
+GA4 measurement ID `G-E16HBF4R7W` must be configured through this GTM container. The repository intentionally does not install direct GA4 `gtag.js`, call `gtag('config', ...)`, or load `google-analytics.com`; this avoids duplicate page views and competing consent/configuration paths.
 
-1. Supply the real container ID.
-2. Define consent requirements and production-only loading behavior.
-3. Add a contract test that asserts exactly one container ID/snippet per generated page.
-4. Verify History API page-view events for tool-to-tool navigation in GTM Preview.
+After deployment, use GTM Preview to verify the container on the homepage, representative generated tool routes, and Background Remover. Configure and publish the GA4 tag in the GTM workspace, including History API page-view behavior for in-app tool navigation. No GTM or GA4 settings are changed by the repository build.
 
 ## Post-deploy owner actions
 
@@ -47,6 +44,6 @@ Before adding GTM:
 3. Submit `https://gxatoolbox.in/sitemap.xml` in the already-verified Search Console property and inspect representative homepage, tool, noindex, and 404 URLs.
 4. Because prior production deploys exposed repository files, reset or delete any privileged account that ever reused the sample credentials in `database.sql`. Rotate `AUTH_SESSION_SECRET` if existing sessions should be invalidated or compromise is suspected.
 5. After the clean deploy is live, delete older Netlify deploys that contain the exposed source files. A clean deploy must be live first so the site is not left unavailable.
-6. Provide the real GTM container ID separately when tracking is ready. Do not install a direct GA4 tag in parallel unless that architecture is intentionally changed.
+6. In Google Tag Manager, configure and publish GA4 measurement ID `G-E16HBF4R7W`; do not install a direct GA4 tag in parallel.
 
 No automatic push or deployment is performed by this implementation.
