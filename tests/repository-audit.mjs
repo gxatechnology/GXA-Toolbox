@@ -9,6 +9,7 @@ const workspacePath = new URL('../public_html/assets/tool-workspace.js', import.
 const app = await readFile(appPath, 'utf8');
 const workspace = await readFile(workspacePath, 'utf8');
 const annotations = await readFile(new URL('../public_html/assets/image-annotations.js', import.meta.url), 'utf8');
+const contentPages = await readFile(new URL('../public_html/assets/content-pages.js', import.meta.url), 'utf8');
 const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const productionIndex = await readFile(new URL('../public_html/index.php', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../public_html/assets/style.css', import.meta.url), 'utf8');
@@ -17,14 +18,14 @@ const dashboard = await readFile(new URL('../public_html/dashboard/index.php', i
 const registrySource = app.slice(app.indexOf('const toolsList'), app.indexOf('// --- Main Application Controller'));
 const tools = [...registrySource.matchAll(/\{\s*id:\s*'([^']+)',\s*name:\s*'([^']+)',\s*category:\s*'([^']+)'/g)]
   .map(([, id, name, category]) => ({ id, name, category }));
-assert.equal(tools.length, 91, `Expected 91 registered tools, found ${tools.length}.`);
+assert.equal(tools.length, 92, `Expected 92 registered tools, found ${tools.length}.`);
 assert.equal(new Set(tools.map(tool => tool.id)).size, tools.length, 'Tool IDs must be unique.');
 tools.forEach(tool => {
   const referenceCount = app.split(`'${tool.id}'`).length - 1;
   assert(referenceCount >= 2, `${tool.id} is registered but has no route/configuration implementation.`);
 });
 
-const requiredTools = ['merge-pdf', 'compress-image', 'pdf-to-jpg', 'qr-reader', 'hash-tool', 'currency-converter', 'time-calculator'];
+const requiredTools = ['merge-pdf', 'compress-image', 'image-ocr', 'pdf-to-jpg', 'qr-reader', 'hash-tool', 'currency-converter', 'time-calculator'];
 requiredTools.forEach(id => assert(tools.some(tool => tool.id === id), `Missing registered tool: ${id}`));
 
 const blockerSource = workspace.slice(workspace.indexOf('const blockers'), workspace.indexOf('const serverTools'));
@@ -59,6 +60,9 @@ assert(index.includes('/assets/phase-one-studios.js'), 'Static entry does not lo
 assert(productionIndex.includes('/assets/phase-one-studios.js'), 'Production entry does not load the Phase 1 studio shell.');
 assert(index.includes('/assets/image-annotations.js'), 'Static entry does not load Image Studio annotations through the clean asset route.');
 assert(productionIndex.includes('/assets/image-annotations.js'), 'Production entry does not load Image Studio annotations.');
+assert(index.includes('/assets/content-pages.js'), 'Static entry does not load the company/legal page registry.');
+assert(productionIndex.includes('/assets/content-pages.js'), 'Production entry does not load the company/legal page registry.');
+['about', 'careers', 'security', 'privacy-policy', 'terms', 'gdpr'].forEach(id => assert(contentPages.includes(`id: '${id}'`), `Missing company/legal page registry entry: ${id}`));
 assert(app.includes('function openCommandPalette'), 'Global command palette is missing.');
 assert(app.includes('function toggleFavorite'), 'Favorites support is missing.');
 assert(app.includes('function updateProcessingStage'), 'Workspace processing stages are missing.');

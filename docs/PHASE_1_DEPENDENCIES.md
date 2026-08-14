@@ -1,6 +1,6 @@
 # Phase 1 Dependency Integration Specification
 
-> Historical note: Phase 1 originally blocked 13 routes. The current implementation and final 91-tool classification are authoritative in [TOOL_ENGINE_AUDIT.md](TOOL_ENGINE_AUDIT.md).
+> Historical note: Phase 1 originally blocked 13 routes. The current implementation and final 92-tool classification are authoritative in [TOOL_ENGINE_AUDIT.md](TOOL_ENGINE_AUDIT.md).
 
 ## Current status (2026-08-13)
 

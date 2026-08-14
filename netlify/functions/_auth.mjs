@@ -101,6 +101,22 @@ export function getDatabaseClient() {
   return databaseClientOverride || getDatabase();
 }
 
+export async function recordAuthEvent(sql, eventType, category) {
+  const allowedTypes = new Set(['registration_success', 'registration_failure', 'login_success', 'login_failure', 'session_failure']);
+  if (!allowedTypes.has(eventType)) return false;
+  const safeCategory = String(category || 'unspecified').trim().slice(0, 64) || 'unspecified';
+  try {
+    await sql`
+      INSERT INTO public.auth_events (event_type, category)
+      VALUES (${eventType}, ${safeCategory})
+    `;
+    return true;
+  } catch (error) {
+    console.error('Authentication event recording failed:', error?.code || error?.name || 'unknown');
+    return false;
+  }
+}
+
 export function setDatabaseClientForTests(client) {
   if (process.env.NODE_ENV === 'production') throw new Error('Database test adapter is unavailable in production.');
   databaseClientOverride = client;

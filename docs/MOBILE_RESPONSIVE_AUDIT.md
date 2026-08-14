@@ -1,7 +1,7 @@
 # GXA Toolbox Mobile Responsive Audit
 
-Audit date: 2026-08-09  
-Registered tools: **91**  
+Audit date: 2026-08-14
+Registered tools: **92**
 Primary tool viewport: **390x844**
 
 ## Exact result counts
@@ -10,14 +10,14 @@ Only these statuses are used in the tool matrix.
 
 | Status | Count |
 |---|---:|
-| FULLY VERIFIED | 71 |
+| FULLY VERIFIED | 72 |
 | VERIFIED WITH LIMITATION | 7 |
 | BLOCKED BY DEPENDENCY | 13 |
 | FAILED | 0 |
 | UNTESTED | 0 |
 
-Tablet shell/viewports verified: **91/91 routes covered by the shared responsive shell; representative routes spot-checked**.  
-Desktop shell/viewports verified: **91/91 routes covered by the shared responsive shell; representative routes spot-checked**.
+Tablet shell/viewports verified: **92/92 routes covered by the shared responsive shell; representative routes spot-checked**.
+Desktop shell/viewports verified: **92/92 routes covered by the shared responsive shell; representative routes spot-checked**.
 
 `FULLY VERIFIED` means the route was opened at 390x844, its applicable input/upload path and settings were exercised, a real preview/result was produced, invalid or empty input was checked, its applicable output/download action was present and exercised, and no body-wide horizontal overflow remained. Generator/calculator routes without a downloadable artifact are marked on successful result and invalid-state behavior.
 
@@ -41,7 +41,7 @@ Desktop shell/viewports verified: **91/91 routes covered by the shared responsiv
 
 ## Direct download production audit
 
-All **91/91 registered tools** are represented in the tool matrix below. Of those, **51** currently expose an implemented downloadable-output workflow (50 fully exercised and Password Generator retained as a browser-runtime limitation), **27** produce an on-screen/calculated result where a file download is not the primary product, and **13** remain truthfully dependency-blocked. Before this focused pass, **1 implemented downloadable tool**—Crop Image—failed the direct mobile output UX because its workflow was trapped behind the Settings drawer. After the fix, **0 implemented downloadable tools are missing their primary direct output control**.
+All **92/92 registered tools** are represented in the tool matrix below. Of those, **52** currently expose an implemented downloadable-output workflow (51 fully exercised and Password Generator retained as a browser-runtime limitation), **27** produce an on-screen/calculated result where a file download is not the primary product, and **13** remain recorded in this responsive audit's historical dependency snapshot. Before this focused pass, **1 implemented downloadable tool**—Crop Image—failed the direct mobile output UX because its workflow was trapped behind the Settings drawer. After the fix, **0 implemented downloadable tools are missing their primary direct output control**.
 
 Crop Image output files were revalidated as real device downloads rather than cosmetic controls:
 
@@ -152,6 +152,7 @@ The shared home/header/navigation shell was previously measured at 320x568, 3608
 | 89 | Unit Converter | `#tool-unit-converter` | Calculator | YES | YES | YES | YES | YES - emulated | N/A | YES | FULLY VERIFIED | None | 1000 m to 1 km generated; empty-value behavior exercised. |
 | 90 | Currency Converter | `#tool-currency-converter` | Calculator | YES | YES | YES | YES | YES - emulated | N/A | YES | FULLY VERIFIED | None | User-supplied rate generated correct result; zero rate rejected; no live-rate claim. |
 | 91 | Time Calculator | `#tool-time-calculator` | Calculator | YES | YES | YES | YES | YES - emulated | N/A | YES | FULLY VERIFIED | None | Time addition generated correct result; boundary behavior exercised. |
+| 92 | Image OCR | `/image-ocr/` | Image | YES | YES | YES | YES | YES - emulated | YES | YES | FULLY VERIFIED | English OCR accuracy and first-use core/language download | Real JPG, JPEG, PNG, and WEBP fixtures produced visible non-placeholder text; copy and TXT download were reachable; corrupt, unsupported, and zero-text cases failed truthfully; 0 px overflow at all required viewports. |
 
 ## Dependency audit
 

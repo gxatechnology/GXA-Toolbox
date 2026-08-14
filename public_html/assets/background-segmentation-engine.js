@@ -90,7 +90,7 @@
   async function verifyRequiredAssets(status) {
     if (!assetCheckPromise) {
       assetCheckPromise = (async () => {
-        emit(status, 'Loading removal engine', 'Checking local model and runtime assets.');
+        emit(status, 'Loading GXA Vision Model', 'Preparing the GXA Vision Model for private browser processing.');
         for (const asset of REQUIRED_ASSETS) await verifyAsset(asset);
       })();
     }
@@ -100,7 +100,7 @@
   async function ensureOnnxRuntime(status) {
     if (!ortPromise) {
       ortPromise = (async () => {
-        emit(status, 'Loading removal engine', 'Loading the local ONNX Runtime Web assets.');
+        emit(status, 'Loading GXA Vision Model', 'Preparing the GXA Vision Model for private browser processing.');
         await verifyRequiredAssets(status);
         const ort = await loadScript(ORT_URL);
         if (!ort || !ort.InferenceSession) throw new Error(`ONNX Runtime Web did not initialize from ${ORT_URL}`);
@@ -133,7 +133,7 @@
     const errors = [];
     for (const provider of preferred) {
       try {
-        emit(status, 'Loading removal engine', provider === 'webgpu' ? 'Trying browser GPU acceleration.' : 'Using browser compatibility mode.');
+        emit(status, 'Loading GXA Vision Model', 'Preparing private browser processing.');
         diagnostic(provider === 'webgpu' ? 'Trying WebGPU' : 'Trying WASM');
         const session = await ort.InferenceSession.create(MODEL_URL, {
           executionProviders: [provider],
@@ -350,9 +350,9 @@
     const decoded = await decodeImage(file);
     try {
       const { ort, session, provider } = await ensureSession(options.status, options.forceProvider);
-      emit(options.status, 'Preparing image', 'Letterboxing and normalizing RGB pixels for U2NetP.');
+      emit(options.status, 'Reading image', 'Preparing the selected image for background removal.');
       const { tensor, transform } = makeInputTensor(ort, decoded.image);
-      emit(options.status, 'Analyzing subject', 'Running the foreground segmentation model in this browser.');
+      emit(options.status, 'Detecting subject', 'Detecting the foreground subject with the GXA Vision Model.');
       const inferenceStarted = performance.now();
       const feeds = {};
       feeds[session.inputNames?.[0] || 'input.1'] = tensor;

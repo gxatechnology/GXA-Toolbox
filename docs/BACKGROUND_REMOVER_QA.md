@@ -10,7 +10,7 @@
 - Worker mask expansion, contraction, and feather tests
 - WebGPU failure -> WASM session fallback test
 - Export MIME, quality, and filename test
-- Existing 91-tool repository audit and legacy output tests
+- Existing 92-tool repository audit and legacy output tests
 
 ## Browser results (2026-08-08)
 

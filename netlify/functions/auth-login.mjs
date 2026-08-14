@@ -5,6 +5,7 @@ import {
   jsonResponse,
   methodNotAllowed,
   publicUser,
+  recordAuthEvent,
   readJsonBody,
   safeErrorResponse,
   validateLogin,
@@ -31,10 +32,17 @@ export default async function handler(request) {
     const account = rows[0];
     const passwordAccepted = account ? await verifyPassword(login.password, account.password_hash) : false;
     if (!account || !passwordAccepted || account.status !== 'active') {
+      await recordAuthEvent(sql, 'login_failure', 'invalid_credentials');
       return jsonResponse({ success: false, message: 'Incorrect email or password.' }, 401);
     }
 
     const user = publicUser(account);
+    await sql`
+      UPDATE public.users
+         SET last_login_at = CURRENT_TIMESTAMP
+       WHERE id = ${user.id}
+    `;
+    await recordAuthEvent(sql, 'login_success', 'accepted');
     return jsonResponse(
       { success: true, message: 'Signed in successfully.', user },
       200,

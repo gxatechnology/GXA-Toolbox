@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Admin Dashboard | GXA Toolbox</title>
+  <meta name="description" content="Protected administration portal for GXA Toolbox.">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <a class="skip-link" href="#admin-main">Skip to dashboard content</a>
+
+  <main id="admin-login" class="login-view" aria-labelledby="login-title">
+    <section class="login-card">
+      <div class="login-brand">
+        <img src="/gxa-logo.png" width="256" height="256" alt="GXA Technologies logo" decoding="async">
+        <p class="brand-company">GXA TECHNOLOGIES</p>
+        <h1 id="login-title">GXA Toolbox<br><span>Admin Dashboard</span></h1>
+        <p>Secure Administration Portal</p>
+      </div>
+
+      <div id="login-loading" class="status-message" role="status">Checking administrator session…</div>
+      <form id="admin-login-form" class="login-form" hidden>
+        <div class="field">
+          <label for="admin-email">Email</label>
+          <input id="admin-email" name="email" type="email" autocomplete="username" required maxlength="254">
+        </div>
+        <div class="field">
+          <label for="admin-password">Password</label>
+          <input id="admin-password" name="password" type="password" autocomplete="current-password" required maxlength="128">
+        </div>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+        <button class="primary-button" type="submit">Sign In</button>
+      </form>
+
+      <footer class="login-footer">
+        <strong>GXA Technologies</strong>
+        <span>Technology • Marketing • Automation • Growth</span>
+      </footer>
+    </section>
+  </main>
+
+  <div id="admin-app" class="admin-app" hidden>
+    <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+    <aside id="admin-sidebar" class="sidebar" aria-label="Admin navigation">
+      <div class="sidebar-brand">
+        <img src="/gxa-logo.png" width="256" height="256" alt="" decoding="async">
+        <div><span>GXA TECHNOLOGIES</span><strong>GXA Toolbox Admin</strong></div>
+        <button id="close-drawer" class="icon-button close-drawer" type="button" aria-label="Close navigation">×</button>
+      </div>
+      <p class="sidebar-label">GXA ADMIN PANEL</p>
+      <nav id="admin-nav">
+        <button class="nav-item active" type="button" data-section="overview"><span aria-hidden="true">⌂</span>Overview</button>
+        <button class="nav-item" type="button" data-section="analytics"><span aria-hidden="true">⌁</span>Analytics</button>
+        <button class="nav-item" type="button" data-section="tools"><span aria-hidden="true">⚙</span>Tool Analytics</button>
+        <button class="nav-item" type="button" data-section="seo"><span aria-hidden="true">⌕</span>SEO / Search Console</button>
+        <button class="nav-item" type="button" data-section="adsense"><span aria-hidden="true">₹</span>AdSense</button>
+        <button class="nav-item" type="button" data-section="users"><span aria-hidden="true">◉</span>Users</button>
+        <button class="nav-item" type="button" data-section="system"><span aria-hidden="true">◇</span>System</button>
+      </nav>
+      <div class="sidebar-account">
+        <div class="administrator-mark" aria-hidden="true">A</div>
+        <div><strong>Administrator</strong><span>Secure session</span></div>
+        <button id="admin-logout" class="logout-button" type="button">Logout</button>
+      </div>
+    </aside>
+
+    <div class="app-column">
+      <header class="topbar">
+        <button id="open-drawer" class="icon-button menu-button" type="button" aria-label="Open navigation" aria-controls="admin-sidebar" aria-expanded="false">☰</button>
+        <div class="topbar-title">
+          <p>GXA Toolbox Dashboard</p>
+          <h1 id="section-title">Overview</h1>
+        </div>
+        <div class="topbar-actions">
+          <label class="range-control">Range
+            <select id="date-range">
+              <option value="today">Today</option>
+              <option value="7d">7 Days</option>
+              <option value="28d">28 Days</option>
+              <option value="30d" selected>30 Days</option>
+              <option value="3m">3 Months</option>
+            </select>
+          </label>
+          <button id="refresh-data" class="secondary-button" type="button">Refresh data</button>
+        </div>
+      </header>
+
+      <main id="admin-main" class="dashboard-main" tabindex="-1">
+        <div class="dashboard-heading">
+          <div><h2>GXA Toolbox Dashboard</h2><p>Administration, Analytics &amp; Revenue Control Center</p></div>
+          <p id="data-timestamp" class="timestamp" aria-live="polite"></p>
+        </div>
+        <div id="dashboard-status" class="status-message" role="status">Loading protected dashboard data…</div>
+        <div id="dashboard-content" hidden></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/admin/admin.js" defer></script>
+</body>
+</html>

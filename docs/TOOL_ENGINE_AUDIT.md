@@ -1,8 +1,8 @@
-# GXA Toolbox 91-tool browser-engine audit
+# GXA Toolbox 92-tool browser-engine audit
 
 ## Scope and method
 
-The canonical source for this matrix is `toolsList` plus `extraTools` in `public_html/assets/app.js`. The registry contains **91 unique tools**: 22 PDF, 4 image, 27 utility, 2 ZIP, 21 convert, and 15 calculator tools. Every registry ID appears exactly once below.
+The canonical source for this matrix is `toolsList` plus `extraTools` in `public_html/assets/app.js`. The registry contains **92 unique tools**: 22 PDF, 5 image, 27 utility, 2 ZIP, 21 convert, and 15 calculator tools. Every registry ID appears exactly once below.
 
 The audit distinguishes the implementation that existed at the start of this pass from the selected engine disposition. A final classification describes the honest supported scope, not a promise of native Microsoft Office fidelity. “Local” means that file bytes stay in the browser; a future Netlify fallback would require an explicit upload and a separate privacy disclosure. Memory estimates are working-set bands: Low (generally under 50 MB), Moderate (roughly 50–200 MB), and High (can exceed 200 MB with large inputs or model data).
 
@@ -50,6 +50,7 @@ Direct npm dependencies added for reproducible fixtures/contracts are `@neslines
 | Compress Image | Image | `compress-image` | Implemented Canvas decode, quality adjustment, and batch ZIP | JPG, PNG, or WEBP → compressed image or ZIP | Canvas; JSZip | Yes | Canvas / browser codecs | Optional codecs only | Optional OffscreenCanvas | Unnecessary | Moderate; decoded pixels dominate | Good under pixel cap | Local; no upload | **FULLY WORKING — BROWSER** |
 | Resize Image | Image | `resize-image` | Implemented Canvas resize, aspect lock, and batch output | JPG, PNG, or WEBP → resized image or ZIP | Canvas; JSZip | Yes | Canvas / createImageBitmap | Optional codecs only | Optional OffscreenCanvas | Unnecessary | Moderate; source plus target pixels | Good under pixel cap | Local; no upload | **FULLY WORKING — BROWSER** |
 | Crop Image | Image | `crop-image` | Implemented touch-capable manual crop and real Canvas export | JPG, PNG, or WEBP → cropped image | Cropper.js; Canvas | Yes | Cropper.js plus Canvas | Not needed | No; interaction stays on main thread | Unnecessary | Moderate; decoded pixels dominate | Good with touch handles and pixel cap | Local; no upload | **FULLY WORKING — BROWSER** |
+| Image OCR | Image | `image-ocr` | Implemented direct image decoding and worker OCR with copy/TXT output | JPG, JPEG, PNG, or WEBP → extracted plain text | Canvas/browser decoder; Tesseract.js | Partly; OCR accuracy, English-only UI, and first-use model download are material limits | Browser decode validation plus Tesseract.js worker | Tesseract core uses WASM | Implemented by Tesseract.js | Optional only for languages or devices outside the browser budget | Bounded to 20 MB and 24 megapixels plus OCR worker memory | Good for ordinary images within explicit caps | User image stays local; OCR core/language assets download when needed | **WORKING WITH BROWSER LIMITATION** |
 | Background Remover | Image | `background-remover` | Implemented local ONNX foreground segmentation plus manual mask refinement | JPG, PNG, or WEBP → transparent PNG or composed image | ONNX Runtime Web; local U2NetP model | Yes after engine/model load | ONNX Runtime Web WASM with WebGPU option | Primary fallback/engine | Runtime worker where supported | Optional only for incompatible devices | High; model, tensors, and canvas | Good on capable phones; 30 MB and 48 MP caps | Local; model and file stay in browser | **FULLY WORKING — WASM** |
 | Password Generator | Utility | `password-generator` | Implemented cryptographic random generation and strength display | Length and character rules → password text | Web Crypto random values | Yes | crypto.getRandomValues | Not needed | Not needed | Unnecessary | Low | Excellent | Local; generated secret is not uploaded | **FULLY WORKING — BROWSER** |
 | QR & Barcode | Utility | `barcode-generator` | Implemented QR and CODE128 SVG/Canvas generation | Text or URL plus style → QR image or barcode SVG | QRCode.js; JsBarcode | Yes | QRCode.js and JsBarcode | Not needed | Not needed | Unnecessary | Low | Excellent | Local; payload is not uploaded | **FULLY WORKING — BROWSER** |
@@ -155,10 +156,10 @@ The baseline blocker set contains exactly 13 IDs: `protect-pdf`, `unlock-pdf`, `
 - **FULLY WORKING — BROWSER:** 59
 - **FULLY WORKING — WASM:** 3
 - **FULLY WORKING — NETLIFY FUNCTION:** 0
-- **WORKING WITH BROWSER LIMITATION:** 28
+- **WORKING WITH BROWSER LIMITATION:** 29
 - **NOT CURRENTLY FEASIBLE:** 1
 
-Total: **91**. The dependency-blocked count moves from **13 before** this pass to **1 after** this pass.
+Total: **92**. The dependency-blocked count moves from **13 before** this pass to **1 after** this pass.
 
 ## Verification rule
 

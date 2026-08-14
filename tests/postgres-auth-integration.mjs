@@ -37,7 +37,7 @@ const request = (path, body, cookie = '') => new Request(`https://gxatoolbox.in$
 try {
   const connectionString = await localDatabase.start();
   const appliedMigrations = await localDatabase.applyMigrations(migrationsDirectory);
-  assert.deepEqual(appliedMigrations, ['0001_create_auth_schema']);
+  assert.deepEqual(appliedMigrations, ['0001_create_auth_schema', '0002_repair_auth_schema_after_site_reconnect', '0003_create_admin_analytics_schema']);
   assert.deepEqual(await localDatabase.applyMigrations(migrationsDirectory), []);
 
   database = getDatabase({ connectionString });
@@ -48,16 +48,20 @@ try {
       FROM netlify.migrations
      ORDER BY name
   `);
-  assert.deepEqual(trackedMigrations.rows.map(row => row.name), ['0001_create_auth_schema']);
+  assert.deepEqual(trackedMigrations.rows.map(row => row.name), [
+    '0001_create_auth_schema',
+    '0002_repair_auth_schema_after_site_reconnect',
+    '0003_create_admin_analytics_schema'
+  ]);
 
   const tables = await database.sql`
     SELECT table_name
       FROM information_schema.tables
      WHERE table_schema = 'public'
-       AND table_name IN ('users', 'file_jobs')
+       AND table_name IN ('users', 'file_jobs', 'tool_analytics_events', 'auth_events', 'system_events')
      ORDER BY table_name
   `;
-  assert.deepEqual(tables.map(row => row.table_name), ['file_jobs', 'users']);
+  assert.deepEqual(tables.map(row => row.table_name), ['auth_events', 'file_jobs', 'system_events', 'tool_analytics_events', 'users']);
 
   const foreignKeys = await database.sql`
     SELECT constraint_name

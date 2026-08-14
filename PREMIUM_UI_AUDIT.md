@@ -41,7 +41,7 @@ This upgrade preserves the existing tool registry, routes, PHP APIs, authenticat
 ## Verification performed
 
 - JavaScript syntax lint: passed.
-- Repository/tool audit: passed for all 91 tools.
+- Repository/tool audit: passed for all 92 tools.
 - Production build script: passed.
 - Browser smoke tests: homepage, light/dark theme, command palette, favorites, direct tool links, and Merge PDF workspace passed.
 - Unapproved legacy brand scan: zero occurrences.

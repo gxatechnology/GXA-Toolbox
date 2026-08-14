@@ -32,10 +32,10 @@ DirectoryIndex index.php index.html
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^admin/?$ admin/index.php [L,QSA]
 
-    # Route calculator and background remover paths dynamically to index.php
+    # Route calculator, company/legal, and background remover paths dynamically to index.php
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(background-remover|calculator|scientific-calculator|percentage-calculator|age-calculator|date-calculator|emi-calculator|loan-calculator|interest-calculator|gst-calculator|sip-calculator|bmi-calculator|discount-calculator|unit-converter|currency-converter|time-calculator)/?$ index.php [L,QSA]
+    RewriteRule ^(about|careers|security|privacy-policy|terms|gdpr|background-remover|calculator|scientific-calculator|percentage-calculator|age-calculator|date-calculator|emi-calculator|loan-calculator|interest-calculator|gst-calculator|sip-calculator|bmi-calculator|discount-calculator|unit-converter|currency-converter|time-calculator)/?$ index.php [L,QSA]
 </IfModule>
 
 # 5. Enable gzip compression for asset speedups

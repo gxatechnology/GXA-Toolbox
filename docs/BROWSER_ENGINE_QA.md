@@ -1,6 +1,6 @@
 # GXA Toolbox browser-engine QA evidence
 
-Date: 2026-08-13
+Date: 2026-08-14
 
 ## Test method
 
@@ -22,6 +22,7 @@ The browser-generated DOCX-to-PDF result was also downloaded to `C:\Users\tauqe\
 | `gif-to-png` | `sample.gif` | `sample_frames.zip`, 646 B | Strict two-frame GIF decode; PNG-frame ZIP and manifest generated |
 | `extract-images-pdf` | `embedded-image.pdf` | `extracted_images_embedded-image.zip`, 2.42 KiB | Actual PDF.js raster object decoded through its ImageBitmap path; output is not a page-render fallback |
 | `ocr-pdf` | `scanned.pdf` | `scanned_ocr.txt`, 34 B | Tesseract worker executed in 5.24 s and returned non-placeholder recognized text; the tiny synthetic bitmap demonstrates normal OCR accuracy limits |
+| `image-ocr` | Browser-generated JPG, JPEG, PNG, and WEBP text images | `{source-name}_ocr.txt` with `GXA TOOLBOX OCR 2026` | All four advertised formats decoded and ran through the real Tesseract worker; copy and blob-download actions were enabled, corrupt input failed decoding, GIF was rejected, and a blank image produced the truthful zero-text state |
 | `pdf-to-excel` | `text.pdf` | `text_tables.xlsx`, 8.95 KiB | Required OOXML workbook entries validated through JSZip |
 | `pdf-to-ppt` | `one-page.pdf` | `one-page_presentation.pptx`, 53.95 KiB | Required OOXML presentation entries validated through JSZip; output is explicitly image-based |
 
@@ -31,17 +32,18 @@ The browser-generated DOCX-to-PDF result was also downloaded to `C:\Users\tauqe\
 
 | Viewport | Horizontal overflow | GXA Toolbox brand | Directory cards | Listing badges | Search overlap | Category behavior |
 |---|---:|---|---:|---:|---|---|
-| 1920×1080 | 0 px | Visible | 91 | 0 | None | Inline |
-| 1366×768 | 0 px | Visible | 91 | 0 | None | Inline |
-| 768×1024 | 0 px | Visible | 91 | 0 | None | Fits available width |
-| 390×844 | 0 px | Visible | 91 | 0 | None | Horizontal scroll |
-| 360×800 | 0 px | Visible | 91 | 0 | None | Horizontal scroll |
+| 1920×1080 | 0 px | Visible | 92 | 0 | None | Inline |
+| 1366×768 | 0 px | Visible | 92 | 0 | None | Inline |
+| 768×1024 | 0 px | Visible | 92 | 0 | None | Fits available width |
+| 390×844 | 0 px | Visible | 92 | 0 | None | Horizontal scroll |
+| 360×800 | 0 px | Visible | 92 | 0 | None | Horizontal scroll |
 
 At 390×844 and 360×800, a completed GIF result kept Download Result within the viewport, the settings panel remained within the viewport, and document width matched the viewport. The mobile drawer opened with body scroll lock and exposed Home, All Tools, PDF, Image, Calculators, Converters, ZIP, Developer, Dashboard, language, theme, support, Sign In, and Sign Up actions.
 
 ## Automated contracts
 
-- `tests/browser-engine-contract.mjs` enforces the exact 91-row registry/matrix match, exactly one accepted final decision per row, zero directory badge rendering, one blocker, package assets, strict GIF bounds/truncation rejection, real DOCX extraction, and genuine qpdf encrypt/decrypt outputs.
+- `tests/browser-engine-contract.mjs` enforces the exact 92-row registry/matrix match, exactly one accepted final decision per row, zero directory badge rendering, one blocker, package assets, strict GIF bounds/truncation rejection, real DOCX extraction, and genuine qpdf encrypt/decrypt outputs.
+- `tests/image-ocr-contract.mjs` preserves the separate PDF-only OCR and JPG-to-PDF registrations, validates Image OCR's four-format contract and resource limits, and checks the generated route, sitemap, and user-facing Background Remover terminology.
 - `tests/phase-one-output-validation.mjs` validates synthetic PNG/JPEG dimensions, WebP/GIF/PDF signatures, PDF page counts, encrypted-PDF presence, and package families.
 - The production `validateGeneratedOutputBlob` validates PDF signatures/trailers, decodes images, validates GIF signatures, CRC-checks ZIPs, and checks required EPUB/XLSX/PPTX/DOCX package entries before presenting success.
 

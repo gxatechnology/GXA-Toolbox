@@ -34,7 +34,9 @@ const HOME_META_DESCRIPTION = 'Use browser-based tools for PDFs, images, file co
 const SITE_NAME = 'GXA Toolbox';
 const PRODUCTION_ORIGIN = 'https://gxatoolbox.in';
 const NOT_FOUND_PAGE = 'not-found';
+const contentPages = Array.isArray(window.GXA_CONTENT_PAGES) ? window.GXA_CONTENT_PAGES : [];
 let routeEventsBound = false;
+let lastAnalyticsToolOpen = '';
 
 // Crop Image owns a dedicated, route-scoped editor. Cropper.js is loaded only
 // after this route is opened so the rest of GXA Toolbox keeps its current payload.
@@ -73,6 +75,8 @@ const premiumEditorState = {
   resultUrl: '',
   resultBlob: null,
   resultFilename: '',
+  resultText: '',
+  activeOcrWorker: null,
   auxiliaryUrls: [],
   backgroundAutoTimer: null,
   backgroundPreviewUrl: '',
@@ -371,6 +375,7 @@ const toolsList = [
   { id: 'compress-image', name: 'Compress Image', category: 'image', desc: 'Compress browser-decodable JPG, PNG, and WEBP images with adjustable quality.', icon: 'minimize-2' },
   { id: 'resize-image', name: 'Resize Image', category: 'image', desc: 'Specify exact dimensions, aspect locking, and percentage scales.', icon: 'maximize-2' },
   { id: 'crop-image', name: 'Crop Image', category: 'image', desc: 'Manually select, position, transform, and export an exact image crop.', icon: 'crop' },
+  { id: 'image-ocr', name: 'Image OCR', category: 'image', desc: 'Extract text from JPG, JPEG, PNG, and WEBP images with browser-based OCR.', icon: 'scan-text' },
   { id: 'background-remover', name: 'Background Remover', category: 'image', desc: 'Remove image backgrounds with a browser-local foreground segmentation model and refine the alpha mask in Advanced Cutout Studio.', icon: 'sparkles' },
   { id: 'password-generator', name: 'Password Generator', category: 'utility', desc: 'Produce strong, random keys with safety metrics.', icon: 'key' },
   { id: 'barcode-generator', name: 'QR & Barcode', category: 'utility', desc: 'Create code graphics for texts or links in vectors.', icon: 'qr-code' },
@@ -466,12 +471,40 @@ const extraTools = [
 ];
 extraTools.forEach(t => toolsList.push(t));
 
+function currentAnalyticsTool() {
+  if (!appState.currentPage.startsWith('tool-')) return null;
+  return toolsList.find(tool => tool.id === appState.currentPage.replace('tool-', '')) || null;
+}
+
+function durationBucket(startedAt) {
+  const elapsed = Math.max(0, performance.now() - Number(startedAt || performance.now()));
+  if (elapsed < 1000) return 'under_1s';
+  if (elapsed < 3000) return '1_3s';
+  if (elapsed < 10_000) return '3_10s';
+  if (elapsed < 30_000) return '10_30s';
+  if (elapsed < 60_000) return '30_60s';
+  return 'over_60s';
+}
+
+function safeFailureCategory(error) {
+  if (premiumEditorState.batchCancelled || error?.name === 'AbortError') return 'cancelled';
+  if (error instanceof TypeError) return 'unsupported_input';
+  return 'processing_error';
+}
+
+function recordToolAnalytics(eventType, details = {}) {
+  const tool = currentAnalyticsTool();
+  if (!tool || !window.GxaAnalytics) return false;
+  return window.GxaAnalytics.track(eventType, tool, details);
+}
+
 // --- Main Application Controller ---
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
 });
 
 async function initApp() {
+  const supportRequested = new URLSearchParams(window.location.search).get('support') === '1';
   hydrateLocalPreferences();
   const replacedLegacyHash = syncPageFromLocation({ replaceLegacyHash: true });
   const initialPath = pathForPage(appState.currentPage);
@@ -484,6 +517,7 @@ async function initApp() {
   renderPage();
   setTheme(appState.theme);
   setupGlobalExperience();
+  if (supportRequested) showContactModal();
 
   if (!routeEventsBound) {
     window.addEventListener('popstate', () => {
@@ -516,6 +550,7 @@ function pageIdFromLocation() {
   const path = normalizeRoutePath();
   if (path === '') return 'home';
   if (path === 'dashboard') return 'dashboard';
+  if (path && contentPages.some(page => page.id === path)) return `content-${path}`;
   if (path && toolsList.some(tool => tool.id === path)) return `tool-${path}`;
   return NOT_FOUND_PAGE;
 }
@@ -523,6 +558,10 @@ function pageIdFromLocation() {
 function pathForPage(pageId) {
   if (pageId === 'home') return '/';
   if (pageId === 'dashboard') return '/dashboard/';
+  if (pageId.startsWith('content-')) {
+    const contentId = pageId.replace('content-', '');
+    if (contentPages.some(page => page.id === contentId)) return `/${contentId}/`;
+  }
   if (pageId.startsWith('tool-')) {
     const toolId = pageId.replace('tool-', '');
     if (toolsList.some(tool => tool.id === toolId)) return `/${toolId}/`;
@@ -573,6 +612,12 @@ function handleRouteLink(event, pageId) {
   if (!shouldHandleNavigationEvent(event)) return;
   event.preventDefault();
   navigate(pageId);
+}
+
+function handleSupportLink(event) {
+  if (!shouldHandleNavigationEvent(event)) return;
+  event.preventDefault();
+  showContactModal();
 }
 
 // --- Theme Switcher ---
@@ -943,7 +988,9 @@ function closeCategoryNavigation({ restoreFocus = false } = {}) {
     item.classList.remove('menu-expanded');
     delete item.dataset.navigationPinned;
     const trigger = item.querySelector(':scope > button[aria-haspopup="true"]');
+    const menu = item.querySelector(':scope > .mega-menu');
     trigger?.setAttribute('aria-expanded', 'false');
+    menu?.setAttribute('aria-hidden', 'true');
     if (restoreFocus) trigger?.focus();
   });
 }
@@ -956,11 +1003,13 @@ function setCategoryNavigationOpen(item, open, { pinned = false } = {}) {
     openItem.classList.remove('menu-expanded');
     delete openItem.dataset.navigationPinned;
     openItem.querySelector(':scope > button[aria-haspopup="true"]')?.setAttribute('aria-expanded', 'false');
+    openItem.querySelector(':scope > .mega-menu')?.setAttribute('aria-hidden', 'true');
   });
   item.classList.toggle('menu-expanded', open);
   if (!open) delete item.dataset.navigationPinned;
   else if (pinned) item.dataset.navigationPinned = 'true';
   item.querySelector(':scope > button[aria-haspopup="true"]')?.setAttribute('aria-expanded', String(open));
+  item.querySelector(':scope > .mega-menu')?.setAttribute('aria-hidden', String(!open));
 }
 
 function isDesktopHoverNavigation() {
@@ -972,7 +1021,7 @@ function scheduleCategoryNavigationClose(item, { force = false } = {}) {
   window.clearTimeout(navigationCloseTimer);
   navigationCloseTimer = window.setTimeout(() => {
     if (!item.matches(':hover') && !item.contains(document.activeElement)) setCategoryNavigationOpen(item, false);
-  }, 200);
+  }, 120);
 }
 
 function initializeCategoryNavigation(nav) {
@@ -981,12 +1030,19 @@ function initializeCategoryNavigation(nav) {
     const menu = item.querySelector(':scope > .mega-menu');
     if (!trigger || !menu) return;
     trigger.setAttribute('aria-expanded', 'false');
+    menu.setAttribute('aria-hidden', 'true');
     const togglePinnedMenu = () => {
       const shouldOpen = item.dataset.navigationPinned !== 'true';
       setCategoryNavigationOpen(item, shouldOpen, { pinned: shouldOpen });
     };
     trigger.addEventListener('click', togglePinnedMenu);
     trigger.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setCategoryNavigationOpen(item, true, { pinned: true });
+        requestAnimationFrame(() => menu.querySelector('a')?.focus());
+        return;
+      }
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
       togglePinnedMenu();
@@ -994,7 +1050,8 @@ function initializeCategoryNavigation(nav) {
     item.addEventListener('pointerenter', () => {
       if (isDesktopHoverNavigation()) setCategoryNavigationOpen(item, true);
     });
-    item.addEventListener('pointerleave', () => {
+    item.addEventListener('pointerleave', event => {
+      if (event.relatedTarget && item.contains(event.relatedTarget)) return;
       if (isDesktopHoverNavigation()) scheduleCategoryNavigationClose(item);
     });
     item.addEventListener('focusout', event => {
@@ -1046,7 +1103,6 @@ function renderNavbar() {
         <span>${escapeHTML(appState.user.name)}</span>
       </a>
       ${appState.user.role === 'developer' ? `<a href="/developer/index.php" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center;">Developer</a>` : ''}
-      ${appState.user.role === 'admin' ? `<a href="/admin/index.php" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center;">Admin</a>` : ''}
       <button class="btn btn-primary btn-sm" onclick="handleLogout()">Sign Out</button>
     `;
   } else {
@@ -1196,19 +1252,19 @@ function renderFooter() {
         <div class="footer-col">
           <div class="footer-col-title">Company</div>
           <ul class="footer-links">
-            <li><a class="footer-link">About Us</a></li>
-            <li><a class="footer-link">Careers</a></li>
-            <li><a class="footer-link">Security Policies</a></li>
-            <li><a class="footer-link" onclick="showContactModal(); return false;">Contact Support</a></li>
+            <li><a href="/about/" class="footer-link" onclick="handleRouteLink(event, 'content-about')">About Us</a></li>
+            <li><a href="/careers/" class="footer-link" onclick="handleRouteLink(event, 'content-careers')">Careers</a></li>
+            <li><a href="/security/" class="footer-link" onclick="handleRouteLink(event, 'content-security')">Security Policies</a></li>
+            <li><a href="/?support=1" class="footer-link" onclick="handleSupportLink(event)">Contact Support</a></li>
           </ul>
         </div>
         
         <div class="footer-col">
           <div class="footer-col-title">Legal</div>
           <ul class="footer-links">
-            <li><a class="footer-link">Privacy Policy</a></li>
-            <li><a class="footer-link">Terms & Service</a></li>
-            <li><a class="footer-link">GDPR Compliance</a></li>
+            <li><a href="/privacy-policy/" class="footer-link" onclick="handleRouteLink(event, 'content-privacy-policy')">Privacy Policy</a></li>
+            <li><a href="/terms/" class="footer-link" onclick="handleRouteLink(event, 'content-terms')">Terms of Service</a></li>
+            <li><a href="/gdpr/" class="footer-link" onclick="handleRouteLink(event, 'content-gdpr')">GDPR Compliance</a></li>
           </ul>
         </div>
       </div>
@@ -1230,7 +1286,8 @@ function renderFooter() {
 function navigate(pageId, { replace = false, scroll = true } = {}) {
   closeMobileNavigation();
   const isKnownTool = pageId.startsWith('tool-') && toolsList.some(tool => `tool-${tool.id}` === pageId);
-  if (!['home', 'dashboard', NOT_FOUND_PAGE].includes(pageId) && !isKnownTool) pageId = NOT_FOUND_PAGE;
+  const isKnownContentPage = pageId.startsWith('content-') && contentPages.some(page => `content-${page.id}` === pageId);
+  if (!['home', 'dashboard', NOT_FOUND_PAGE].includes(pageId) && !isKnownTool && !isKnownContentPage) pageId = NOT_FOUND_PAGE;
   if (pageId === 'tool-background-remover') {
     window.location.assign('/background-remover/');
     return;
@@ -1301,13 +1358,17 @@ function renderPage() {
   if (!content) return;
   
   const pageId = appState.currentPage;
+  if (!pageId.startsWith('tool-')) lastAnalyticsToolOpen = '';
   document.body.classList.toggle('background-remover-dedicated-active', pageId === 'tool-background-remover');
+  document.body.classList.toggle('content-page-active', pageId.startsWith('content-'));
   applyPageMetadata(pageId);
   
   if (pageId === 'home') {
     renderHome(content);
   } else if (pageId === 'dashboard') {
     renderDashboard(content);
+  } else if (pageId.startsWith('content-')) {
+    renderContentPage(content, pageId.replace('content-', ''));
   } else if (pageId.startsWith('tool-')) {
     const toolId = pageId.replace('tool-', '');
     renderToolPage(content, toolId);
@@ -1390,8 +1451,10 @@ function applyPageMetadata(pageId) {
   if (pageId.startsWith('tool-')) {
     const tool = toolsList.find(item => item.id === pageId.replace('tool-', ''));
     if (tool) {
-      title = `${tool.name} | GXA Toolbox`;
-      description = `${tool.desc} Use it with GXA Toolbox.`;
+      title = tool.id === 'image-ocr' ? 'Image OCR - Extract Text from Images | GXA Toolbox' : `${tool.name} | GXA Toolbox`;
+      description = tool.id === 'image-ocr'
+        ? 'Extract text from JPG, JPEG, PNG, and WEBP images using browser-based OCR with GXA Toolbox.'
+        : `${tool.desc} Use it with GXA Toolbox.`;
       path = `/${tool.id}/`;
       robots = tool.id === 'ppt-to-pdf' ? 'noindex, follow' : robots;
       schema = {
@@ -1416,6 +1479,35 @@ function applyPageMetadata(pageId) {
             itemListElement: [
               { '@type': 'ListItem', position: 1, name: SITE_NAME, item: `${origin}/` },
               { '@type': 'ListItem', position: 2, name: tool.name, item: `${origin}${path}` }
+            ]
+          }
+        ]
+      };
+    }
+  } else if (pageId.startsWith('content-')) {
+    const page = contentPages.find(item => item.id === pageId.replace('content-', ''));
+    if (page) {
+      title = page.title;
+      description = page.description;
+      path = `/${page.id}/`;
+      schema = {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'WebPage',
+            '@id': `${origin}${path}#webpage`,
+            name: page.name,
+            url: `${origin}${path}`,
+            description,
+            isPartOf: { '@id': `${origin}/#website` },
+            publisher: { '@id': `${origin}/#organization` }
+          },
+          {
+            '@type': 'BreadcrumbList',
+            '@id': `${origin}${path}#breadcrumb`,
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: SITE_NAME, item: `${origin}/` },
+              { '@type': 'ListItem', position: 2, name: page.name, item: `${origin}${path}` }
             ]
           }
         ]
@@ -1453,6 +1545,63 @@ function applyPageMetadata(pageId) {
   ensureMetaElement('meta[name="twitter:image:alt"]', { name: 'twitter:image:alt' }).content = 'GXA Toolbox logo';
   ensureCanonicalLink().href = canonicalUrl;
   setStructuredData(schema);
+}
+
+function renderContentPage(container, contentId) {
+  const page = contentPages.find(item => item.id === contentId);
+  if (!page) {
+    renderNotFound(container);
+    return;
+  }
+
+  const tableOfContents = page.sections.map(section => `
+    <a href="#${escapeHTML(section.id)}">${escapeHTML(section.title)}</a>
+  `).join('');
+  const sections = page.sections.map(section => `
+    <section class="content-section" id="${escapeHTML(section.id)}">
+      <h2>${escapeHTML(section.title)}</h2>
+      ${(section.paragraphs || []).map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join('')}
+      ${section.bullets?.length ? `<ul>${section.bullets.map(item => `<li>${escapeHTML(item)}</li>`).join('')}</ul>` : ''}
+      ${section.note ? `<div class="content-note"><i data-lucide="info"></i><p>${escapeHTML(section.note)}</p></div>` : ''}
+    </section>
+  `).join('');
+  const related = page.related?.length ? `
+    <section class="content-related" aria-labelledby="related-information-title">
+      <h2 id="related-information-title">Related information</h2>
+      <div class="content-related-links">
+        ${page.related.map(link => `<a href="/${escapeHTML(link.id)}/" onclick="handleRouteLink(event, 'content-${escapeHTML(link.id)}')">${escapeHTML(link.label)}<i data-lucide="arrow-up-right"></i></a>`).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  container.innerHTML = `
+    <article class="content-page">
+      <header class="content-page-hero">
+        <div class="container content-page-hero-inner">
+          <nav class="breadcrumb" aria-label="Breadcrumb"><a class="breadcrumb-link" href="/" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span>${escapeHTML(page.name)}</span></nav>
+          <span class="section-kicker">${escapeHTML(page.eyebrow)}</span>
+          <h1>${escapeHTML(page.name)}</h1>
+          <p>${escapeHTML(page.intro)}</p>
+          ${page.updated ? `<p class="content-page-updated">Last updated: ${escapeHTML(page.updated)}</p>` : ''}
+        </div>
+      </header>
+      <div class="container content-page-layout">
+        <aside class="content-toc" aria-label="On this page">
+          <strong>On this page</strong>
+          <nav>${tableOfContents}</nav>
+        </aside>
+        <div class="content-page-body">
+          ${sections}
+          ${related}
+          <section class="content-cta">
+            <div><span class="section-kicker">Contact</span><h2>${escapeHTML(page.cta.title)}</h2><p>${escapeHTML(page.cta.text)}</p></div>
+            <a href="/?support=1" class="btn btn-primary" onclick="handleSupportLink(event)"><i data-lucide="life-buoy"></i>${escapeHTML(page.cta.label)}</a>
+          </section>
+        </div>
+      </div>
+    </article>
+  `;
+  lucide.createIcons();
 }
 
 function renderNotFound(container) {
@@ -1508,13 +1657,13 @@ function showAuthModal(mode = 'signup') {
         ${isLogin ? '' : `
           <div class="auth-field">
             <label class="form-label" for="auth-name">Full Name</label>
-            <input type="text" id="auth-name" class="form-input-text" placeholder="Your full name" autocomplete="name" aria-describedby="auth-name-error" oninput="clearAuthFieldError('name')">
+            <input type="text" id="auth-name" class="form-input-text" placeholder="Tauqeer Ashraf" autocomplete="name" aria-describedby="auth-name-error" oninput="clearAuthFieldError('name')">
             <small id="auth-name-error" class="auth-field-error"></small>
           </div>
         `}
         <div class="auth-field">
           <label class="form-label" for="auth-email">Email Address</label>
-          <input type="email" id="auth-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${escapeHTML(rememberedEmail)}" autocomplete="email" inputmode="email" aria-describedby="auth-email-error" oninput="clearAuthFieldError('email')">
+          <input type="email" id="auth-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${isLogin ? escapeHTML(rememberedEmail) : ''}" autocomplete="email" inputmode="email" aria-describedby="auth-email-error" oninput="clearAuthFieldError('email')">
           <small id="auth-email-error" class="auth-field-error"></small>
         </div>
         <div class="auth-field">
@@ -2239,9 +2388,22 @@ function getDirectResultDownloadLabel(toolId) {
   return labels[toolId] || 'Download Result';
 }
 
+function renderToolAdPlacementPlaceholder() {
+  return `
+    <aside class="tool-ad-placement" data-ad-placement="tool-content" data-ad-state="awaiting-ad-unit" aria-label="Advertisement" hidden>
+      <span class="tool-ad-label">Advertisement</span>
+      <div class="tool-ad-unit-mount" data-ad-unit-mount></div>
+    </aside>
+  `;
+}
+
 function renderToolPage(container, toolId) {
   const tool = toolsList.find(t => t.id === toolId);
   if (!tool) return;
+  if (lastAnalyticsToolOpen !== toolId) {
+    recordToolAnalytics('tool_open', { status: 'opened' });
+    lastAnalyticsToolOpen = toolId;
+  }
 
   // Premium tool gating check
   const isPremiumTool = isToolPremiumRestricted(toolId);
@@ -2296,6 +2458,8 @@ function renderToolPage(container, toolId) {
   let optionsHTML = '';
   let accepts = '*';
   let multiple = true;
+  let uploadFormatsLabel = '';
+  let uploadLimitLabel = t('maxSize');
   
   if (toolId === 'merge-pdf') {
     accepts = '.pdf';
@@ -2437,7 +2601,7 @@ function renderToolPage(container, toolId) {
         </select>
       </div>
       <p style="font-size:12px; color:var(--color-text-secondary); line-height:1.4; margin-top:5px;">
-        Loads a local foreground segmentation model only for this tool. Your image is processed in the browser and opens in Advanced Cutout Studio with an editable alpha mask.
+        Loads the GXA Vision Model processing components only for this tool. Your image is processed in the browser and opens in Advanced Cutout Studio with an editable alpha mask.
       </p>
     `;
   } else if (toolId === 'password-generator') {
@@ -3824,6 +3988,15 @@ function renderToolPage(container, toolId) {
       <label class="form-label" for="opt-ocr-lang">OCR language<select id="opt-ocr-lang" class="form-input-text"><option value="eng">English</option></select></label>
       <p class="processing-disclosure">PDF pages are rendered sequentially and recognized in a local Tesseract Web Worker. The output is extracted TXT, not a searchable PDF. The first run downloads the OCR core and English language model; the PDF itself is not uploaded.</p>
     `;
+  } else if (toolId === 'image-ocr') {
+    accepts = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
+    multiple = false;
+    uploadFormatsLabel = 'JPG · JPEG · PNG · WEBP';
+    uploadLimitLabel = 'Maximum file size: 20 MB · Maximum decoded image: 24 megapixels';
+    optionsHTML = `
+      <label class="form-label" for="opt-image-ocr-lang">OCR language<select id="opt-image-ocr-lang" class="form-input-text"><option value="eng">English</option></select></label>
+      <p class="processing-disclosure">Your image stays in this browser. The OCR core and English language data are downloaded when needed. Output is plain extracted text and does not preserve the image layout.</p>
+    `;
   } else if (toolId === 'image-to-pdf') {
     accepts = 'image/*';
     multiple = true;
@@ -3920,6 +4093,7 @@ function renderToolPage(container, toolId) {
     'zip-manager': 'Create ZIP', 'zip-extractor': 'Extract ZIP', 'split-pdf': 'Split PDF',
     'pdf-to-jpg': 'Convert PDF Pages', 'pdf-to-image': 'Convert PDF Pages', 'pdf-to-png': 'Convert to PNG',
     'jpg-to-pdf': 'Create PDF', 'image-to-pdf': 'Create PDF', 'png-to-pdf': 'Create PDF',
+    'image-ocr': 'Extract Text',
     'pdf-to-text': 'Extract Text', 'pdf-to-html': 'Extract to HTML', 'pdf-to-markdown': 'Extract to Markdown',
     'rotate-pdf': 'Rotate PDF', 'watermark-pdf': 'Apply Watermark', 'pagenumber-pdf': 'Add Page Numbers',
     'remove-pdf-pages': 'Remove Selected Pages', 'extract-pdf-pages': 'Extract Selected Pages',
@@ -3988,10 +4162,10 @@ function renderToolPage(container, toolId) {
                 <h3 class="upload-title">${t('uploadTitle')}</h3>
                 <p class="upload-subtitle">${t('uploadSubtitle')}</p>
                 <div class="upload-formats">
-                  <span class="format-chip">${accepts === '*' ? 'ANY' : accepts.toUpperCase()}</span>
+                  <span class="format-chip">${uploadFormatsLabel || (accepts === '*' ? 'ANY' : accepts.toUpperCase())}</span>
                   <span class="format-chip subtle">${multiple ? 'Multiple files' : 'Single file'}</span>
                 </div>
-                <p class="upload-limit"><i data-lucide="info"></i> ${t('maxSize')} · Files are validated before processing</p>
+                <p class="upload-limit"><i data-lucide="info"></i> ${uploadLimitLabel} · Files are validated before processing</p>
                 <input type="file" id="file-picker" style="display:none;" accept="${accepts}" ${multiple ? 'multiple' : ''}>
               </div>
             </div>
@@ -4091,6 +4265,8 @@ function renderToolPage(container, toolId) {
         <div><span class="tool-category-label">This browser session</span><h3 id="premium-session-title">Recent results</h3></div>
         <div id="premium-session-history" class="premium-session-history"><span>No results created in this session yet.</span></div>
       </section>
+
+      ${renderToolAdPlacementPlaceholder()}
 
       <!-- Related Tools section -->
       <div class="related-tools-section" style="margin-top: 60px; padding-top: 40px; border-top: 1px solid var(--color-border);">
@@ -4404,7 +4580,7 @@ function getFAQForTool(toolId, toolName) {
       { q: "Which languages are supported by the OCR tool?", a: "This deployment enables English OCR. The OCR core and English language model are downloaded on first use, while the selected PDF pages remain in your browser." }
     ],
     'background-remover': [
-      { q: "How does the Background Remover work?", a: "GXA Toolbox lazy-loads a local U2NetP ONNX segmentation model in your browser, creates a soft alpha mask, and opens that mask in Advanced Cutout Studio for refinement." },
+      { q: "How does the Background Remover work?", a: "GXA Toolbox loads the background-removal processing components under the GXA Vision Model label, creates a soft alpha mask in your browser, and opens that mask in Advanced Cutout Studio for refinement." },
       { q: "What image formats are supported?", a: "You can upload JPG, JPEG, PNG, or WEBP images. The output is always delivered as a transparent PNG." },
       { q: "Is background removal processed on a server?", a: "No. Automatic subject removal runs locally in your browser. The legacy PHP color-key endpoint is not used for the primary Background Remover workflow." }
     ]
@@ -4635,6 +4811,8 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
           <button type="button" class="btn btn-ghost btn-lg" onclick="resetCropImageTool()"><i data-lucide="refresh-cw"></i> Reset</button>
         </div>
       </section>
+
+      ${renderToolAdPlacementPlaceholder()}
 
       <div class="related-tools-section crop-support-section">
         <h3>Related Utilities</h3><div class="tools-grid" id="related-tools-grid"></div>
@@ -5387,7 +5565,7 @@ function renderBackgroundRemoverRoute(container, tool, processingProfile, faqHTM
           <div id="tool-processing-mount" class="hidden">
             <div class="processing-card bg-remover-processing-card">
               <div class="processing-orbit"><div class="spinner"></div><i data-lucide="sparkles"></i></div>
-              <h3 class="upload-title" id="processing-stage-label">Loading removal engine</h3>
+              <h3 class="upload-title" id="processing-stage-label">Loading GXA Vision Model</h3>
               <p class="upload-subtitle">Creating a real editable transparency mask from your image.</p>
               <div class="bg-remover-selected-preview compact" id="bg-remover-processing-preview"></div>
               <div class="progress-bar-container">
@@ -5432,6 +5610,8 @@ function renderBackgroundRemoverRoute(container, tool, processingProfile, faqHTM
           </div>
         </aside>
       </div>
+
+      ${renderToolAdPlacementPlaceholder()}
 
       <div class="faq-section bg-remover-faq">
         <h3 class="faq-title">Frequently Asked Questions</h3>
@@ -5963,12 +6143,17 @@ function clearPremiumResult() {
   premiumEditorState.resultUrl = '';
   premiumEditorState.resultBlob = null;
   premiumEditorState.resultFilename = '';
+  premiumEditorState.resultText = '';
 }
 
 function disposePremiumToolEditor() {
   window.clearTimeout(premiumEditorState.historyTimer);
   window.clearTimeout(premiumEditorState.backgroundAutoTimer);
   window.cancelAnimationFrame(premiumEditorState.previewUpdateFrame);
+  if (premiumEditorState.activeOcrWorker) {
+    Promise.resolve(premiumEditorState.activeOcrWorker.terminate()).catch(() => undefined);
+    premiumEditorState.activeOcrWorker = null;
+  }
   resetWatermarkEditorState();
   premiumEditorState.previewObserver?.disconnect();
   if (premiumEditorState.keydownHandler) document.removeEventListener('keydown', premiumEditorState.keydownHandler);
@@ -5999,6 +6184,8 @@ function disposePremiumToolEditor() {
     backgroundPreviewUrl: '',
     resultSeries: [],
     batchCancelled: false,
+    resultText: '',
+    activeOcrWorker: null,
     startedAt: 0
   });
 }
@@ -6055,7 +6242,11 @@ function handleFileSelection(files) {
   const picker = document.getElementById('file-picker');
   const isMultiple = picker.multiple;
   const validation = window.GxaWorkspace
-    ? window.GxaWorkspace.validateFiles(files, { accept: picker.accept || '*', multiple: isMultiple })
+    ? window.GxaWorkspace.validateFiles(files, {
+        accept: picker.accept || '*',
+        multiple: isMultiple,
+        maxSize: appState.currentPage === 'tool-image-ocr' ? 20 * 1024 * 1024 : undefined
+      })
     : { accepted: Array.from(files), errors: [] };
   validation.errors.forEach((message) => showToast(message, 'error'));
   if (!validation.accepted.length) return;
@@ -6288,6 +6479,10 @@ function updateProcessingStage(stage) {
 
 function cancelActiveBatch() {
   premiumEditorState.batchCancelled = true;
+  if (premiumEditorState.activeOcrWorker) {
+    Promise.resolve(premiumEditorState.activeOcrWorker.terminate()).catch(() => undefined);
+    premiumEditorState.activeOcrWorker = null;
+  }
   const button = document.getElementById('btn-cancel-processing');
   if (button) {
     button.disabled = true;
@@ -6402,6 +6597,7 @@ async function runFileProcessingPipeline() {
   const mobileDownloadBtn = document.getElementById('btn-mobile-download-result');
   const cancelBtn = document.getElementById('btn-cancel-processing');
   premiumEditorState.startedAt = performance.now();
+  recordToolAnalytics('tool_start', { status: 'started' });
   premiumEditorState.batchCancelled = false;
 
   queueMount.classList.add('hidden');
@@ -6414,10 +6610,10 @@ async function runFileProcessingPipeline() {
     mobileDownloadBtn.onclick = null;
   }
   if (cancelBtn) {
-    const supportsBatchCancel = (appState.activeFiles.length > 1 && ['compress-image', 'resize-image', 'webp-to-jpg', 'gif-maker'].includes(toolId)) || ['ocr-pdf', 'pdf-to-ppt'].includes(toolId);
+    const supportsBatchCancel = (appState.activeFiles.length > 1 && ['compress-image', 'resize-image', 'webp-to-jpg', 'gif-maker'].includes(toolId)) || ['ocr-pdf', 'image-ocr', 'pdf-to-ppt'].includes(toolId);
     cancelBtn.classList.toggle('hidden', !supportsBatchCancel);
     cancelBtn.disabled = false;
-    cancelBtn.textContent = ['ocr-pdf', 'pdf-to-ppt'].includes(toolId) ? 'Cancel after current page' : 'Cancel after current file';
+    cancelBtn.textContent = toolId === 'image-ocr' ? 'Cancel OCR' : ['ocr-pdf', 'pdf-to-ppt'].includes(toolId) ? 'Cancel after current page' : 'Cancel after current file';
   }
   progressBar.style.width = '8%';
   updateProcessingStage('validate');
@@ -6444,6 +6640,10 @@ async function runFileProcessingPipeline() {
     cancelBtn?.classList.add('hidden');
     downloadBtn.disabled = false;
     if (mobileDownloadBtn) mobileDownloadBtn.disabled = false;
+    recordToolAnalytics('tool_complete', {
+      status: 'completed',
+      durationBucket: durationBucket(premiumEditorState.startedAt)
+    });
     window.requestAnimationFrame(() => completeMount.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   } catch (err) {
     processingMount.classList.add('hidden');
@@ -6451,6 +6651,10 @@ async function runFileProcessingPipeline() {
     completeMount.classList.add('hidden');
     cancelBtn?.classList.add('hidden');
     document.body.dataset.gxaLastProcessingError = err && err.message ? err.message : String(err);
+    recordToolAnalytics('tool_fail', {
+      status: safeFailureCategory(err),
+      durationBucket: durationBucket(premiumEditorState.startedAt)
+    });
     console.error('GXA tool processing failed', err);
     showToast(`Processing failed: ${err.message}`, 'error');
   }
@@ -6482,6 +6686,7 @@ function registerExternalToolResult(downloadButton, url, filename, size) {
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
+    recordToolAnalytics('tool_download', { status: 'downloaded' });
   };
   downloadButton.onclick = download;
   const mobileDownloadButton = document.getElementById('btn-mobile-download-result');
@@ -7230,6 +7435,21 @@ async function executeToolAlgorithm() {
     registerToolResult(downloadBtn, processedBlob, outputName);
     logHistory(outputName, 'OCR PDF', (processedBlob.size / (1024*1024)).toFixed(2) + ' MB');
     showToast('OCR text extracted locally and is ready to download.', 'success');
+  } else if (toolId === 'image-ocr') {
+    const originalFile = appState.activeFiles[0];
+    const lang = document.getElementById('opt-image-ocr-lang')?.value || 'eng';
+    const result = await runImageOCR(originalFile, lang);
+    const outputName = originalFile.name.replace(/\.[^.]+$/, '') + '_ocr.txt';
+    registerToolResult(downloadBtn, result.blob, outputName);
+    premiumEditorState.resultText = result.text;
+    const copyButton = document.getElementById('btn-copy-result-link');
+    if (copyButton) {
+      copyButton.disabled = false;
+      copyButton.innerHTML = '<i data-lucide="copy"></i> Copy extracted text';
+      copyButton.onclick = copyImageOcrText;
+    }
+    logHistory(outputName, 'Image OCR', (result.blob.size / 1024).toFixed(1) + ' KB');
+    showToast('Text extracted from the image and is ready to copy or download.', 'success');
   } else if (toolId === 'image-to-pdf') {
     const size = document.getElementById('opt-img2pdf-size').value || 'a4';
     const processedBlob = await runJPGToPDF(size, 'portrait');
@@ -8387,6 +8607,7 @@ function saveBlob(blob, filename) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+  recordToolAnalytics('tool_download', { status: 'downloaded' });
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
@@ -10410,6 +10631,72 @@ async function runPDFOCR(file, lang) {
     if (worker) await worker.terminate();
   }
   return new Blob([text.join('\n\n')], { type: 'text/plain;charset=utf-8' });
+}
+
+const IMAGE_OCR_TYPES = Object.freeze(['image/jpeg', 'image/png', 'image/webp']);
+const IMAGE_OCR_EXTENSIONS = Object.freeze(['jpg', 'jpeg', 'png', 'webp']);
+
+function assertImageOcrInput(file) {
+  const extension = String(file?.name || '').split('.').pop().toLowerCase();
+  const mime = String(file?.type || '').toLowerCase();
+  if (!file || !IMAGE_OCR_EXTENSIONS.includes(extension) || (mime && !IMAGE_OCR_TYPES.includes(mime))) {
+    throw new Error('Image OCR supports JPG, JPEG, PNG, and WEBP images only.');
+  }
+  if (file.size <= 0) throw new Error('The selected image is empty.');
+  if (file.size > 20 * 1024 * 1024) throw new Error('Image OCR supports files up to 20 MB in this browser.');
+}
+
+async function runImageOCR(file, lang) {
+  assertImageOcrInput(file);
+  const decoded = await loadDecodedImageSource(file);
+  try {
+    if (!decoded.width || !decoded.height) throw new Error('The selected image has invalid dimensions.');
+    if (decoded.width * decoded.height > 24_000_000) throw new Error('Image OCR supports images up to 24 megapixels for safe browser processing.');
+  } finally {
+    decoded.close();
+  }
+
+  await window.GxaWorkspace.loadScriptOnce('/assets/vendor/tesseract/tesseract.min.js', 'Tesseract');
+  const stage = document.getElementById('processing-stage-label');
+  let worker;
+  try {
+    if (premiumEditorState.batchCancelled) throw new Error('Image OCR was cancelled.');
+    worker = await window.Tesseract.createWorker(lang, 1, {
+      workerPath: '/assets/vendor/tesseract/worker.min.js',
+      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v7.0.0',
+      langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int',
+      logger(message) {
+        if (stage && message?.status) stage.textContent = `${message.status}${Number.isFinite(message.progress) ? ` ${Math.round(message.progress * 100)}%` : ''}`;
+      }
+    });
+    premiumEditorState.activeOcrWorker = worker;
+    if (premiumEditorState.batchCancelled) throw new Error('Image OCR was cancelled.');
+    if (stage) stage.textContent = 'Extracting text from image…';
+    const result = await worker.recognize(file);
+    if (premiumEditorState.batchCancelled) throw new Error('Image OCR was cancelled.');
+    const text = String(result?.data?.text || '').trim();
+    if (!text) throw new Error('No readable text was detected in this image.');
+    return { text, blob: new Blob([text], { type: 'text/plain;charset=utf-8' }) };
+  } catch (error) {
+    if (premiumEditorState.batchCancelled) throw new Error('Image OCR was cancelled.');
+    throw error;
+  } finally {
+    if (premiumEditorState.activeOcrWorker === worker) premiumEditorState.activeOcrWorker = null;
+    if (worker) await Promise.resolve(worker.terminate()).catch(() => undefined);
+  }
+}
+
+async function copyImageOcrText() {
+  if (!premiumEditorState.resultText) {
+    showToast('No extracted text is available to copy.', 'info');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(premiumEditorState.resultText);
+    showToast('Extracted text copied to the clipboard.', 'success');
+  } catch (_) {
+    showToast('Clipboard access was denied by this browser.', 'error');
+  }
 }
 
 // --- ALGORITHM: PDF TO EXCEL ---

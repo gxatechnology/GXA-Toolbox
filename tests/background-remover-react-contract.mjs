@@ -10,6 +10,8 @@ const required = [
   'background-remover-app/package.json',
   'background-remover-app/vite.config.ts',
   'background-remover-app/src/App.tsx',
+  'background-remover-app/src/components/AdPlacementPlaceholder.tsx',
+  'background-remover-app/src/components/SiteFooter.tsx',
   'background-remover-app/src/store/editorStore.ts',
   'background-remover-app/src/editor/compositor.ts',
   'background-remover-app/src/editor/exportRenderer.ts',
@@ -28,6 +30,8 @@ const required = [
 required.forEach((path) => assert(existsSync(join(root, path)), `Missing React Background Remover file: ${path}`));
 
 const app = read('background-remover-app/src/App.tsx');
+const siteFooter = read('background-remover-app/src/components/SiteFooter.tsx');
+const adPlacement = read('background-remover-app/src/components/AdPlacementPlaceholder.tsx');
 const types = read('background-remover-app/src/types/editor.ts');
 const runtime = read('background-remover-app/src/segmentation/onnxRuntime.ts');
 const modelManager = read('background-remover-app/src/segmentation/modelManager.ts');
@@ -56,5 +60,11 @@ assert(netlify.includes('Content-Type = "application/octet-stream"'), 'Netlify O
 assert(legacyApp.includes("window.location.assign('/background-remover/')"), 'Legacy navigation must hard-navigate to the React route.');
 assert(!rootIndex.includes('background-segmentation-engine.js'), 'Root HTML must not globally load the legacy Background Remover engine.');
 assert(!rootIndex.includes('advanced-cutout-studio.js'), 'Root HTML must not globally load the legacy Cutout Studio.');
+['/about/', '/careers/', '/security/', '/privacy-policy/', '/terms/', '/gdpr/', '/?support=1'].forEach((href) => assert(siteFooter.includes(href), `Background Remover footer is missing ${href}`));
+assert(siteFooter.includes('Terms of Service'), 'Background Remover footer must use the correct Terms of Service label.');
+assert(app.includes('<AdPlacementPlaceholder />'), 'Background Remover must preserve the future in-content ad mount.');
+assert(adPlacement.includes('data-ad-state="awaiting-ad-unit"'), 'Background Remover ad mount must remain explicitly unconfigured.');
+assert(adPlacement.includes('hidden'), 'Background Remover ad mount must remain hidden without a real slot ID.');
+assert(!adPlacement.includes('data-ad-slot'), 'Background Remover must not contain a fake ad slot ID.');
 
 console.log('React Background Remover architecture and deployment contract passed.');

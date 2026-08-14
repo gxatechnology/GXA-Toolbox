@@ -23,11 +23,11 @@ function outputTensor(outputs: Record<string, import('onnxruntime-web').Tensor>)
 export async function segmentImage(image: HTMLImageElement, options: SegmentOptions = {}): Promise<SegmentationResult> {
   const started = performance.now();
   const status = options.onStatus || (() => undefined);
-  status({ message: 'Loading removal engine', detail: 'Checking the local ONNX model and browser runtime.' });
+  status({ message: 'Loading GXA Vision Model', detail: 'Preparing the GXA Vision Model for private browser processing.' });
   const runtime = await initializeOnnxRuntime(options.signal);
   const sessionRecord = await getBestSession(options.forceProvider, options.signal);
   options.signal?.throwIfAborted();
-  status({ message: 'Segmenting', detail: `Detecting the foreground subject with ${sessionRecord.provider.toUpperCase()}.` });
+  status({ message: 'Detecting subject', detail: 'Detecting the foreground subject with the GXA Vision Model.' });
   const preprocessStarted = performance.now();
   const preprocessing = preprocessImage(runtime, image, image.naturalWidth, image.naturalHeight);
   const preprocessMs = performance.now() - preprocessStarted;
@@ -39,7 +39,7 @@ export async function segmentImage(image: HTMLImageElement, options: SegmentOpti
   const inferenceMs = performance.now() - inferenceStarted;
   preprocessing.tensor.dispose();
   options.signal?.throwIfAborted();
-  status({ message: 'Creating mask', detail: 'Building a soft editable alpha mask.' });
+  status({ message: 'Creating background mask', detail: 'Creating a clean, editable background mask.' });
   const target = fitWithin(image.naturalWidth, image.naturalHeight, MASK_MAX_SIDE);
   const primary = outputTensor(outputs);
   const postprocessStarted = performance.now();

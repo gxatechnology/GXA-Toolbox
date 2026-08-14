@@ -45,7 +45,7 @@ export function UploadScreen({ error, onFile }: UploadScreenProps) {
       {error && <div className="error-banner" role="alert"><strong>Could not process that image.</strong><span>{error}</span></div>}
       <section className="flow-cards" aria-label="Background Remover workflow">
         <article><strong>1</strong><span>Upload</span><small>Preview appears immediately</small></article>
-        <article><strong>2</strong><span>Auto cutout</span><small>WebGPU with WASM fallback</small></article>
+        <article><strong>2</strong><span>Auto cutout</span><small>GXA Vision Model processing</small></article>
         <article><strong>3</strong><span>Edit & export</span><small>Real mask and local rendering</small></article>
       </section>
     </main>

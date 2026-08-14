@@ -21,12 +21,13 @@ import sessionHandler from '../netlify/functions/auth-session.mjs';
 process.env.AUTH_SESSION_SECRET = 'test-only-session-secret-with-at-least-32-characters';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [netlifyConfig, redirects, client, styles, schema, packageJson, ...functionSources] = await Promise.all([
+const [netlifyConfig, redirects, client, styles, schema, recoverySchema, packageJson, ...functionSources] = await Promise.all([
   read('netlify.toml'),
   read('_redirects'),
   read('public_html/assets/app.js'),
   read('public_html/assets/style.css'),
   read('netlify/database/migrations/0001_create_auth_schema.sql'),
+  read('netlify/database/migrations/0002_repair_auth_schema_after_site_reconnect.sql'),
   read('package.json'),
   ...['_auth', 'auth-register', 'auth-login', 'auth-session', 'auth-logout', 'auth-history', 'auth-save-job']
     .map(name => read(`netlify/functions/${name}.mjs`))
@@ -39,6 +40,9 @@ for (const route of ['register', 'login', 'session', 'logout', 'get-history', 's
 }
 assert.match(netlifyConfig, /publish\s*=\s*"dist"/, 'Netlify must publish the generated static site.');
 assert.doesNotMatch(netlifyConfig, /from\s*=\s*"\/\*"/, 'A broad SPA catch-all would bypass generated routes and real 404s.');
+assert.match(netlifyConfig, /https:\/\/gxatoolbo\.netlify\.app\/\*/, 'The active Netlify hostname must redirect to the canonical domain.');
+assert.doesNotMatch(netlifyConfig, /https:\/\/gxatoolbox\.netlify\.app\/\*/, 'The stale Netlify hostname must not remain configured.');
+assert.match(redirects, /https:\/\/gxatoolbo\.netlify\.app\/\* https:\/\/gxatoolbox\.in\/:splat 301!/);
 assert.match(packageJson, /"@netlify\/database"/);
 assert.doesNotMatch(packageJson, /"mysql2"/);
 assert.match(functions, /from '@netlify\/database'/);
@@ -64,6 +68,19 @@ for (const requiredSchemaToken of [
 assert.doesNotMatch(schema, /DROP\s+TABLE/i);
 assert.doesNotMatch(schema, /INSERT\s+INTO\s+public\.users/i);
 assert.doesNotMatch(schema, /AUTO_INCREMENT|ON UPDATE CURRENT_TIMESTAMP|ENGINE=/i);
+
+for (const requiredRecoveryToken of [
+  'CREATE TABLE IF NOT EXISTS public.users',
+  'CREATE TABLE IF NOT EXISTS public.file_jobs',
+  'CREATE INDEX IF NOT EXISTS file_jobs_user_created_idx',
+  'CREATE OR REPLACE FUNCTION public.gxa_set_updated_at()',
+  "tgname = 'users_set_updated_at'",
+  "tgname = 'file_jobs_set_updated_at'"
+]) {
+  assert(recoverySchema.includes(requiredRecoveryToken), `Post-reconnect recovery migration is missing: ${requiredRecoveryToken}`);
+}
+assert.doesNotMatch(recoverySchema, /DROP\s+(?:TABLE|SCHEMA|DATABASE)/i);
+assert.doesNotMatch(recoverySchema, /INSERT\s+INTO\s+public\.users/i);
 
 const registration = validateRegistration({ name: '  Test   User  ', email: ' TEST@Example.COM ', password: 'ValidPass!9' });
 assert.equal(registration.name, 'Test User');
@@ -92,6 +109,7 @@ assert.doesNotMatch(cookie, /ValidPass/);
 
 const users = [];
 const jobs = [];
+const authEvents = [];
 const normalizeStatement = strings => strings.join('$value').replace(/\s+/g, ' ').trim();
 setDatabaseClientForTests({
   sql: async (strings, ...values) => {
@@ -116,6 +134,15 @@ setDatabaseClientForTests({
       return users
         .filter(record => record.email === values[0])
         .map(record => ({ ...record, name: record.full_name }));
+    }
+    if (statement.startsWith('UPDATE public.users') && statement.includes('last_login_at')) {
+      const record = users.find(userRecord => userRecord.id === Number(values[0]));
+      if (record) record.last_login_at = '2026-08-14T00:00:00.000Z';
+      return [];
+    }
+    if (statement.startsWith('INSERT INTO public.auth_events')) {
+      authEvents.push({ event_type: values[0], category: values[1] });
+      return [];
     }
     if (statement.startsWith('SELECT id, full_name AS name') && statement.includes('WHERE id')) {
       return users
@@ -201,6 +228,8 @@ const loginResponse = await loginHandler(authRequest('/api/login.php', {
   email: 'integration@example.com', password: 'ValidPass!9'
 }));
 assert.equal(loginResponse.status, 200);
+assert.equal(users[0].last_login_at, '2026-08-14T00:00:00.000Z');
+assert.ok(authEvents.some(event => event.event_type === 'login_success'));
 const refreshedCookie = loginResponse.headers.get('set-cookie').split(';')[0];
 const persistedSessionResponse = await sessionHandler(new Request('https://gxatoolbox.in/api/session.php', {
   headers: { Cookie: refreshedCookie }

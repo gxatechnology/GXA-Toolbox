@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS } from './app/defaults';
 import { BeforeAfter } from './components/BeforeAfter';
+import { AdPlacementPlaceholder } from './components/AdPlacementPlaceholder';
 import { BottomToolbar } from './components/BottomToolbar';
 import { EditorCanvas } from './components/EditorCanvas';
 import { ExportDialog } from './components/ExportDialog';
@@ -8,12 +9,14 @@ import { Header } from './components/Header';
 import { Icon } from './components/Icon';
 import { ProcessingScreen } from './components/ProcessingScreen';
 import { PropertiesPanel } from './components/PropertiesPanel';
+import { SiteFooter } from './components/SiteFooter';
 import { ToolSidebar } from './components/ToolSidebar';
 import { UploadScreen } from './components/UploadScreen';
 import { segmentImage } from './segmentation/segmentImage';
 import { useEditorStore } from './store/editorStore';
 import type { ExecutionProvider, ProcessingStage } from './types/editor';
 import { loadImage } from './utils/canvas';
+import { analyticsDurationBucket, trackBackgroundTool } from './utils/analytics';
 
 function validateFile(file: File): void {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPG, PNG, or WEBP image.');
@@ -23,10 +26,16 @@ function validateFile(file: File): void {
 
 function stageFor(message: string): ProcessingStage {
   if (/loading/i.test(message)) return 'loading';
-  if (/segment/i.test(message)) return 'segmenting';
+  if (/segment|detect/i.test(message)) return 'segmenting';
   if (/mask/i.test(message)) return 'masking';
   if (/opening/i.test(message)) return 'opening';
   return 'reading';
+}
+
+function userFacingRemovalError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error || '');
+  if (/uniform mask|foreground subject/i.test(message)) return 'A clear foreground subject could not be detected. Try an image with stronger contrast.';
+  return 'Background removal engine could not start. Please retry or use a supported browser.';
 }
 
 export default function App() {
@@ -38,6 +47,7 @@ export default function App() {
   const sourceUrl = useRef('');
   const autoSeen = useRef(0);
   const replacementInput = useRef<HTMLInputElement>(null);
+  const processingStartedAt = useRef(0);
 
   const cancel = useCallback(() => {
     setMobilePropertiesOpen(false);
@@ -63,9 +73,12 @@ export default function App() {
       useEditorStore.getState().setProcessing({ stage: 'opening', message: 'Opening editor', detail: 'Preparing the editable cutout workspace.' });
       document.documentElement.dataset.gxaSegmentationMetrics = JSON.stringify(result.metrics);
       useEditorStore.getState().setSegmented(result.mask, result.provider, result.metrics);
+      trackBackgroundTool('tool_complete', 'completed', analyticsDurationBucket(processingStartedAt.current));
     } catch (error) {
       if (controller.signal.aborted) return;
-      useEditorStore.getState().setError(error instanceof Error ? error.message : 'Background removal failed.');
+      console.error('[Background Remover] Processing failed', error);
+      trackBackgroundTool('tool_fail', 'processing_error', analyticsDurationBucket(processingStartedAt.current));
+      useEditorStore.getState().setError(userFacingRemovalError(error));
     }
   }, []);
 
@@ -74,6 +87,8 @@ export default function App() {
     abort.current?.abort();
     try { validateFile(file); }
     catch (error) { useEditorStore.getState().setError(error instanceof Error ? error.message : 'Invalid file.'); return; }
+    processingStartedAt.current = performance.now();
+    trackBackgroundTool('tool_start', 'started');
     if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current);
     const url = URL.createObjectURL(file);
     sourceUrl.current = url;
@@ -104,6 +119,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    trackBackgroundTool('tool_open', 'opened');
+  }, []);
+
+  useEffect(() => {
     if (!exportingHint) return;
     const timeout = window.setTimeout(() => setExportingHint(false), 1000);
     return () => window.clearTimeout(timeout);
@@ -123,7 +142,7 @@ export default function App() {
   };
 
   const editing = state.phase === 'editing';
-  return (
+  return (<>
     <div className={`app-shell phase-${state.phase}`}>
       <Header editing={editing} onDownload={() => setExportOpen(true)} />
       {state.phase === 'idle' && <UploadScreen onFile={openFile} />}
@@ -131,7 +150,7 @@ export default function App() {
       {state.phase === 'processing' && <ProcessingScreen sourceUrl={state.sourceUrl} processing={state.processing} onCancel={cancel} />}
       {editing && <main className="editor-page">
         <div className="editor-commandbar">
-          <div><strong>Background Remover</strong><span>{state.originalWidth} × {state.originalHeight} · {state.provider?.toUpperCase()}</span></div>
+          <div><strong>Background Remover</strong><span>{state.originalWidth} × {state.originalHeight} · GXA Vision Model</span></div>
           <div className="command-actions">
             <button type="button" onClick={state.undo} disabled={!state.undoCount} aria-label="Undo"><Icon name="undo" /></button>
             <button type="button" onClick={state.redo} disabled={!state.redoCount} aria-label="Redo"><Icon name="redo" /></button>
@@ -156,5 +175,7 @@ export default function App() {
       {exportingHint && <div className="toast">Preparing full-resolution export…</div>}
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
-  );
+    {!editing && <AdPlacementPlaceholder />}
+    {!editing && <SiteFooter />}
+  </>);
 }

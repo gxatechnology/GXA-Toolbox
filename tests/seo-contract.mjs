@@ -4,8 +4,10 @@ import { extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   PRODUCTION_ORIGIN,
+  canonicalContentUrl,
   canonicalToolUrl,
   loadBlockedToolIds,
+  loadContentPageRegistry,
   loadToolRegistry,
   toolDescription,
   toolTitle
@@ -15,6 +17,9 @@ const projectRoot = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const distRoot = join(projectRoot, 'dist');
 const GTM_CONTAINER_ID = 'GTM-TBQN2SJ4';
 const GA4_MEASUREMENT_ID = 'G-E16HBF4R7W';
+const ADSENSE_PUBLISHER_ID = 'ca-pub-9226826319752464';
+const ADSENSE_SELLER_LINE = 'google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0';
+const ADSENSE_LOADER_URL = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_PUBLISHER_ID}`;
 
 const escapeRegex = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const decodeHtml = value => String(value)
@@ -33,7 +38,9 @@ function attribute(html, selectorAttribute, selectorValue, targetAttribute = 'co
 }
 
 function structuredData(html, route) {
-  const source = html.match(/<script\b[^>]*id=["']gxa-structured-data["'][^>]*>([\s\S]*?)<\/script>/i)?.[1];
+  const scripts = [...html.matchAll(/<script\b[^>]*id=["']gxa-structured-data["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  assert.equal(scripts.length, 1, `${route} must contain exactly one generated JSON-LD block.`);
+  const source = scripts[0]?.[1];
   assert.ok(source, `${route} is missing generated JSON-LD.`);
   const graph = JSON.parse(source);
   assert.equal(graph['@context'], 'https://schema.org', `${route} JSON-LD context is invalid.`);
@@ -42,6 +49,20 @@ function structuredData(html, route) {
 }
 
 function assertSocialMetadata(html, { route, title, description, canonical }) {
+  const singletonPatterns = [
+    [/<title\b[^>]*>/gi, 'title'],
+    [/<meta\b[^>]*name=["']description["'][^>]*>/gi, 'description'],
+    [/<meta\b[^>]*name=["']robots["'][^>]*>/gi, 'robots'],
+    [/<link\b[^>]*rel=["']canonical["'][^>]*>/gi, 'canonical'],
+    [/<meta\b[^>]*property=["']og:title["'][^>]*>/gi, 'Open Graph title'],
+    [/<meta\b[^>]*property=["']og:description["'][^>]*>/gi, 'Open Graph description'],
+    [/<meta\b[^>]*property=["']og:url["'][^>]*>/gi, 'Open Graph URL'],
+    [/<meta\b[^>]*name=["']twitter:title["'][^>]*>/gi, 'Twitter title'],
+    [/<meta\b[^>]*name=["']twitter:description["'][^>]*>/gi, 'Twitter description']
+  ];
+  for (const [pattern, label] of singletonPatterns) {
+    assert.equal((html.match(pattern) || []).length, 1, `${route} must contain exactly one ${label} tag.`);
+  }
   assert.equal(decodeHtml(html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || ''), title, `${route} title is not unique/correct.`);
   assert.equal(attribute(html, 'name', 'description'), description, `${route} description is incorrect.`);
   assert.equal(attribute(html, 'rel', 'canonical', 'href'), canonical, `${route} canonical is incorrect.`);
@@ -98,6 +119,21 @@ function assertGoogleTagManager(html, route) {
   assert.ok(!html.includes(GA4_MEASUREMENT_ID), `${route} must configure GA4 through GTM, not source HTML.`);
 }
 
+function assertAdSenseLoader(html, route) {
+  const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1];
+  assert.notEqual(head, undefined, `${route} has no head element.`);
+  const loaderScripts = (head.match(/<script\b[^>]*><\/script>/gi) || [])
+    .filter(script => script.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js'));
+  assert.equal(loaderScripts.length, 1, `${route} must contain exactly one AdSense loader.`);
+  assert.equal(countOccurrences(head, ADSENSE_LOADER_URL), 1, `${route} has a missing or duplicate AdSense loader URL.`);
+  assert.equal(countOccurrences(html, ADSENSE_PUBLISHER_ID), 1, `${route} must contain the AdSense publisher ID exactly once.`);
+  assert.match(loaderScripts[0], /<script\b[^>]*\basync\b/i, `${route} AdSense loader must be asynchronous.`);
+  assert.match(loaderScripts[0], /\bcrossorigin=["']anonymous["']/i, `${route} AdSense loader must use anonymous CORS.`);
+  assert.ok(head.indexOf(ADSENSE_LOADER_URL) < head.search(/<title\b/i), `${route} AdSense loader must precede the title.`);
+  assert.doesNotMatch(html, /\bdata-ad-slot\s*=/i, `${route} must not contain an unconfigured or fake ad slot.`);
+  assert.doesNotMatch(html, /\(\s*adsbygoogle\s*=|adsbygoogle\s*\.\s*push\s*\(/i, `${route} must not request a manual ad without a real unit ID.`);
+}
+
 async function listFiles(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -108,22 +144,61 @@ async function listFiles(directory) {
   return files;
 }
 
-const [tools, blockedIds, netlify, robots, manifestSource, rootTemplate, backgroundTemplate] = await Promise.all([
+const [tools, blockedIds, contentPages, netlify, robots, manifestSource, rootTemplate, backgroundTemplate, appSource, backgroundFooterSource, backgroundAdPlaceholderSource] = await Promise.all([
   loadToolRegistry(),
   loadBlockedToolIds(),
+  loadContentPageRegistry(),
   readFile(join(projectRoot, 'netlify.toml'), 'utf8'),
   readFile(join(distRoot, 'robots.txt'), 'utf8'),
   readFile(join(distRoot, 'site.webmanifest'), 'utf8'),
   readFile(join(projectRoot, 'index.html'), 'utf8'),
-  readFile(join(projectRoot, 'background-remover-app', 'index.html'), 'utf8')
+  readFile(join(projectRoot, 'background-remover-app', 'index.html'), 'utf8'),
+  readFile(join(projectRoot, 'public_html', 'assets', 'app.js'), 'utf8'),
+  readFile(join(projectRoot, 'background-remover-app', 'src', 'components', 'SiteFooter.tsx'), 'utf8'),
+  readFile(join(projectRoot, 'background-remover-app', 'src', 'components', 'AdPlacementPlaceholder.tsx'), 'utf8')
 ]);
 
-assert.equal(tools.length, 91, 'SEO generation must preserve all 91 registered tools.');
+assert.equal(tools.length, 92, 'SEO generation must preserve all 92 registered tools.');
+assert.equal(contentPages.length, 6, 'All six company/legal pages must remain registered.');
 assert.deepEqual([...blockedIds], ['ppt-to-pdf'], 'Only PPT to PDF may be excluded from indexing.');
 assert.match(netlify, /publish\s*=\s*["']dist["']/, 'Netlify must publish the generated dist directory.');
 assert.doesNotMatch(netlify, /from\s*=\s*["']\/\*["']/, 'Netlify must not restore a broad SPA catch-all.');
 assertGoogleTagManager(rootTemplate, 'root HTML template');
 assertGoogleTagManager(backgroundTemplate, 'Background Remover HTML template');
+assertAdSenseLoader(rootTemplate, 'root HTML template');
+assertAdSenseLoader(backgroundTemplate, 'Background Remover HTML template');
+assert.match(appSource, /data-ad-placement="tool-content"/i, 'Tool pages are missing the future responsive ad mount.');
+assert.match(appSource, /data-ad-state="awaiting-ad-unit"/i, 'Tool ad mount must remain explicitly unconfigured.');
+assert.match(appSource, /data-ad-placement="tool-content"[\s\S]*?hidden/i, 'Tool ad mount must stay hidden until a real unit ID exists.');
+assert.doesNotMatch(appSource, /\bdata-ad-slot\s*=/i, 'Main application source must not invent an AdSense slot ID.');
+assert.match(backgroundAdPlaceholderSource, /data-ad-placement="tool-content"/i, 'Background Remover is missing the future responsive ad mount.');
+assert.match(backgroundAdPlaceholderSource, /data-ad-state="awaiting-ad-unit"/i, 'Background Remover ad mount must remain explicitly unconfigured.');
+assert.match(backgroundAdPlaceholderSource, /\bhidden\b/i, 'Background Remover ad mount must stay hidden until a real unit ID exists.');
+assert.doesNotMatch(backgroundAdPlaceholderSource, /\bdata-ad-slot\s*=/i, 'Background Remover must not invent an AdSense slot ID.');
+
+const footerSource = appSource.slice(appSource.indexOf('function renderFooter'), appSource.indexOf('// --- Page Navigator'));
+const expectedProductLinks = [
+  ['/merge-pdf/', 'tool-merge-pdf', 'Merge PDF'],
+  ['/compress-image/', 'tool-compress-image', 'Compress Image'],
+  ['/color-extractor/', 'tool-color-extractor', 'Color Extractor'],
+  ['/password-generator/', 'tool-password-generator', 'Password Tool']
+];
+for (const [href, pageId, label] of expectedProductLinks) {
+  assert.ok(footerSource.includes(`href="${href}"`), `Products footer link changed or disappeared: ${label}.`);
+  assert.ok(footerSource.includes(`handleRouteLink(event, '${pageId}')`), `Products footer route handler changed: ${label}.`);
+}
+for (const page of contentPages) {
+  assert.ok(footerSource.includes(`href="/${page.id}/"`), `Footer is missing /${page.id}/.`);
+  assert.ok(footerSource.includes(`handleRouteLink(event, 'content-${page.id}')`), `Footer SPA route is missing for ${page.id}.`);
+}
+assert.ok(footerSource.includes('href="/?support=1"'), 'Contact Support needs a real fallback URL.');
+assert.ok(appSource.includes('function handleSupportLink(event)'), 'Contact Support click behavior was removed.');
+assert.ok(appSource.includes("get('support') === '1'"), 'Cross-route Contact Support requests are not opened on arrival.');
+for (const [href, , label] of expectedProductLinks) {
+  assert.ok(backgroundFooterSource.includes(`['${href}', '${label}']`), `Background Remover Products footer changed: ${label}.`);
+}
+for (const page of contentPages) assert.ok(backgroundFooterSource.includes(`['/${page.id}/', '${page.name}']`), `Background Remover footer is missing ${page.id}.`);
+assert.ok(backgroundFooterSource.includes("['/?support=1', 'Contact Support']"), 'Background Remover Contact Support fallback is missing.');
 
 assert.match(robots, /^User-agent:\s*\*/mi);
 assert.match(robots, /^Allow:\s*\/\s*$/mi);
@@ -141,14 +216,17 @@ for (const icon of manifest.icons) {
 }
 
 const sitemap = await readFile(join(distRoot, 'sitemap.xml'), 'utf8');
+const adsText = await readFile(join(distRoot, 'ads.txt'), 'utf8');
+assert.equal(adsText.trim(), ADSENSE_SELLER_LINE, 'Generated ads.txt seller authorization is incorrect.');
 const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => decodeHtml(match[1]));
-assert.equal(sitemapUrls.length, 91, 'Sitemap must contain home plus 90 indexable tools.');
+assert.equal(sitemapUrls.length, 98, 'Sitemap must contain home, 91 indexable tools, and six company/legal pages.');
 assert.equal(new Set(sitemapUrls).size, sitemapUrls.length, 'Sitemap URLs must be unique.');
 assert.ok(sitemapUrls.includes(`${PRODUCTION_ORIGIN}/`), 'Homepage is missing from sitemap.');
 assert.ok(!sitemapUrls.includes(canonicalToolUrl('ppt-to-pdf')), 'Blocked PPT to PDF route must not enter sitemap.');
 for (const tool of tools.filter(tool => !blockedIds.has(tool.id))) {
   assert.ok(sitemapUrls.includes(canonicalToolUrl(tool.id)), `Sitemap is missing ${tool.id}.`);
 }
+for (const page of contentPages) assert.ok(sitemapUrls.includes(canonicalContentUrl(page.id)), `Sitemap is missing ${page.id}.`);
 
 const home = await readFile(join(distRoot, 'index.html'), 'utf8');
 assertSocialMetadata(home, {
@@ -161,8 +239,10 @@ assert.match(home, /data-static-route-shell/);
 assert.match(home, /<h1\b[^>]*>[\s\S]*Your Complete[\s\S]*Digital Toolbox[\s\S]*<\/h1>/i);
 structuredData(home, '/');
 assertGoogleTagManager(home, '/');
+assertAdSenseLoader(home, '/');
 
 let generatedPublicPageCount = 1;
+let adSenseVerifiedPublicPageCount = 1;
 for (const tool of tools) {
   const route = `/${tool.id}/`;
   const html = await readFile(join(distRoot, tool.id, 'index.html'), 'utf8');
@@ -183,9 +263,32 @@ for (const tool of tools) {
   const graph = structuredData(html, route);
   assert.ok(JSON.stringify(graph).includes(canonical), `${route} JSON-LD does not identify its canonical URL.`);
   assertGoogleTagManager(html, route);
+  assertAdSenseLoader(html, route);
   generatedPublicPageCount += 1;
+  adSenseVerifiedPublicPageCount += 1;
 }
-assert.equal(generatedPublicPageCount, 92, 'GTM contract must cover the homepage and all 91 public tool routes.');
+for (const page of contentPages) {
+  const route = `/${page.id}/`;
+  const html = await readFile(join(distRoot, page.id, 'index.html'), 'utf8');
+  const canonical = canonicalContentUrl(page.id);
+  assertSocialMetadata(html, { route, title: page.title, description: page.description, canonical });
+  assert.equal(attribute(html, 'name', 'robots'), 'index, follow', `${route} must be indexable.`);
+  assert.match(html, new RegExp(`<h1\\b[^>]*>\\s*${escapeRegex(page.name)}\\s*<\\/h1>`, 'i'), `${route} static H1 is incorrect.`);
+  assert.ok(html.includes(page.intro), `${route} is missing meaningful static introductory content.`);
+  const graph = structuredData(html, route);
+  assert.ok(JSON.stringify(graph).includes(canonical), `${route} JSON-LD does not identify its canonical URL.`);
+  assertGoogleTagManager(html, route);
+  assertAdSenseLoader(html, route);
+  generatedPublicPageCount += 1;
+  adSenseVerifiedPublicPageCount += 1;
+}
+assert.equal(generatedPublicPageCount, 99, 'GTM contract must cover the homepage, all 92 tools, and all six company/legal pages.');
+assert.equal(adSenseVerifiedPublicPageCount, 99, 'AdSense contract must cover the homepage, all 92 tools, and all six company/legal pages.');
+
+const dashboard = await readFile(join(distRoot, 'dashboard', 'index.html'), 'utf8');
+assert.doesNotMatch(dashboard, /pagead2\.googlesyndication\.com/i, 'Private dashboard must not load AdSense.');
+const notFound = await readFile(join(distRoot, '404.html'), 'utf8');
+assert.doesNotMatch(notFound, /pagead2\.googlesyndication\.com/i, 'The generated 404 page must not load AdSense.');
 
 const files = await listFiles(distRoot);
 const forbiddenExtensions = new Set(['.php', '.sql']);
@@ -198,4 +301,4 @@ for (const file of files) {
   assert.ok(!forbiddenNames.has(path.toLowerCase()), `Repository source leaked into dist: ${path}`);
 }
 
-console.log('SEO contract passed: 91 tools, 91 sitemap URLs, 92 GTM-verified public pages, route metadata/JSON-LD, robots, manifest, and artifact isolation.');
+console.log('SEO contract passed: 92 tools, 6 company/legal pages, 98 sitemap URLs, 99 GTM/AdSense-verified public pages, ads.txt, unique route metadata/JSON-LD, footer links, robots, manifest, and artifact isolation.');

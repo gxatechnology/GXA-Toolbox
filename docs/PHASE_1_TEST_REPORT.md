@@ -3,7 +3,7 @@
 ## Automated checks
 
 - JavaScript syntax validation covers the application, preview runtime, shared studio shell, repository audit, fixture generator, and output-validation test.
-- The repository audit verifies 91 unique registered tools, preserved static/production entry wiring, Phase 1 studio integration, crop/page operations, generated-output validation, dependency states, and absence of simulated-success patterns.
+- The repository audit verifies 92 unique registered tools, preserved static/production entry wiring, Phase 1 studio integration, crop/page operations, generated-output validation, dependency states, and absence of simulated-success patterns.
 - Binary fixture tests verify PNG signatures and dimensions, JPEG and WebP signatures, PDF headers/trailers, and PDF page counts.
 - The production `build` script runs lint plus both test suites because this application is an unbundled PHP/static deployment.
 

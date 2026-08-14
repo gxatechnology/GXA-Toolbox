@@ -5,7 +5,7 @@
 `public_html/` is the authoritative production application.
 
 - `public_html/index.php` starts the PHP session, loads database-backed premium-tool access, and mounts the production frontend.
-- `public_html/assets/app.js` owns the 91-tool registry, routing, processing dispatch, authentication-aware rendering, history, favorites, and downloads.
+- `public_html/assets/app.js` owns the 92-tool registry, routing, processing dispatch, authentication-aware rendering, history, favorites, and downloads.
 - `public_html/assets/tool-workspace.js` owns shared validation, file previews, PDF.js rendering, browser capability checks, and file-processing helpers.
 - `public_html/assets/style.css` is the production design system.
 - `public_html/api/`, `public_html/dashboard/`, `public_html/admin/`, and `public_html/developer/` remain production endpoints.

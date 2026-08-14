@@ -15,7 +15,7 @@
 
 * { box-sizing: border-box; }
 html, body, #root { min-height: 100%; margin: 0; }
-body { min-width: 320px; overflow-x: hidden; }
+body { min-width: 0; overflow-x: hidden; }
 .static-background-shell { max-width: 760px; margin: 0 auto; padding: 96px 24px; text-align: center; }
 .static-background-shell h1 { margin: 0 0 12px; font: 800 clamp(2rem, 7vw, 3.5rem)/1.05 Outfit, Inter, sans-serif; }
 .static-background-shell p { margin: 0; color: var(--muted); font-size: 1.05rem; }
@@ -171,6 +171,17 @@ button.layer-row { cursor: pointer; }
 .export-dialog header, .export-dialog footer { padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--border); }
 .export-dialog header h2 { margin: 3px 0 0; font: 700 22px Outfit, Inter, sans-serif; }
 .export-dialog footer { justify-content: flex-end; border-top: 1px solid var(--border); border-bottom: 0; }
+
+.gxa-site-footer { padding: 52px 22px 24px; color: #cbd5e1; background: #0f172a; }
+.gxa-site-footer-inner { width: min(1180px, 100%); margin: auto; display: grid; grid-template-columns: 1.45fr repeat(3, 1fr); gap: 40px; }
+.gxa-site-footer-brand a { display: inline-flex; align-items: center; gap: 11px; color: white; font: 750 20px Outfit, Inter, sans-serif; }
+.gxa-site-footer-brand img { width: 38px; height: 38px; object-fit: contain; border-radius: 10px; }
+.gxa-site-footer-brand p { margin: 14px 0 0; color: #94a3b8; font-size: 14px; }
+.gxa-site-footer-column { display: grid; align-content: start; gap: 11px; }
+.gxa-site-footer-column strong { margin-bottom: 3px; color: white; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.gxa-site-footer-column a { width: fit-content; color: #cbd5e1; font-size: 13px; }
+.gxa-site-footer-column a:hover, .gxa-site-footer-column a:focus-visible { color: #93c5fd; }
+.gxa-site-footer-bottom { width: min(1180px, 100%); margin: 38px auto 0; padding-top: 22px; color: #94a3b8; border-top: 1px solid rgba(148,163,184,.2); font-size: 12px; line-height: 1.6; }
 .dialog-body { padding: 20px; }
 .dialog-body fieldset { margin: 0 0 17px; padding: 0; border: 0; }
 .dialog-body legend { margin-bottom: 8px; font-size: 12px; font-weight: 750; }
@@ -202,6 +213,8 @@ button.layer-row { cursor: pointer; }
   .processing-preview { max-height: 34vh; }
   .processing-card { padding: 22px; }
   .editor-page { height: calc(100dvh - 60px); min-height: 480px; padding-bottom: calc(64px + env(safe-area-inset-bottom)); overflow: hidden; }
+  .gxa-site-footer { padding: 40px 18px calc(24px + env(safe-area-inset-bottom)); }
+  .gxa-site-footer-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 24px; }
   .editor-commandbar { height: 48px; flex-basis: 48px; }
   .editor-commandbar > div:first-child span { display: none; }
   .command-actions button span { display: none; }
@@ -244,6 +257,8 @@ button.layer-row { cursor: pointer; }
   .processing-page { padding: 12px; }
   .processing-preview { max-height: 28vh; }
   .processing-card h1 { font-size: 25px; }
+  .gxa-site-footer-inner { grid-template-columns: 1fr; gap: 28px; }
+  .gxa-site-footer-bottom { margin-top: 30px; }
   .editor-commandbar strong { font-size: 14px; }
   .command-actions { gap: 3px; }
   .command-actions button { padding: 6px 8px; }
@@ -256,4 +271,13 @@ button.layer-row { cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+.gxa-tool-ad-placement[hidden] { display: none !important; }
+.gxa-tool-ad-placement:not([hidden]) { width: min(calc(100% - 32px), 970px); min-width: 0; min-height: 120px; margin: 32px auto; padding: 12px; display: grid; align-content: start; gap: 8px; overflow: clip; border-block: 1px solid var(--border); background: var(--surface); contain: layout paint; }
+.gxa-tool-ad-label { color: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
+.gxa-tool-ad-unit-mount { width: 100%; min-width: 0; max-width: 100%; }
+
+@media (max-width: 640px) {
+  .gxa-tool-ad-placement:not([hidden]) { width: min(calc(100% - 20px), 970px); min-height: 100px; margin-block: 24px; padding-inline: 8px; }
 }

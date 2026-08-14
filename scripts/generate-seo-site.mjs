@@ -3,8 +3,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   PRODUCTION_ORIGIN,
+  canonicalContentUrl,
   canonicalToolUrl,
   loadBlockedToolIds,
+  loadContentPageRegistry,
   loadToolRegistry,
   toolDescription,
   toolTitle
@@ -12,6 +14,7 @@ import {
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const distRoot = resolve(projectRoot, 'dist');
+const adsenseBlockPattern = /\s*<!-- Google AdSense -->[\s\S]*?<!-- End Google AdSense -->/i;
 if (dirname(distRoot) !== projectRoot) throw new Error('Refusing to generate outside the repository root.');
 
 const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
@@ -23,6 +26,11 @@ const escapeScriptJson = value => JSON.stringify(value, null, 2).replace(/</g, '
 function replaceHeadValue(html, pattern, replacement, label) {
   if (!pattern.test(html)) throw new Error(`Unable to update ${label} in the HTML template.`);
   return html.replace(pattern, replacement);
+}
+
+function withoutAdSense(html) {
+  if (!adsenseBlockPattern.test(html)) throw new Error('Unable to locate the AdSense loader in the HTML template.');
+  return html.replace(adsenseBlockPattern, '');
 }
 
 function pageGraph({ name, description, url, category }) {
@@ -90,6 +98,32 @@ function homepageGraph() {
   };
 }
 
+function contentPageGraph(page) {
+  const url = canonicalContentUrl(page.id);
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebPage',
+        '@id': `${url}#webpage`,
+        name: page.name,
+        description: page.description,
+        url,
+        isPartOf: { '@id': `${PRODUCTION_ORIGIN}/#website` },
+        publisher: { '@id': `${PRODUCTION_ORIGIN}/#organization` }
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${url}#breadcrumb`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'GXA Toolbox', item: `${PRODUCTION_ORIGIN}/` },
+          { '@type': 'ListItem', position: 2, name: page.name, item: url }
+        ]
+      }
+    ]
+  };
+}
+
 function applyMetadata(template, { title, description, canonical, robots, graph, staticContent }) {
   let html = template;
   html = replaceHeadValue(html, /<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`, 'title');
@@ -132,6 +166,45 @@ function dashboardStaticContent() {
       </section>`;
 }
 
+function contentPageStaticContent(page) {
+  const tableOfContents = page.sections.map(section => `<a href="#${escapeHtml(section.id)}">${escapeHtml(section.title)}</a>`).join('');
+  const sections = page.sections.map(section => `
+          <section class="content-section" id="${escapeHtml(section.id)}">
+            <h2>${escapeHtml(section.title)}</h2>
+            ${(section.paragraphs || []).map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('')}
+            ${section.bullets?.length ? `<ul>${section.bullets.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
+            ${section.note ? `<div class="content-note"><p>${escapeHtml(section.note)}</p></div>` : ''}
+          </section>`).join('');
+  const related = page.related?.length ? `
+          <section class="content-related" aria-labelledby="related-information-title">
+            <h2 id="related-information-title">Related information</h2>
+            <div class="content-related-links">${page.related.map(link => `<a href="/${escapeHtml(link.id)}/">${escapeHtml(link.label)}</a>`).join('')}</div>
+          </section>` : '';
+
+  return `      <article class="content-page static-route-shell" data-static-route-shell>
+        <header class="content-page-hero">
+          <div class="container content-page-hero-inner">
+            <nav class="breadcrumb" aria-label="Breadcrumb"><a class="breadcrumb-link" href="/">Home</a><span aria-hidden="true">&gt;</span><span>${escapeHtml(page.name)}</span></nav>
+            <span class="section-kicker">${escapeHtml(page.eyebrow)}</span>
+            <h1>${escapeHtml(page.name)}</h1>
+            <p>${escapeHtml(page.intro)}</p>
+            ${page.updated ? `<p class="content-page-updated">Last updated: ${escapeHtml(page.updated)}</p>` : ''}
+          </div>
+        </header>
+        <div class="container content-page-layout">
+          <aside class="content-toc" aria-label="On this page"><strong>On this page</strong><nav>${tableOfContents}</nav></aside>
+          <div class="content-page-body">
+            ${sections}
+            ${related}
+            <section class="content-cta">
+              <div><span class="section-kicker">Contact</span><h2>${escapeHtml(page.cta.title)}</h2><p>${escapeHtml(page.cta.text)}</p></div>
+              <a href="/?support=1" class="btn btn-primary">${escapeHtml(page.cta.label)}</a>
+            </section>
+          </div>
+        </div>
+      </article>`;
+}
+
 function notFoundHtml() {
   return `<!doctype html>
 <html lang="en">
@@ -162,7 +235,7 @@ async function writeRoute(pathname, html) {
   await writeFile(join(directory, 'index.html'), html, 'utf8');
 }
 
-function routeAuditMarkdown(tools, blockedIds) {
+function routeAuditMarkdown(tools, blockedIds, contentPages) {
   const rows = tools.map(tool => {
     const indexable = !blockedIds.has(tool.id);
     const remarks = indexable
@@ -170,13 +243,16 @@ function routeAuditMarkdown(tools, blockedIds) {
       : 'Publicly reachable but noindex until the documented presentation-renderer blocker is resolved.';
     return `| \`/${tool.id}/\` | ${tool.name.replace(/\|/g, '\\|')} | ${tool.category} | ${indexable ? 'Yes' : 'No'} | ${canonicalToolUrl(tool.id)} | ${indexable ? 'Yes' : 'No'} | Unique | Unique | Generated HTML + hydration | Crawlable anchors | ${remarks} |`;
   });
-  return `# GXA Toolbox SEO route audit\n\nGenerated deterministically from the central 91-tool registry by \`scripts/generate-seo-site.mjs\`. Do not edit the table by hand.\n\n- Registered tools: **${tools.length}**\n- Indexable tool routes: **${tools.length - blockedIds.size}**\n- Noindex tool routes: **${blockedIds.size}**\n- Sitemap URLs: **${1 + tools.length - blockedIds.size}** (homepage plus indexable tools)\n- Category filter states are not separate URLs and are intentionally excluded to avoid thin duplicate pages.\n- \`/all-tools/\` permanently redirects to the homepage tool directory rather than creating a duplicate page.\n- Dashboard, API, authentication state, fragments, query variants, outputs, and unknown paths are excluded.\n\n| Route | Tool name | Category | Indexable | Canonical URL | Sitemap | Title | Description | Direct load | Internal link | Remarks |\n|---|---|---|---|---|---|---|---|---|---|---|\n${rows.join('\n')}\n`;
+  const contentRows = contentPages.map(page => `| \`/${page.id}/\` | ${page.name.replace(/\|/g, '\\|')} | Yes | ${canonicalContentUrl(page.id)} | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |`);
+  const sitemapCount = 1 + tools.length - blockedIds.size + contentPages.length;
+  return `# GXA Toolbox SEO route audit\n\nGenerated deterministically from the central tool and company/legal registries by \`scripts/generate-seo-site.mjs\`. Do not edit the tables by hand.\n\n- Registered tools: **${tools.length}**\n- Indexable tool routes: **${tools.length - blockedIds.size}**\n- Noindex tool routes: **${blockedIds.size}**\n- Company/legal routes: **${contentPages.length}**\n- Sitemap URLs: **${sitemapCount}** (homepage, indexable tools, and company/legal pages)\n- Category filter states are not separate URLs and are intentionally excluded to avoid thin duplicate pages.\n- \`/all-tools/\` permanently redirects to the homepage tool directory rather than creating a duplicate page.\n- Dashboard, API, authentication state, fragments, query variants, outputs, and unknown paths are excluded.\n\n## Tool routes\n\n| Route | Tool name | Category | Indexable | Canonical URL | Sitemap | Title | Description | Direct load | Internal link | Remarks |\n|---|---|---|---|---|---|---|---|---|---|---|\n${rows.join('\n')}\n\n## Company and legal routes\n\n| Route | Page | Indexable | Canonical URL | Sitemap | Title | Description | Direct load | Internal link | Remarks |\n|---|---|---|---|---|---|---|---|---|---|\n${contentRows.join('\n')}\n`;
 }
 
 async function main() {
-  const [tools, blockedIds, baseTemplate] = await Promise.all([
+  const [tools, blockedIds, contentPages, baseTemplate] = await Promise.all([
     loadToolRegistry(),
     loadBlockedToolIds(),
+    loadContentPageRegistry(),
     readFile(join(projectRoot, 'index.html'), 'utf8')
   ]);
   for (const id of blockedIds) {
@@ -187,7 +263,11 @@ async function main() {
   await mkdir(distRoot, { recursive: true });
   await cp(join(projectRoot, 'public_html', 'assets'), join(distRoot, 'assets'), { recursive: true });
   await cp(join(projectRoot, 'public_html', 'background-remover'), join(distRoot, 'background-remover'), { recursive: true });
-  for (const file of ['apple-touch-icon.png', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'gxa-logo.png', 'site.webmanifest']) {
+  await mkdir(join(distRoot, 'admin'), { recursive: true });
+  for (const file of ['index.html', 'admin.css', 'admin.js']) {
+    await cp(join(projectRoot, 'public_html', 'admin', file), join(distRoot, 'admin', file));
+  }
+  for (const file of ['ads.txt', 'apple-touch-icon.png', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'gxa-logo.png', 'site.webmanifest']) {
     await cp(join(projectRoot, file), join(distRoot, file));
   }
 
@@ -212,6 +292,17 @@ async function main() {
       robots: blockedIds.has(tool.id) ? 'noindex, follow' : 'index, follow',
       graph: pageGraph({ name: tool.name, description, url: canonicalToolUrl(tool.id), category: tool.category }),
       staticContent: toolStaticContent(tool)
+    }));
+  }
+
+  for (const page of contentPages) {
+    await writeRoute(page.id, applyMetadata(baseTemplate, {
+      title: page.title,
+      description: page.description,
+      canonical: canonicalContentUrl(page.id),
+      robots: 'index, follow',
+      graph: contentPageGraph(page),
+      staticContent: contentPageStaticContent(page)
     }));
   }
 
@@ -264,7 +355,7 @@ async function main() {
   );
   await writeFile(backgroundPath, backgroundHtml, 'utf8');
 
-  const dashboardHtml = applyMetadata(baseTemplate, {
+  const dashboardHtml = applyMetadata(withoutAdSense(baseTemplate), {
     title: 'Dashboard | GXA Toolbox',
     description: 'Sign in to access your private GXA Toolbox processing history and account dashboard.',
     canonical: `${PRODUCTION_ORIGIN}/dashboard/`,
@@ -275,14 +366,18 @@ async function main() {
   await writeRoute('dashboard', dashboardHtml);
 
   const indexable = tools.filter(tool => !blockedIds.has(tool.id)).sort((a, b) => a.id.localeCompare(b.id));
-  const sitemapUrls = [`${PRODUCTION_ORIGIN}/`, ...indexable.map(tool => canonicalToolUrl(tool.id))];
+  const sitemapUrls = [
+    `${PRODUCTION_ORIGIN}/`,
+    ...indexable.map(tool => canonicalToolUrl(tool.id)),
+    ...contentPages.map(page => canonicalContentUrl(page.id))
+  ];
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapUrls.map(url => `  <url><loc>${escapeXml(url)}</loc></url>`).join('\n')}\n</urlset>\n`;
   await writeFile(join(distRoot, 'sitemap.xml'), sitemap, 'utf8');
   await cp(join(projectRoot, 'robots.txt'), join(distRoot, 'robots.txt'));
   await writeFile(join(distRoot, '404.html'), notFoundHtml(), 'utf8');
-  await writeFile(join(projectRoot, 'docs', 'SEO_ROUTE_AUDIT.md'), routeAuditMarkdown(tools, blockedIds), 'utf8');
+  await writeFile(join(projectRoot, 'docs', 'SEO_ROUTE_AUDIT.md'), routeAuditMarkdown(tools, blockedIds, contentPages), 'utf8');
 
-  console.log(`Generated ${tools.length} tool routes, ${sitemapUrls.length} sitemap URLs, robots.txt, and a real 404 in dist/.`);
+  console.log(`Generated ${tools.length} tool routes, ${contentPages.length} company/legal routes, ${sitemapUrls.length} sitemap URLs, protected admin shell, ads.txt, robots.txt, and a real 404 in dist/.`);
 }
 
 await main();

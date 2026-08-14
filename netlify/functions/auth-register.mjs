@@ -6,6 +6,7 @@ import {
   jsonResponse,
   methodNotAllowed,
   publicUser,
+  recordAuthEvent,
   readJsonBody,
   safeErrorResponse,
   validateRegistration
@@ -29,6 +30,7 @@ export default async function handler(request) {
        LIMIT 1
     `;
     if (existing.length) {
+      await recordAuthEvent(sql, 'registration_failure', 'duplicate_account');
       return jsonResponse({ success: false, message: 'This email is already registered.' }, 409);
     }
 
@@ -39,6 +41,7 @@ export default async function handler(request) {
       RETURNING id, full_name AS name, email, role, is_premium
     `;
     const user = publicUser(inserted[0]);
+    await recordAuthEvent(sql, 'registration_success', 'accepted');
 
     return jsonResponse(
       { success: true, message: 'Account created successfully.', user },

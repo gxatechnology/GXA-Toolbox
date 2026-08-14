@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { downloadBlob, exportImage } from '../utils/imageExport';
+import { trackBackgroundTool } from '../utils/analytics';
 import { Icon } from './Icon';
 
 interface ExportDialogProps {
@@ -22,6 +23,7 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
     try {
       const output = await exportImage(useEditorStore.getState());
       downloadBlob(output.blob, output.filename);
+      trackBackgroundTool('tool_download', 'downloaded');
       onClose();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Export failed.');

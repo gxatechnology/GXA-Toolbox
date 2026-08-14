@@ -10,7 +10,7 @@ const [app, styles] = await Promise.all([
 const registrySource = app.slice(app.indexOf('const toolsList'), app.indexOf('// --- Main Application Controller'));
 const tools = [...registrySource.matchAll(/\{\s*id:\s*'([^']+)',\s*name:\s*'([^']+)',\s*category:\s*'([^']+)'/g)]
   .map(([, id, name, category]) => ({ id, name, category }));
-assert.equal(tools.length, 91);
+assert.equal(tools.length, 92);
 
 for (const category of ['pdf', 'image', 'calculator']) {
   assert(tools.some(tool => tool.category === category), `${category} has no registered tools.`);
@@ -22,11 +22,18 @@ assert.match(app, /function initializeCategoryNavigation\(nav\)/);
 assert.match(app, /addEventListener\('pointerenter'/);
 assert.match(app, /addEventListener\('pointerleave'/);
 assert.match(app, /addEventListener\('keydown'[\s\S]*event\.key !== 'Enter'[\s\S]*event\.key !== ' '/);
-assert.match(app, /setTimeout\([\s\S]*}, 200\)/);
+assert.match(app, /event\.key === 'ArrowDown'[\s\S]*menu\.querySelector\('a'\)\?\.focus\(\)/);
+assert.match(app, /setTimeout\([\s\S]*}, 120\)/);
+assert.match(app, /menu\.setAttribute\('aria-hidden', 'true'\)/);
+assert.match(app, /setAttribute\('aria-hidden', String\(!open\)\)/);
 assert.match(app, /document\.addEventListener\('pointerdown'[\s\S]*closeCategoryNavigation/);
 assert.match(app, /event\.key === 'Escape'[\s\S]*closeCategoryNavigation/);
 assert.match(styles, /@media \(min-width: 1101px\) and \(hover: hover\) and \(pointer: fine\)/);
-assert.match(styles, /\.nav-item\.has-mega-menu::after[\s\S]*height:\s*12px/);
+assert.match(styles, /\.header-nav \.mega-menu\s*\{[\s\S]*position:\s*fixed;[\s\S]*left:\s*50vw;[\s\S]*width:\s*min\(760px, calc\(100vw - 32px\)\)[\s\S]*transform:\s*translateX\(-50%\) translateY\(8px\)/);
+assert.match(styles, /\.header-nav \.nav-item\.menu-expanded > \.mega-menu[\s\S]*transform:\s*translateX\(-50%\) translateY\(0\)/);
+assert.match(styles, /\.nav-item\.has-mega-menu::after[\s\S]*position:\s*fixed;[\s\S]*width:\s*min\(760px, calc\(100vw - 32px\)\)[\s\S]*height:\s*18px/);
+assert.match(styles, /\.nav-item\.has-mega-menu\.menu-expanded::after[\s\S]*pointer-events:\s*auto/);
+assert.doesNotMatch(styles, /data-nav-category=["'](?:pdf|image|calculator)["'][^\n]*\.mega-menu/);
 assert.doesNotMatch(styles, /nth-child\([^)]*\) \.mega-menu/);
 const headerNavigation = app.slice(app.indexOf('function renderHeaderToolMenu'), app.indexOf('function renderFooter'));
 assert.doesNotMatch(headerNavigation, /href=["']#["']/);

@@ -1,7 +1,7 @@
 import type { ProcessingState } from '../types/editor';
 import { Icon } from './Icon';
 
-const stages = ['Reading image', 'Loading removal engine', 'Segmenting', 'Creating mask', 'Opening editor'];
+const stages = ['Reading image', 'Loading GXA Vision Model', 'Detecting subject', 'Creating background mask', 'Opening editor'];
 
 interface ProcessingScreenProps {
   sourceUrl: string;

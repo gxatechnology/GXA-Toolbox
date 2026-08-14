@@ -16,9 +16,9 @@ const matrix = await readFile(join(root, 'docs', 'TOOL_ENGINE_AUDIT.md'), 'utf8'
 
 const registry = app.slice(app.indexOf('const toolsList'), app.indexOf('// --- Main Application Controller'));
 const ids = [...registry.matchAll(/\{\s*id:\s*'([^']+)'/g)].map(match => match[1]);
-assert.equal(ids.length, 91, 'The browser-engine audit must preserve all 91 registered tools.');
+assert.equal(ids.length, 92, 'The browser-engine audit must preserve all 92 registered tools.');
 const matrixIds = [...matrix.matchAll(/^\|[^\n]*\| `([^`]+)` \|/gm)].map(match => match[1]);
-assert.equal(matrixIds.length, 91, 'The capability matrix must contain exactly 91 tool rows.');
+assert.equal(matrixIds.length, 92, 'The capability matrix must contain exactly 92 tool rows.');
 assert.deepEqual(new Set(matrixIds), new Set(ids), 'The capability matrix IDs must exactly match the registry.');
 assert(!/\b(?:UNTESTED|UNKNOWN|DEPENDENCY REQUIRED)\b/i.test(matrix), 'The final matrix cannot contain generic unresolved classifications.');
 const matrixRows = matrix.split('\n').filter(line => /^\|[^\n]*\| `[^`]+` \|/.test(line));
@@ -33,7 +33,7 @@ assert(renderTools.includes('tool-card-arrow'), 'The card open arrow must remain
 const blockerSource = workspace.slice(workspace.indexOf('const blockers'), workspace.indexOf('const serverTools'));
 const blockers = [...blockerSource.matchAll(/^\s*'([^']+)':\s*'[^']+'/gm)].map(match => match[1]);
 assert.deepEqual(blockers, ['ppt-to-pdf'], 'Only the native presentation-to-PDF fidelity limitation should remain blocked.');
-for (const requiredSource of ['runQpdfOperation', 'mammoth.extractRawText', 'createTextPdf', 'runEPUBToPDF', 'runPDFToEPUB', 'runGifToPng', 'runPDFExtractImages', 'Tesseract.createWorker', 'runPDFToExcel', 'PptxGenJS']) {
+for (const requiredSource of ['runQpdfOperation', 'mammoth.extractRawText', 'createTextPdf', 'runEPUBToPDF', 'runPDFToEPUB', 'runGifToPng', 'runPDFExtractImages', 'runImageOCR', 'Tesseract.createWorker', 'runPDFToExcel', 'PptxGenJS']) {
   assert(app.includes(requiredSource), `Missing selected browser-engine implementation: ${requiredSource}`);
 }
 assert(app.includes("new Worker('/assets/gif-encoder-worker.js', { type: 'module' })"), 'GIF quantization/encoding must run in its dedicated module worker.');
@@ -112,4 +112,4 @@ const scanned = (await readFile(join(fixtures, 'scanned.pdf'))).toString('latin1
 assert(scanned.includes('/Subtype /Image'), 'The scanned fixture must contain a real raster image XObject.');
 assert(!scanned.includes('GXA OCR FIXTURE 2026'), 'The OCR phrase must exist only in raster pixels, not as PDF text.');
 
-console.log('Browser engine contract passed: 91 tools audited, 91 listing badges removed, 12 dependency blocks eliminated, and real engine fixtures validated.');
+console.log('Browser engine contract passed: 92 tools audited, 92 listing badges removed, 12 dependency blocks eliminated, and real engine fixtures validated.');

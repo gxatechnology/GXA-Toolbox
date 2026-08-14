@@ -13,7 +13,7 @@
   force = true
 
 [[redirects]]
-  from = "https://gxatoolbox.netlify.app/*"
+  from = "https://gxatoolbo.netlify.app/*"
   to = "https://gxatoolbox.in/:splat"
   status = 301
   force = true
@@ -34,6 +34,16 @@
   from = "/favicon.ico"
   to = "/favicon-32x32.png"
   status = 301
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin/"
+  status = 301
+
+[[redirects]]
+  from = "/api/tool-event"
+  to = "/.netlify/functions/tool-event"
+  status = 200
 
 [[redirects]]
   from = "/api/register.php"
@@ -82,6 +92,12 @@
     Cache-Control = "public, max-age=3600, must-revalidate"
 
 [[headers]]
+  for = "/ads.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+[[headers]]
   for = "/sitemap.xml"
   [headers.values]
     Content-Type = "application/xml; charset=utf-8"
@@ -100,6 +116,12 @@
     X-Robots-Tag = "noindex, nofollow, noarchive"
 
 [[headers]]
+  for = "/admin/*"
+  [headers.values]
+    Cache-Control = "private, no-store, max-age=0, must-revalidate"
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+
+[[headers]]
   for = "/404.html"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
@@ -107,6 +129,11 @@
 
 [[headers]]
   for = "/assets/app.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+[[headers]]
+  for = "/assets/content-pages.js"
   [headers.values]
     Cache-Control = "public, max-age=3600, must-revalidate"
 

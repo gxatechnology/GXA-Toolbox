@@ -1,14 +1,17 @@
 # GXA Toolbox SEO route audit
 
-Generated deterministically from the central 91-tool registry by `scripts/generate-seo-site.mjs`. Do not edit the table by hand.
+Generated deterministically from the central tool and company/legal registries by `scripts/generate-seo-site.mjs`. Do not edit the tables by hand.
 
-- Registered tools: **91**
-- Indexable tool routes: **90**
+- Registered tools: **92**
+- Indexable tool routes: **91**
 - Noindex tool routes: **1**
-- Sitemap URLs: **91** (homepage plus indexable tools)
+- Company/legal routes: **6**
+- Sitemap URLs: **98** (homepage, indexable tools, and company/legal pages)
 - Category filter states are not separate URLs and are intentionally excluded to avoid thin duplicate pages.
 - `/all-tools/` permanently redirects to the homepage tool directory rather than creating a duplicate page.
 - Dashboard, API, authentication state, fragments, query variants, outputs, and unknown paths are excluded.
+
+## Tool routes
 
 | Route | Tool name | Category | Indexable | Canonical URL | Sitemap | Title | Description | Direct load | Internal link | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -17,6 +20,7 @@ Generated deterministically from the central 91-tool registry by `scripts/genera
 | `/compress-image/` | Compress Image | image | Yes | https://gxatoolbox.in/compress-image/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/resize-image/` | Resize Image | image | Yes | https://gxatoolbox.in/resize-image/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/crop-image/` | Crop Image | image | Yes | https://gxatoolbox.in/crop-image/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
+| `/image-ocr/` | Image OCR | image | Yes | https://gxatoolbox.in/image-ocr/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/background-remover/` | Background Remover | image | Yes | https://gxatoolbox.in/background-remover/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/password-generator/` | Password Generator | utility | Yes | https://gxatoolbox.in/password-generator/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/barcode-generator/` | QR & Barcode | utility | Yes | https://gxatoolbox.in/barcode-generator/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
@@ -103,3 +107,14 @@ Generated deterministically from the central 91-tool registry by `scripts/genera
 | `/unit-converter/` | Unit Converter | calculator | Yes | https://gxatoolbox.in/unit-converter/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/currency-converter/` | Currency Converter | calculator | Yes | https://gxatoolbox.in/currency-converter/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/time-calculator/` | Time Calculator | calculator | Yes | https://gxatoolbox.in/time-calculator/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
+
+## Company and legal routes
+
+| Route | Page | Indexable | Canonical URL | Sitemap | Title | Description | Direct load | Internal link | Remarks |
+|---|---|---|---|---|---|---|---|---|---|
+| `/about/` | About Us | Yes | https://gxatoolbox.in/about/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |
+| `/careers/` | Careers | Yes | https://gxatoolbox.in/careers/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |
+| `/security/` | Security Policies | Yes | https://gxatoolbox.in/security/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |
+| `/privacy-policy/` | Privacy Policy | Yes | https://gxatoolbox.in/privacy-policy/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |
+| `/terms/` | Terms of Service | Yes | https://gxatoolbox.in/terms/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |
+| `/gdpr/` | GDPR Compliance | Yes | https://gxatoolbox.in/gdpr/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |

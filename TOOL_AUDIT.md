@@ -2,13 +2,13 @@
 
 ## Phase 1 studio integration (2026-08-03)
 
-The production registry remains at 91 tools. Existing image and PDF routes are now grouped by shared Image Studio and PDF Studio shells without ID or route changes. The authoritative implementation remains under `public_html/`; root JavaScript and CSS remain compatibility forwarders.
+The production registry now contains 92 tools after adding the separate Image OCR route. Existing image and PDF routes remain grouped by shared Image Studio and PDF Studio shells without changing prior IDs or routes. The authoritative implementation remains under `public_html/`; root JavaScript and CSS remain compatibility forwarders.
 
 Phase 1 adds generated-output signature validation, deterministic test fixtures, manual PDF crop coordinates mapped to real PDF points, visual page selection/reordering, selected-page PDF edits, image Canvas adjustments/watermarking, Crop Image undo/redo, and responsive settings drawers. Detailed route maps and limitations are documented in `docs/IMAGE_STUDIO.md` and `docs/PDF_STUDIO.md`.
 
 Audit date: 2026-08-02
 
-The repository contains 91 unique registered tools. Every registration was checked for a reachable generic route, configuration/dispatcher reference, processing disclosure, and simulated-success patterns. Shared upload validation was unit-tested for valid, empty, oversized, wrong-type, and duplicate files. Image upload/preview/compression was exercised end to end in the browser. Responsive overflow checks passed at 375, 768, 1024, and 1440 px.
+The repository contains 92 unique registered tools. Every registration was checked for a reachable route, configuration/dispatcher reference, processing disclosure, and simulated-success patterns. Shared upload validation was unit-tested for valid, empty, oversized, wrong-type, and duplicate files. Image upload/preview/compression and the separate Image OCR workflow were exercised end to end in the browser. Responsive overflow checks passed across mobile, tablet, laptop, and desktop widths.
 
 “Dependency required” is an intentional, user-visible unavailable state. These tools retain their routes and settings but cannot run until the named engine is configured; they no longer return fabricated files.
 
@@ -105,11 +105,12 @@ The repository contains 91 unique registered tools. Every registration was check
 | 89 | Unit Converter | Local | Converted measurement | Pass |
 | 90 | Currency Converter | Local | Amount using user-supplied rate | Pass — no simulated/live-rate claim |
 | 91 | Time Calculator | Local | Added/subtracted duration | Pass |
+| 92 | Image OCR | Local browser OCR worker | Extracted TXT plus visible/copy output from JPG, JPEG, PNG, and WEBP | Pass |
 
 ## Automated verification
 
 - `npm run lint`: JavaScript syntax checks.
-- `npm test`: 91-tool registry/route contract, uniqueness, dependency mapping, shared-workspace presence, input-validation cases, simulated-success signatures, entry-point wiring, and old-brand audit.
+- `npm test`: 92-tool registry/route contract, uniqueness, dependency mapping, shared-workspace presence, input-validation cases, simulated-success signatures, entry-point wiring, and old-brand audit.
 - `npm run build`: release validation (lint plus tests) for this unbundled PHP/static application.
 - PHP CLI syntax check: passed for `public_html/index.php` and `public_html/api/background-remover.php` using the local PHP runtime.
 - Type checking: not applicable; this repository contains no TypeScript project or type-check configuration.

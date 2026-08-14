@@ -26,9 +26,16 @@ try {
     ['/', 'GXA Toolbox', 'https://gxatoolbox.in/'],
     ['/merge-pdf/', 'Merge PDF', 'https://gxatoolbox.in/merge-pdf/'],
     ['/crop-image/', 'Crop Image', 'https://gxatoolbox.in/crop-image/'],
+    ['/image-ocr/', 'Image OCR', 'https://gxatoolbox.in/image-ocr/'],
     ['/json-tool/', 'JSON Formatter', 'https://gxatoolbox.in/json-tool/'],
     ['/emi-calculator/', 'EMI Calculator', 'https://gxatoolbox.in/emi-calculator/'],
-    ['/background-remover/', 'Background Remover', 'https://gxatoolbox.in/background-remover/']
+    ['/background-remover/', 'Background Remover', 'https://gxatoolbox.in/background-remover/'],
+    ['/about/', 'About Us', 'https://gxatoolbox.in/about/'],
+    ['/careers/', 'Careers', 'https://gxatoolbox.in/careers/'],
+    ['/security/', 'Security Policies', 'https://gxatoolbox.in/security/'],
+    ['/privacy-policy/', 'Privacy Policy', 'https://gxatoolbox.in/privacy-policy/'],
+    ['/terms/', 'Terms of Service', 'https://gxatoolbox.in/terms/'],
+    ['/gdpr/', 'GDPR Compliance', 'https://gxatoolbox.in/gdpr/']
   ];
   for (const [path, heading, canonical] of representativeRoutes) {
     const { body } = await request(path, 200, /^text\/html\b/i);
@@ -55,6 +62,8 @@ try {
   await request('/site.webmanifest', 200, /^application\/manifest\+json\b/i);
   await request('/sitemap.xml', 200, /^(?:application|text)\/xml\b/i);
   await request('/robots.txt', 200, /^text\/plain\b/i);
+  const adsText = await request('/ads.txt', 200, /^text\/plain\b/i);
+  assert.equal(adsText.body.trim(), 'google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0', 'ads.txt seller authorization is incorrect.');
   const favicon = await fetch(`${origin}/favicon-32x32.png`);
   assert.equal(favicon.status, 200);
   assert.match(favicon.headers.get('content-type') || '', /^image\/png\b/i);

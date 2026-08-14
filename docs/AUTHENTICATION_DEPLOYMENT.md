@@ -9,9 +9,11 @@ The frontend API paths and response field names remain unchanged. PostgreSQL sto
 
 ## Automatic Netlify Database migration
 
-The production SQL Console is read-only and must not be used to apply this schema. The canonical migration is:
+The production SQL Console is read-only and must not be used to apply this schema. The canonical schema and the non-destructive post-reconnect recovery migration are:
 
 `netlify/database/migrations/0001_create_auth_schema.sql`
+
+`netlify/database/migrations/0002_repair_auth_schema_after_site_reconnect.sql`
 
 Netlify detects migrations in `netlify/database/migrations` and applies pending migrations automatically during its deploy lifecycle. The migration runs immediately before the target deploy is published; if it fails, Netlify blocks that deploy from being published. It creates only `public.users` and `public.file_jobs`, their constraints, indexes, foreign key, and PostgreSQL `updated_at` function/triggers. It contains no `DROP TABLE`, demo account, or password record.
 
@@ -20,7 +22,7 @@ The old `docs/NETLIFY_DATABASE_SCHEMA.sql` file now points to the canonical migr
 ### Exact steps after pushing
 
 1. Before deploying, configure `AUTH_SESSION_SECRET` for the Netlify Functions runtime with at least 32 cryptographically random characters.
-2. Commit and push `netlify/database/migrations/0001_create_auth_schema.sql` together with the PostgreSQL-backed Netlify Functions.
+2. Commit and push both files in `netlify/database/migrations/` together with the PostgreSQL-backed Netlify Functions. Migration `0002` deliberately reasserts the schema with idempotent DDL so a reconnected Netlify project cannot publish the auth Functions against a missing `public.users` or `public.file_jobs` table.
 3. Recommended: open a pull request so Netlify creates a deploy preview and its isolated database branch. Netlify automatically applies the migration to that preview branch.
 4. Test signup, login, session, logout, job saving, and history on the deploy preview.
 5. Merge the source branch into the Git branch configured for Netlify production, or otherwise trigger a production deploy from that commit.
@@ -59,6 +61,18 @@ The source must be pushed/deployed before these checks can pass; this document d
 3. Save one processing-history entry and confirm only that account can retrieve it.
 4. Sign out, sign back in, and repeat the refresh check.
 5. Repeat registration with the same normalized email and confirm `409` without SQL details.
-6. Repeat the complete lifecycle on `https://gxatoolbox.in` and `https://gxatoolbox.netlify.app`.
+6. Repeat the complete lifecycle on `https://gxatoolbox.in`. Confirm `https://www.gxatoolbox.in` and the active Netlify hostname `https://gxatoolbo.netlify.app` redirect to the canonical domain.
+
+## Recovery after reconnecting the repository to a new Netlify project
+
+The public endpoint can be reachable while every database query still fails if the new site is not attached to a healthy production database branch or if its migration ledger/schema belongs to a different site connection. The frontend cannot repair this platform state.
+
+After pushing the recovery migration:
+
+1. Open the **Database** page for the Netlify site that owns `gxatoolbox.in` and confirm Netlify Database is enabled for that exact site.
+2. Open the production database branch and confirm migrations `0001_create_auth_schema` and `0002_repair_auth_schema_after_site_reconnect` are applied. Use the read-only SQL console only to inspect `public.users` and `public.file_jobs`; do not paste modification statements there.
+3. In **Site configuration -> Environment variables**, confirm `AUTH_SESSION_SECRET` exists, contains at least 32 cryptographically random characters, and its scope includes **Functions**. Do not expose or store its value in source control.
+4. Trigger a fresh production deploy from the reviewed commit. Netlify must apply migration `0002` before publishing; a database connection or migration failure should block that deploy rather than leave a broken auth backend live.
+5. In the deploy's **Functions** logs, verify `auth-register` and `auth-login` no longer log a PostgreSQL connection/query error. Then perform the lifecycle checks below.
 
 Do not describe production authentication as live until the schema is applied, `AUTH_SESSION_SECRET` is configured, the source is deployed, and both-domain lifecycle testing succeeds.
