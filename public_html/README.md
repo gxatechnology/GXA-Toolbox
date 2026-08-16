@@ -93,8 +93,8 @@ Follow these exact steps to deploy and test GXA Toolbox on your Hostinger accoun
 
 ### Step 5: Test login/register/admin
 1. Navigate to your live website (e.g., `https://yourdomain.com`).
-2. Click **Sign up for free** and create a standard user account to test the registration endpoint (`/api/register.php`).
-3. Log out, then click **Sign In** and enter your credentials to test the login endpoint (`/api/login.php`).
+2. Click **Sign up for free** and create a standard user through the GXA modal backed by Netlify Identity.
+3. Log out, then click **Sign In** and test the Identity email/password flow; the legacy `/api/register.php` and `/api/login.php` routes intentionally return HTTP 410.
 4. Execute any tools (like Merge PDF, Color Extractor, or Password Generator) and verify that the activity is tracked under **Recent Activity Log** in the User Dashboard (`/dashboard/index.php`).
 5. Log out, then sign in with an administrator account provisioned securely for your deployment. No shared default administrator password is provided.
 6. Access the Admin Control Panel at `/admin/` (or `https://yourdomain.com/admin/`).

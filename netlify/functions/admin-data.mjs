@@ -1,13 +1,13 @@
 import { ADMIN_BUILD_STATE } from './_admin-build-state.mjs';
 import { adminErrorResponse, requireAdminSession } from './_admin-auth.mjs';
-import { getGoogleIntegrationStates, unavailableGoogleReports } from './_admin-integrations.mjs';
-import { getDatabaseClient, jsonResponse, methodNotAllowed } from './_auth.mjs';
+import { getAdminDateRange, loadAdminIntegrations } from './_admin-integrations.mjs';
+import { jsonResponse, methodNotAllowed } from './_auth.mjs';
+import { databaseErrorCategory, getDatabaseClient, recordSystemEvent } from './_database.mjs';
 
 const RANGE_DAYS = Object.freeze({ today: 1, '7d': 7, '28d': 28, '30d': 30, '3m': 90 });
 
 function rangeStart(range) {
-  const days = RANGE_DAYS[range] || 30;
-  return new Date(Date.now() - (days * 24 * 60 * 60 * 1000)).toISOString();
+  return `${getAdminDateRange(range).start}T00:00:00.000Z`;
 }
 
 function number(value) {
@@ -20,20 +20,30 @@ function databaseIntegration(status, detail) {
     name: 'GXA Database',
     installed: true,
     status,
-    label: status === 'connected' ? 'Connected' : 'Error',
+    label: status === 'connected' ? 'Connected' : status === 'configuration_required' ? 'Configuration Required' : 'Error',
     detail
   };
 }
 
 async function loadInternalData(sql, from) {
-  const [userSummary, eventSummary, topTools, recentSignups, users, toolRows, authFailures, systemErrors] = await Promise.all([
+  const [userSummary, eventTrend, eventSummary, topTools, recentSignups, users, toolRows, authFailures, systemErrors] = await Promise.all([
     sql`
       SELECT COUNT(*)::INTEGER AS total_accounts,
              COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::INTEGER AS signups_today,
              COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '7 days')::INTEGER AS signups_7d,
              COUNT(*) FILTER (WHERE last_login_at >= ${from}::TIMESTAMPTZ)::INTEGER AS active_users
-        FROM public.users
-       WHERE role = 'user'
+        FROM public.user_profiles
+    `,
+    sql`
+      SELECT occurred_at::DATE AS date,
+             COUNT(*) FILTER (WHERE event_type = 'tool_start')::INTEGER AS starts,
+             COUNT(*) FILTER (WHERE event_type = 'tool_complete')::INTEGER AS completions,
+             COUNT(*) FILTER (WHERE event_type = 'tool_download')::INTEGER AS downloads,
+             COUNT(*) FILTER (WHERE event_type = 'tool_fail')::INTEGER AS failures
+        FROM public.tool_analytics_events
+       WHERE occurred_at >= ${from}::TIMESTAMPTZ
+       GROUP BY occurred_at::DATE
+       ORDER BY date ASC
     `,
     sql`
       SELECT COUNT(*) FILTER (WHERE event_type = 'tool_open')::INTEGER AS opens,
@@ -59,15 +69,13 @@ async function loadInternalData(sql, from) {
     `,
     sql`
       SELECT full_name AS name, email, created_at
-        FROM public.users
-       WHERE role = 'user'
+        FROM public.user_profiles
        ORDER BY created_at DESC
        LIMIT 8
     `,
     sql`
-      SELECT id, full_name AS name, email, created_at, last_login_at, status
-        FROM public.users
-       WHERE role = 'user'
+      SELECT identity_user_id AS id, full_name AS name, email, provider, is_premium, created_at, last_login_at, status
+        FROM public.user_profiles
        ORDER BY created_at DESC
        LIMIT 100
     `,
@@ -124,7 +132,8 @@ async function loadInternalData(sql, from) {
       },
       top_tools: withConversion(topTools),
       recent_signups: recentSignups,
-      recent_system_errors: systemErrors
+      recent_system_errors: systemErrors,
+      trend: eventTrend.map(row => ({ date: row.date, starts: number(row.starts), completions: number(row.completions), downloads: number(row.downloads), failures: number(row.failures) }))
     },
     users: {
       summary: {
@@ -148,7 +157,7 @@ async function loadInternalData(sql, from) {
 
 function emptyInternalData() {
   return {
-    overview: { internal: null, top_tools: [], recent_signups: [], recent_system_errors: [] },
+    overview: { internal: null, top_tools: [], recent_signups: [], recent_system_errors: [], trend: [] },
     users: { summary: null, rows: [] },
     toolAnalytics: { formula: 'Successful Tool Completions / Tool Starts × 100', rows: [] },
     system: { auth_failures: [], errors: [] }
@@ -161,8 +170,7 @@ export default async function handler(request) {
     requireAdminSession(request);
     const url = new URL(request.url);
     const range = Object.hasOwn(RANGE_DAYS, url.searchParams.get('range')) ? url.searchParams.get('range') : '30d';
-    const googleReports = unavailableGoogleReports();
-    const googleIntegrations = getGoogleIntegrationStates();
+    const external = await loadAdminIntegrations(range);
     let internal = emptyInternalData();
     let database = databaseIntegration('error', 'Database status is unknown.');
     try {
@@ -172,15 +180,20 @@ export default async function handler(request) {
       database = databaseIntegration('connected', 'Protected database queries completed successfully.');
     } catch (error) {
       console.error('Admin internal-data query failed:', error?.code || error?.name || 'unknown');
-      database = databaseIntegration('error', 'Database unavailable or migration required.');
+      const category = databaseErrorCategory(error);
+      await recordSystemEvent('admin_database', category);
+      database = databaseIntegration(
+        category === 'configuration_required' ? 'configuration_required' : 'error',
+        category === 'migration_required' ? 'Database migration required.' : category === 'configuration_required' ? 'Netlify Database connection is not configured.' : 'Database unavailable.'
+      );
     }
 
     return jsonResponse({
       success: true,
       generated_at: new Date().toISOString(),
       range,
-      integrations: [database, ...googleIntegrations],
-      reports: googleReports,
+      integrations: [database, ...external.integrations],
+      reports: external.reports,
       internalSeo: ADMIN_BUILD_STATE,
       ...internal
     });

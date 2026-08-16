@@ -53,7 +53,7 @@ No consent management platform is currently installed. Before personalized adver
 1. Trigger a normal production deploy from the reviewed commit. The build command creates `dist/` automatically.
 2. Verify `/robots.txt` is plain text, `/sitemap.xml` is XML, representative tools return their own HTML, and a random path returns 404.
 3. Submit `https://gxatoolbox.in/sitemap.xml` in the already-verified Search Console property and inspect representative homepage, tool, noindex, and 404 URLs.
-4. Because prior production deploys exposed repository files, reset or delete any privileged account that ever reused the sample credentials in `database.sql`. Rotate `AUTH_SESSION_SECRET` if existing sessions should be invalidated or compromise is suspected.
+4. Because prior production deploys exposed repository files, reset or delete any privileged account that ever reused the former sample credentials in `database.sql`, and invalidate affected provider sessions if compromise is suspected.
 5. After the clean deploy is live, delete older Netlify deploys that contain the exposed source files. A clean deploy must be live first so the site is not left unavailable.
 6. In Google Tag Manager, configure and publish GA4 measurement ID `G-E16HBF4R7W`; do not install a direct GA4 tag in parallel.
 7. In AdSense, complete site review, confirm `https://gxatoolbox.in/ads.txt` is detected, and enable only the desired Auto Ads formats after approval.

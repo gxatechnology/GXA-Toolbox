@@ -22,8 +22,12 @@
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
   })[character]);
   const formatNumber = value => Number(value).toLocaleString('en-IN');
+  const formatPercent = value => `${(Number(value || 0) * 100).toFixed(1)}%`;
+  const formatDecimal = value => Number(value || 0).toFixed(2);
+  const formatMoney = (value, currency = 'USD') => new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0));
   const formatDate = value => value ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Not available';
   const unavailable = label => `<span class="metric-unavailable">${escapeHtml(label || 'Not Connected')}</span>`;
+  const reportMetric = (report, key, formatter = formatNumber) => report.metrics ? formatter(report.metrics[key]) : unavailable(report.label);
 
   async function api(url, options = {}) {
     const response = await fetch(url, {
@@ -83,8 +87,8 @@
 
   function integrationCards() {
     return `<div class="integration-grid">${state.data.integrations.map(item => {
-      const className = item.status === 'connected' ? 'connected' : item.status === 'error' ? 'error' : '';
-      const detail = item.detail || (item.requiredEnvironment?.length ? 'Server-side configuration is required.' : 'Installed code does not confirm reporting access.');
+      const className = item.status === 'connected' ? 'connected' : ['error', 'api_error', 'connection_error', 'permission_required'].includes(item.status) ? 'error' : '';
+      const detail = item.detail || (item.status === 'configuration_required' ? 'Server-side configuration is required.' : 'Installed code does not confirm reporting access.');
       return `<article class="integration-card"><h4>${escapeHtml(item.name)}</h4><span class="status-chip ${className}">${escapeHtml(item.label)}</span><p>${escapeHtml(detail)}</p></article>`;
     }).join('')}</div>`;
   }
@@ -95,12 +99,12 @@
     const search = state.data.reports.searchConsole;
     const ads = state.data.reports.adsense;
     const cards = [
-      kpi('Users Today', unavailable(ga.label), 'GA4', 'Authoritative GA4 reporting metric'),
-      kpi('Page Views', unavailable(ga.label), 'GA4', 'No client-side estimate is substituted'),
+      kpi(state.range === 'today' ? 'Users Today' : 'Active Users', reportMetric(ga, 'activeUsers'), 'GA4', 'Selected date range'),
+      kpi('Page Views', reportMetric(ga, 'screenPageViews'), 'GA4', 'No client-side estimate is substituted'),
       kpi('Tool Runs', internal ? formatNumber(internal.tool_runs) : unavailable('Database unavailable'), 'GXA Analytics', 'Selected date range'),
       kpi('Downloads', internal ? formatNumber(internal.downloads) : unavailable('Database unavailable'), 'GXA Analytics', 'Recorded result downloads'),
-      kpi('Search Clicks', unavailable(search.label), 'Search Console', 'Reporting API required'),
-      kpi('AdSense Earnings', unavailable(ads.label), 'Google AdSense', 'Reporting API required'),
+      kpi('Search Clicks', reportMetric(search, 'clicks'), 'Search Console', 'Selected date range'),
+      kpi('AdSense Earnings', ads.metrics ? formatMoney(ads.metrics.ESTIMATED_EARNINGS, ads.currencyCode || 'USD') : unavailable(ads.label), 'Google AdSense', 'Selected date range'),
       kpi('Errors', internal ? formatNumber(internal.errors) : unavailable('Database unavailable'), 'GXA Analytics', 'Sanitized processing failures')
     ].join('');
     const top = table([
@@ -112,13 +116,28 @@
     const signups = table([
       { label: 'Name', key: 'name' }, { label: 'Email', key: 'email' }, { label: 'Created', render: row => formatDate(row.created_at) }
     ], state.data.overview.recent_signups);
-    return `<div class="section-stack"><div class="kpi-grid">${cards}</div>${panel('Integration Status', 'Installed code and authenticated reporting connections are shown separately.', integrationCards())}<div class="panel-grid">${panel('Top Performing Tools', 'Real first-party events for the selected period.', top)}${panel('Recent Signups', 'Normal GXA Toolbox accounts only.', signups)}</div><div class="panel-grid">${panel('Traffic Trend', 'Google Analytics authoritative reporting.', empty('Google Analytics not connected.', 'No graph is rendered without authenticated GA4 data.'))}${panel('Revenue Trend', 'Google AdSense authoritative reporting.', empty('AdSense Reporting Not Connected', 'No earnings or graph points are fabricated.'))}</div></div>`;
+    const trafficTrend = table([
+      { label: 'Date', key: 'date' }, { label: 'Active Users', render: row => formatNumber(row.activeUsers) }, { label: 'Views', render: row => formatNumber(row.screenPageViews) }
+    ], ga.trend || []);
+    const revenueTrend = table([
+      { label: 'Date', key: 'DATE' }, { label: 'Earnings', render: row => formatMoney(row.ESTIMATED_EARNINGS, ads.currencyCode || 'USD') }, { label: 'Views', render: row => formatNumber(row.PAGE_VIEWS) }
+    ], ads.trend || []);
+    return `<div class="section-stack"><div class="kpi-grid">${cards}</div>${panel('Integration Status', 'Installed code and authenticated reporting connections are shown separately.', integrationCards())}<div class="panel-grid">${panel('Top Performing Tools', 'Real first-party events for the selected period.', top)}${panel('Recent Signups', 'Normal GXA Toolbox accounts only.', signups)}</div><div class="panel-grid">${panel('Traffic Trend', 'Google Analytics authoritative reporting.', trafficTrend)}${panel('Revenue Trend', 'Google AdSense authoritative reporting.', revenueTrend)}</div></div>`;
   }
 
   function analytics() {
     const report = state.data.reports.ga4;
-    const sections = ['Visitors', 'Traffic Sources', 'Countries', 'Devices', 'Top Pages / Tools'];
-    return `<div class="section-stack"><p class="section-intro">GA4 reports will be requested server-side after reporting credentials are configured. GTM installation alone is not treated as a reporting connection.</p><div class="kpi-grid">${['Active Users','New Users','Sessions','Views','Engaged Sessions','Engagement Rate'].map(metric => kpi(metric, unavailable(report.label), 'GA4')).join('')}</div><div class="panel-grid">${sections.map(name => panel(name, 'Google Analytics Data API', empty('Google Analytics not connected.', 'Configuration Required'))).join('')}</div></div>`;
+    const metricCards = [
+      ['Active Users', 'activeUsers', formatNumber], ['New Users', 'newUsers', formatNumber], ['Sessions', 'sessions', formatNumber],
+      ['Views', 'screenPageViews', formatNumber], ['Engaged Sessions', 'engagedSessions', formatNumber], ['Engagement Rate', 'engagementRate', formatPercent]
+    ].map(([label, key, formatter]) => kpi(label, reportMetric(report, key, formatter), 'GA4')).join('');
+    const sources = table([{ label: 'Channel', key: 'sessionDefaultChannelGroup' }, { label: 'Sessions', render: row => formatNumber(row.sessions) }], report.groups?.sources || []);
+    const countries = table([{ label: 'Country', key: 'country' }, { label: 'Active Users', render: row => formatNumber(row.activeUsers) }], report.groups?.countries || []);
+    const devices = table([{ label: 'Device', key: 'deviceCategory' }, { label: 'Active Users', render: row => formatNumber(row.activeUsers) }], report.groups?.devices || []);
+    const pages = table([{ label: 'Page', key: 'pagePath' }, { label: 'Views', render: row => formatNumber(row.screenPageViews) }], report.rows || []);
+    const trend = table([{ label: 'Date', key: 'date' }, { label: 'Active Users', render: row => formatNumber(row.activeUsers) }, { label: 'Views', render: row => formatNumber(row.screenPageViews) }], report.trend || []);
+    const status = report.dataState === 'no_data' ? empty('No GA4 Data Available', 'The authenticated request succeeded, but GA4 returned no data for this date range.') : '';
+    return `<div class="section-stack"><p class="section-intro">GA4 reports are requested server-side. GTM installation alone is not treated as a reporting connection.</p>${status}<div class="kpi-grid">${metricCards}</div><div class="panel-grid">${panel('Visitors', 'Google Analytics Data API', trend)}${panel('Traffic Sources', 'Google Analytics Data API', sources)}${panel('Countries', 'Google Analytics Data API', countries)}${panel('Devices', 'Google Analytics Data API', devices)}${panel('Top Pages / Tools', 'Google Analytics Data API', pages)}</div></div>`;
   }
 
   function tools() {
@@ -132,18 +151,27 @@
       { label: 'Downloads', render: row => formatNumber(row.downloads) }, { label: 'Conversion', render: row => row.conversion_rate === null ? 'Not available' : `${row.conversion_rate}%` }
     ];
     const metric = value => databaseConnected ? formatNumber(value) : unavailable('Database unavailable');
-    return `<div class="section-stack"><div class="kpi-grid">${kpi('Tool Opens', metric(summary.opens), 'GXA Analytics')}${kpi('Tool Starts', metric(summary.starts), 'GXA Analytics')}${kpi('Successful Jobs', metric(summary.complete), 'GXA Analytics')}${kpi('Failed Jobs', metric(summary.fail), 'GXA Analytics')}${kpi('Downloads', metric(summary.downloads), 'GXA Analytics')}</div><p class="definition"><strong>Conversion rate:</strong> ${escapeHtml(state.data.toolAnalytics.formula)}. A page view is never counted as a conversion.</p>${panel('Most Used Tools', 'Privacy-minimized first-party events. No file names, contents, OCR text, or stack traces are collected.', table(headers, rows.map((row, index) => ({ ...row, rank: index + 1 }))))}</div>`;
+    const trend = table([{ label: 'Date', render: row => formatDate(row.date) }, { label: 'Starts', render: row => formatNumber(row.starts) }, { label: 'Successful', render: row => formatNumber(row.completions) }, { label: 'Downloads', render: row => formatNumber(row.downloads) }, { label: 'Failed', render: row => formatNumber(row.failures) }], state.data.overview.trend || []);
+    return `<div class="section-stack"><div class="kpi-grid">${kpi('Tool Opens', metric(summary.opens), 'GXA Analytics')}${kpi('Tool Starts', metric(summary.starts), 'GXA Analytics')}${kpi('Successful Jobs', metric(summary.complete), 'GXA Analytics')}${kpi('Failed Jobs', metric(summary.fail), 'GXA Analytics')}${kpi('Downloads', metric(summary.downloads), 'GXA Analytics')}</div><p class="definition"><strong>Conversion rate:</strong> ${escapeHtml(state.data.toolAnalytics.formula)}. A page view is never counted as a conversion.</p>${panel('Tool Activity Trend', 'First-party events grouped by date for the selected range.', trend)}${panel('Most Used Tools', 'Privacy-minimized first-party events. No file names, contents, OCR text, or stack traces are collected.', table(headers, rows.map((row, index) => ({ ...row, rank: index + 1 }))))}</div>`;
   }
 
   function seo() {
     const search = state.data.reports.searchConsole;
     const health = state.data.internalSeo;
-    return `<div class="section-stack"><p class="section-intro">Google Search Console data and the GXA internal SEO build audit are separate sources.</p><div class="kpi-grid">${['Google Clicks','Search Impressions','Average CTR','Average Position'].map(metric => kpi(metric, unavailable(search.label), 'Search Console')).join('')}</div><div class="panel-grid">${panel('Top Queries', 'Google Search Console API', empty('Google Search Console not connected.', 'No query data is available.'))}${panel('Top Ranking Tools', 'Google Search Console API', empty('Google Search Console not connected.', 'No ranking data is available.'))}</div>${panel('GXA Internal SEO Audit', 'Contract-tested build facts, not Search Console metrics.', `<div class="kpi-grid">${kpi('Registered Tools', formatNumber(health.registeredTools), 'Build Audit')}${kpi('Indexable Tool Pages', formatNumber(health.indexableToolPages), 'Build Audit')}${kpi('Sitemap URLs', formatNumber(health.sitemapUrls), 'Build Audit')}${kpi('Noindex Pages', formatNumber(health.noindexPages), 'Build Audit')}${kpi('Canonical Issues', formatNumber(health.canonicalIssues), 'Build Audit')}${kpi('Broken Internal Links', formatNumber(health.brokenInternalLinks), 'Build Audit')}</div>`)}</div>`;
+    const queries = table([{ label: 'Query', key: 'query' }, { label: 'Clicks', render: row => formatNumber(row.clicks) }, { label: 'Impressions', render: row => formatNumber(row.impressions) }, { label: 'CTR', render: row => formatPercent(row.ctr) }, { label: 'Position', render: row => formatDecimal(row.position) }], search.rows || []);
+    const pages = table([{ label: 'Page', key: 'page' }, { label: 'Clicks', render: row => formatNumber(row.clicks) }, { label: 'Impressions', render: row => formatNumber(row.impressions) }, { label: 'Position', render: row => formatDecimal(row.position) }], search.groups?.pages || []);
+    const trend = table([{ label: 'Date', key: 'date' }, { label: 'Clicks', render: row => formatNumber(row.clicks) }, { label: 'Impressions', render: row => formatNumber(row.impressions) }, { label: 'CTR', render: row => formatPercent(row.ctr) }, { label: 'Position', render: row => formatDecimal(row.position) }], search.trend || []);
+    const status = search.dataState === 'no_data' ? empty('No Finalized Search Data Available', search.note || 'Search Console may not yet have finalized data for this date range.') : '';
+    const indexedCount = empty('Indexed Page Count Unavailable', 'Indexed page count is not available through this reporting connection. Sitemap and generated-page totals are technical build counts only.');
+    return `<div class="section-stack"><p class="section-intro">Google Search Console performance data and the GXA technical SEO build audit are separate sources.</p>${status}<div class="kpi-grid">${kpi('Google Clicks', reportMetric(search, 'clicks'), 'Search Console')}${kpi('Search Impressions', reportMetric(search, 'impressions'), 'Search Console')}${kpi('Average CTR', reportMetric(search, 'ctr', formatPercent), 'Search Console')}${kpi('Average Position', reportMetric(search, 'position', formatDecimal), 'Search Console')}</div>${panel('Search Performance Trend', 'Google Search Console API; recent data can be delayed.', trend)}<div class="panel-grid">${panel('Top Queries', 'Google Search Console API', queries)}${panel('Top Ranking Tools', 'Google Search Console API', pages)}</div>${panel('Google Indexing Status', 'No sitemap count is presented as an indexed-page count.', indexedCount)}${panel('GXA Technical SEO Audit', 'Contract-tested build facts, not Search Console performance or indexing metrics.', `<div class="kpi-grid">${kpi('Registered Tools', formatNumber(health.registeredTools), 'Build Audit')}${kpi('Indexable Tool Pages', formatNumber(health.indexableToolPages), 'Build Audit')}${kpi('Sitemap URLs', formatNumber(health.sitemapUrls), 'Build Audit')}${kpi('Noindex Pages', formatNumber(health.noindexPages), 'Build Audit')}${kpi('Canonical Issues', formatNumber(health.canonicalIssues), 'Build Audit')}${kpi('Broken Internal Links', formatNumber(health.brokenInternalLinks), 'Build Audit')}</div>`)}</div>`;
   }
 
   function adsense() {
     const ads = state.data.reports.adsense;
-    return `<div class="section-stack"><p class="section-intro">The existing AdSense site code and publisher identity are preserved. Reporting access is a separate server-side integration.</p><div class="kpi-grid">${['Estimated Earnings','Page Views','Ad Impressions','Clicks','Page RPM','CPC'].map(metric => kpi(metric, unavailable(ads.label), 'AdSense API')).join('')}</div>${panel('AdSense Reporting Status', 'Publisher: ca-pub-9226826319752464', empty('AdSense Reporting Not Connected', 'Server-side OAuth configuration is required. No earnings are estimated locally.'))}${panel('Revenue Trend', 'Today, 7 days, 30 days, this month, or previous month when connected.', empty('No Data Available', 'No revenue graph is drawn without authoritative AdSense data.'))}</div>`;
+    const money = key => ads.metrics ? formatMoney(ads.metrics[key], ads.currencyCode || 'USD') : unavailable(ads.label);
+    const trend = table([{ label: 'Date', key: 'DATE' }, { label: 'Earnings', render: row => formatMoney(row.ESTIMATED_EARNINGS, ads.currencyCode || 'USD') }, { label: 'Page Views', render: row => formatNumber(row.PAGE_VIEWS) }, { label: 'Clicks', render: row => formatNumber(row.CLICKS) }], ads.trend || []);
+    const status = ads.status === 'connected' ? `<div class="status-message">Authenticated AdSense reporting is connected.</div>` : empty(ads.label, 'Server-side OAuth configuration and account permission are required. No earnings are estimated locally.');
+    return `<div class="section-stack"><p class="section-intro">The existing AdSense site code and publisher identity are preserved. Reporting access is a separate server-side integration.</p><div class="kpi-grid">${kpi('Estimated Earnings', money('ESTIMATED_EARNINGS'), 'AdSense API')}${kpi('Page Views', reportMetric(ads, 'PAGE_VIEWS'), 'AdSense API')}${kpi('Ad Impressions', reportMetric(ads, 'IMPRESSIONS'), 'AdSense API')}${kpi('Clicks', reportMetric(ads, 'CLICKS'), 'AdSense API')}${kpi('Page RPM', money('PAGE_VIEWS_RPM'), 'AdSense API')}${kpi('CPC', money('COST_PER_CLICK'), 'AdSense API')}</div>${panel('AdSense Reporting Status', 'Publisher: ca-pub-9226826319752464', status)}${panel('Revenue Trend', 'Selected dashboard date range.', trend)}</div>`;
   }
 
   function users() {
@@ -151,6 +179,7 @@
     const value = key => summary ? formatNumber(summary[key]) : unavailable('Database unavailable');
     const rows = table([
       { label: 'Name', key: 'name' }, { label: 'Email', key: 'email' },
+      { label: 'Provider', key: 'provider' }, { label: 'Premium', render: row => row.is_premium ? 'Yes' : 'No' },
       { label: 'Account Created', render: row => formatDate(row.created_at) },
       { label: 'Last Login', render: row => formatDate(row.last_login_at) },
       { label: 'Status', render: row => `<span class="status-chip ${row.status === 'active' ? 'connected' : 'error'}">${escapeHtml(row.status || 'Unknown')}</span>` }

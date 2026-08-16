@@ -1,12 +1,14 @@
-import { assertSameOrigin, getDatabaseClient, jsonResponse, methodNotAllowed, readJsonBody, readSession, safeErrorResponse } from './_auth.mjs';
+import { assertSameOrigin, jsonResponse, methodNotAllowed, readJsonBody, safeErrorResponse } from './_auth.mjs';
+import { getDatabaseClient } from './_database.mjs';
+import { requireIdentityUser, syncIdentityProfile } from './_identity-profile.mjs';
 
 export default async function handler(request) {
   if (request.method !== 'POST') return methodNotAllowed(['POST']);
 
   try {
     assertSameOrigin(request);
-    const session = readSession(request);
-    if (!session) return jsonResponse({ success: false, message: 'Sign in to save processing history.' }, 401);
+    const auth = await requireIdentityUser();
+    if (auth.response) return auth.response;
     const body = await readJsonBody(request);
     const toolName = String(body.tool_name || '').trim().slice(0, 100);
     const originalFile = String(body.original_file || '').trim().slice(0, 255);
@@ -22,11 +24,12 @@ export default async function handler(request) {
     }
 
     const { sql } = getDatabaseClient();
+    await syncIdentityProfile(auth.user);
     const inserted = await sql`
       INSERT INTO public.file_jobs
-        (user_id, tool_name, original_file, output_file, status, size_mb, processing_time_ms, metadata)
+        (identity_user_id, tool_name, original_file, output_file, status, size_mb, processing_time_ms, metadata)
       VALUES
-        (${session.id}, ${toolName}, ${originalFile}, ${outputFile}, ${status}, ${size}, ${processingTime}, ${JSON.stringify(metadata)}::JSONB)
+        (${auth.user.id}, ${toolName}, ${originalFile}, ${outputFile}, ${status}, ${size}, ${processingTime}, ${JSON.stringify(metadata)}::JSONB)
       RETURNING id
     `;
     return jsonResponse({ success: true, job_id: Number(inserted[0].id) }, 201);

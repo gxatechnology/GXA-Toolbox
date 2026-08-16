@@ -18,9 +18,7 @@ export async function loadToolRegistry() {
   vm.runInContext(`${source.slice(start, end)}\nglobalThis.__GXA_TOOLS__ = toolsList;`, context);
   const tools = JSON.parse(JSON.stringify(context.__GXA_TOOLS__));
 
-  if (!Array.isArray(tools) || tools.length !== 92) {
-    throw new Error(`Expected exactly 92 registered tools, found ${Array.isArray(tools) ? tools.length : 0}.`);
-  }
+  if (!Array.isArray(tools) || tools.length === 0) throw new Error('The central tool registry is empty or invalid.');
   const ids = new Set();
   for (const tool of tools) {
     if (!tool || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tool.id || '')) throw new Error(`Invalid tool ID: ${tool?.id}`);

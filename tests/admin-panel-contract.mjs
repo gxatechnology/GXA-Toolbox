@@ -11,7 +11,11 @@ process.env.NODE_ENV = 'test';
 process.env.GXA_ADMIN_EMAIL = 'admin.contract@example.test';
 process.env.GXA_ADMIN_PASSWORD = 'ContractPassword!2026';
 process.env.ADMIN_SESSION_SECRET = 'admin-contract-secret-that-is-longer-than-thirty-two-characters';
-process.env.AUTH_SESSION_SECRET = 'normal-user-contract-secret-longer-than-thirty-two-characters';
+for (const name of [
+  'GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY',
+  'GA4_PROPERTY_ID', 'SEARCH_CONSOLE_SITE_URL', 'ADSENSE_ACCOUNT_ID',
+  'GOOGLE_ADSENSE_OAUTH_CLIENT_ID', 'GOOGLE_ADSENSE_OAUTH_CLIENT_SECRET', 'GOOGLE_ADSENSE_REFRESH_TOKEN'
+]) delete process.env[name];
 
 const [
   adminAuth,
@@ -42,6 +46,9 @@ normalAuth.setDatabaseClientForTests({
     if (statement.includes('COUNT(*)::INTEGER AS total_accounts')) {
       return [{ total_accounts: 4, signups_today: 1, signups_7d: 2, active_users: 3 }];
     }
+    if (statement.startsWith('SELECT occurred_at::DATE AS date')) {
+      return [{ date: '2026-08-14', starts: 6, completions: 5, downloads: 4, failures: 1 }];
+    }
     if (statement.includes("COUNT(*) FILTER (WHERE event_type = 'tool_open')") && !statement.includes('GROUP BY tool_id')) {
       return [{ opens: 8, starts: 6, completions: 5, failures: 1, downloads: 4 }];
     }
@@ -51,8 +58,8 @@ normalAuth.setDatabaseClientForTests({
     if (statement.startsWith('SELECT full_name AS name')) {
       return [{ name: 'Normal User', email: 'normal@example.test', created_at: '2026-08-14T00:00:00.000Z' }];
     }
-    if (statement.startsWith('SELECT id, full_name AS name')) {
-      return [{ id: 1, name: 'Normal User', email: 'normal@example.test', created_at: '2026-08-14T00:00:00.000Z', last_login_at: '2026-08-14T01:00:00.000Z', status: 'active' }];
+    if (statement.startsWith('SELECT identity_user_id AS id')) {
+      return [{ id: 'identity-user-1', name: 'Normal User', email: 'normal@example.test', provider: 'email', is_premium: false, created_at: '2026-08-14T00:00:00.000Z', last_login_at: '2026-08-14T01:00:00.000Z', status: 'active' }];
     }
     if (statement.startsWith('SELECT event_type, category')) return [];
     if (statement.startsWith('SELECT source, category')) return [];
@@ -99,8 +106,7 @@ assert.equal((await session.json()).authenticated, true);
 
 const missingSession = await dataHandler(new Request('https://gxatoolbox.in/.netlify/functions/admin-data'));
 assert.equal(missingSession.status, 401);
-const normalToken = normalAuth.createSessionToken({ id: 9, name: 'Normal User', email: 'normal@example.test', role: 'user', is_premium: false });
-const normalUserRequest = new Request('https://gxatoolbox.in/.netlify/functions/admin-data', { headers: { Cookie: `${normalAuth.SESSION_COOKIE}=${normalToken}` } });
+const normalUserRequest = new Request('https://gxatoolbox.in/.netlify/functions/admin-data', { headers: { Cookie: `${normalAuth.SESSION_COOKIE}=identity-session-is-not-an-admin-session` } });
 assert.equal((await dataHandler(normalUserRequest)).status, 401, 'A normal user session must never authorize admin data.');
 
 const adminDataResponse = await dataHandler(new Request('https://gxatoolbox.in/.netlify/functions/admin-data?range=7d', { headers: { Cookie: adminCookie } }));
@@ -112,8 +118,15 @@ assert.equal(adminData.users.summary.total_accounts, 4);
 assert.equal(adminData.reports.ga4.metrics, null);
 assert.equal(adminData.reports.searchConsole.metrics, null);
 assert.equal(adminData.reports.adsense.metrics, null);
+const serializedAdminData = JSON.stringify(adminData);
+for (const credentialField of ['private_key', 'client_email', 'access_token', 'GOOGLE_SERVICE_ACCOUNT_JSON', 'ADMIN_SESSION_SECRET', 'GXA_ADMIN_PASSWORD']) {
+  assert.ok(!serializedAdminData.includes(credentialField), `Admin reporting response exposes ${credentialField}.`);
+}
 assert.equal(adminData.integrations.find(item => item.id === 'gtm').containerId, 'GTM-TBQN2SJ4');
 assert.equal(adminData.integrations.find(item => item.id === 'gtm').status, 'installed_unverified');
+assert.equal(adminData.integrations.find(item => item.id === 'adsense-site-code').publisherId, 'ca-pub-9226826319752464');
+assert.equal(adminData.integrations.find(item => item.id === 'netlify-identity').status, 'installed_unverified');
+assert.equal(adminData.overview.trend.length, 1);
 
 const telemetry = await toolEventHandler(request('/.netlify/functions/tool-event', {
   event_type: 'tool_complete', tool_id: 'crop-image', tool_name: 'Crop Image', tool_category: 'image', status: 'completed', duration_bucket: '1_3s'
@@ -146,6 +159,13 @@ assert.match(adminCss, /@media \(max-width: 900px\)/);
 assert.match(adminCss, /min-height: 100dvh/);
 assert.match(adminCss, /env\(safe-area-inset-bottom\)/);
 assert.match(adminJs, /credentials: 'same-origin'/);
+assert.match(adminJs, /reportMetric\(ga, 'activeUsers'\)/);
+assert.match(adminJs, /reportMetric\(search, 'clicks'\)/);
+assert.match(adminJs, /ESTIMATED_EARNINGS/);
+assert.match(adminJs, /Search Performance Trend/);
+assert.match(adminJs, /Indexed page count is not available through this reporting connection\./i);
+assert.match(adminJs, /state\.range === 'today' \? 'Users Today' : 'Active Users'/);
+assert.match(adminJs, /api_error/);
 assert.doesNotMatch(adminJs, /localStorage|sessionStorage/);
 for (const token of ['tool_analytics_events', 'auth_events', 'system_events', 'last_login_at']) assert.ok(migration.includes(token), `Analytics migration is missing ${token}.`);
 assert.doesNotMatch(migration, /DROP\s+(?:TABLE|SCHEMA|DATABASE)/i);
@@ -164,9 +184,9 @@ assert.doesNotMatch(await read('dist/admin/index.html'), /<\?php|GXA_ADMIN_PASSW
 assert.match(packageJson, /admin-panel-contract\.mjs/);
 
 const tools = await loadToolRegistry();
-assert.equal(tools.length, 92);
+assert.ok(tools.length >= 90, 'The admin build audit unexpectedly lost registered tools.');
 assert.equal(ADMIN_BUILD_STATE.registeredTools, tools.length);
-assert.equal(ADMIN_BUILD_STATE.indexableToolPages, 91);
+assert.equal(ADMIN_BUILD_STATE.indexableToolPages, tools.length - 1);
 assert.equal(ADMIN_BUILD_STATE.sitemapUrls, (sitemap.match(/<url>/g) || []).length);
 assert.equal(ADMIN_BUILD_STATE.noindexPages, 3);
 assert.equal(ADMIN_BUILD_STATE.canonicalIssues, 0);

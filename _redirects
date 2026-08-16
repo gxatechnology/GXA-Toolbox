@@ -3,6 +3,8 @@ https://gxatoolbo.netlify.app/* https://gxatoolbox.in/:splat 301!
 /index.html / 301!
 /all-tools / 301!
 /favicon.ico /favicon-32x32.png 301
+/admin /admin/ 301
+/api/tool-event /.netlify/functions/tool-event 200
 /api/register.php /.netlify/functions/auth-register 200
 /api/login.php /.netlify/functions/auth-login 200
 /api/session.php /.netlify/functions/auth-session 200

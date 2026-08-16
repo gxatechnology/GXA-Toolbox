@@ -3326,6 +3326,14 @@ body {
 .auth-modal-card .modal-close:hover { color: var(--color-primary); border-color: #93C5FD; background: #EFF6FF; }
 .auth-form { min-height: 0; gap: 14px; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 20px 96px; }
 .auth-description { min-height: min-content; margin: 0 0 2px; flex: 0 0 auto; color: var(--color-text-secondary); font-size: 13px; line-height: 1.55; overflow: visible; }
+.auth-provider-button { width: 100%; min-height: 46px; justify-content: center; gap: 10px; color: var(--color-text-primary); border: 1px solid #CBD5E1; background: var(--color-surface); }
+.auth-provider-button:hover { color: var(--color-primary); border-color: #93C5FD; background: #EFF6FF; }
+.auth-google-mark { width: 24px; height: 24px; display: grid; place-items: center; color: #2563EB; border: 1px solid #CBD5E1; border-radius: 50%; background: #fff; font-size: 13px; font-weight: 800; }
+.auth-divider { display: flex; align-items: center; gap: 12px; color: var(--color-text-muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: var(--color-border); }
+.auth-login-options { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.auth-text-button { min-height: 32px; padding: 0; border: 0; color: var(--color-primary); background: transparent; font: inherit; font-size: 12px; font-weight: 750; white-space: nowrap; cursor: pointer; }
+.auth-text-button:hover { text-decoration: underline; }
 .auth-field { display: grid; gap: 6px; }
 .auth-field { scroll-margin-block: 20px 96px; }
 .auth-field .form-label { margin: 0; color: var(--color-text-primary); font-size: 12px; font-weight: 750; }
@@ -3358,10 +3366,47 @@ body {
 .auth-switch { margin: 0; color: var(--color-text-secondary); font-size: 12px; text-align: center; }
 .auth-switch a { color: var(--color-primary); font-weight: 750; text-decoration: none; }
 .auth-switch a:hover { text-decoration: underline; }
+.auth-loading-indicator { width: 112px; height: 40px; display: grid; place-items: center; }
+.auth-loading-indicator span { width: 76px; height: 12px; border-radius: 999px; background: linear-gradient(90deg, var(--color-border), var(--color-surface), var(--color-border)); background-size: 200% 100%; animation: auth-loading-shimmer 1.2s linear infinite; }
+@keyframes auth-loading-shimmer { to { background-position: -200% 0; } }
+.account-menu { position: relative; flex: 0 0 auto; }
+.account-menu-trigger { min-height: 42px; max-width: 220px; padding: 4px 9px 4px 5px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--color-border); border-radius: 12px; color: var(--color-text-primary); background: var(--color-surface); font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
+.account-menu-trigger:hover,
+.account-menu-trigger:focus-visible,
+.account-menu.is-open .account-menu-trigger { border-color: #93C5FD; box-shadow: 0 0 0 3px rgba(37, 99, 235, .1); }
+.account-menu-trigger > svg { width: 15px; flex: 0 0 auto; transition: transform var(--transition-fast); }
+.account-menu.is-open .account-menu-trigger > svg { transform: rotate(180deg); }
+.account-trigger-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-avatar { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #2563EB, #1D4ED8); font-size: 13px; font-weight: 800; }
+.account-menu-popover { position: absolute; top: calc(100% + 9px); right: 0; z-index: var(--z-sticky); width: min(286px, calc(100vw - 24px)); padding: 8px; display: grid; gap: 3px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface-elevated); box-shadow: 0 22px 55px -30px rgba(15, 23, 42, .65); opacity: 0; visibility: hidden; transform: translateY(-5px); transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast); }
+.account-menu.is-open .account-menu-popover { opacity: 1; visibility: visible; transform: translateY(0); }
+.account-menu-profile { padding: 9px 8px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--color-border); }
+.account-menu-profile > span:last-child,
+.mobile-account-profile > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.account-menu-profile strong,
+.mobile-account-profile strong { overflow: hidden; color: var(--color-text-primary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-profile small,
+.mobile-account-profile small { overflow: hidden; color: var(--color-text-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-popover > a,
+.account-menu-popover > button { width: 100%; min-height: 42px; padding: 0 10px; display: flex; align-items: center; gap: 9px; border: 0; border-radius: 9px; color: var(--color-text-primary); background: transparent; font: inherit; font-size: 12px; font-weight: 700; text-align: left; text-decoration: none; cursor: pointer; }
+.account-menu-popover > a:hover,
+.account-menu-popover > button:hover,
+.account-menu-popover > a:focus-visible,
+.account-menu-popover > button:focus-visible { color: var(--color-primary); background: #EFF6FF; }
+.account-menu-popover > a svg,
+.account-menu-popover > button svg { width: 16px; }
+.account-menu-popover .account-menu-signout { color: #B91C1C; }
+.mobile-nav-account { display: none; }
+.mobile-account-profile { padding: 4px 2px 10px; display: flex; align-items: center; gap: 10px; }
 body.dark-mode .auth-modal-card { border-color: var(--color-border); }
 body.dark-mode .auth-modal-accent,
 body.dark-mode .auth-modal-card .modal-close:hover,
-body.dark-mode .auth-password-toggle:hover { color: #93C5FD; border-color: #315A97; background: #172554; }
+body.dark-mode .auth-password-toggle:hover,
+body.dark-mode .auth-provider-button:hover { color: #93C5FD; border-color: #315A97; background: #172554; }
+body.dark-mode .account-menu-popover > a:hover,
+body.dark-mode .account-menu-popover > button:hover,
+body.dark-mode .account-menu-popover > a:focus-visible,
+body.dark-mode .account-menu-popover > button:focus-visible { color: #93C5FD; background: #172554; }
 body.dark-mode .auth-field .form-input-text { border-color: var(--color-border); }
 body.dark-mode .auth-status-error { color: #FCA5A5; border-color: #7F1D1D; background: #450A0A; }
 body.dark-mode .auth-status-success { color: #6EE7B7; border-color: #065F46; background: #022C22; }
@@ -3371,6 +3416,7 @@ body.dark-mode .auth-status-success { color: #6EE7B7; border-color: #065F46; bac
   .auth-modal-card { max-height: calc(100dvh - 24px); padding: 24px 18px 20px; border-radius: 18px 18px 12px 12px; }
   .auth-modal-accent { display: none; }
   .auth-modal-header { padding-right: 42px; }
+  .auth-login-options { align-items: center; }
 }
 
 .hidden {
@@ -4501,6 +4547,12 @@ body.dark-mode .favorite-button:hover, body.dark-mode .favorite-button.active { 
   .header-nav .nav-item.menu-expanded .mega-menu { max-height: 620px; padding: 10px; border: 1px solid var(--color-border); }
   .header-nav .mega-popular { display: none; }
   .mobile-nav-auth { margin-top: 12px; padding-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid var(--color-border); }
+  .mobile-nav-account { margin-top: 12px; padding-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid var(--color-border); }
+  .mobile-nav-account .mobile-account-profile { grid-column: 1 / -1; }
+  .mobile-nav-account .btn { min-height: 44px; justify-content: center; }
+  .mobile-nav-account .btn:last-child { grid-column: 1 / -1; }
+  .nav-actions > .account-menu,
+  .nav-actions > .auth-loading-indicator { display: none; }
   .mobile-nav-backdrop { position: fixed; inset: 66px 0 0; z-index: -1; display: block; border: 0; background: rgba(2,6,23,.46); opacity: 0; visibility: hidden; transition: opacity var(--transition-base), visibility var(--transition-base); }
   .mobile-menu-open .mobile-nav-backdrop { opacity: 1; visibility: visible; }
   .nav-actions > .btn { display: none !important; }

@@ -267,7 +267,7 @@ async function main() {
   for (const file of ['index.html', 'admin.css', 'admin.js']) {
     await cp(join(projectRoot, 'public_html', 'admin', file), join(distRoot, 'admin', file));
   }
-  for (const file of ['ads.txt', 'apple-touch-icon.png', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'gxa-logo.png', 'site.webmanifest']) {
+  for (const file of ['_headers', '_redirects', 'ads.txt', 'apple-touch-icon.png', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'gxa-logo.png', 'site.webmanifest']) {
     await cp(join(projectRoot, file), join(distRoot, file));
   }
 
@@ -373,11 +373,28 @@ async function main() {
   ];
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapUrls.map(url => `  <url><loc>${escapeXml(url)}</loc></url>`).join('\n')}\n</urlset>\n`;
   await writeFile(join(distRoot, 'sitemap.xml'), sitemap, 'utf8');
+  const seoCounts = {
+    registeredTools: tools.length,
+    indexableToolPages: indexable.length,
+    noindexToolPages: blockedIds.size,
+    companyLegalPages: contentPages.length,
+    sitemapUrls: sitemapUrls.length,
+    generatedPublicDirectRoutes: 1 + tools.length + contentPages.length,
+    generatedNoindexPrivateRoutes: 2,
+    generatedDirectRoutes: 1 + tools.length + contentPages.length + 2,
+    generatedHtmlEntrypoints: 1 + tools.length + contentPages.length + 2 + 1,
+    noindexPages: blockedIds.size + 2
+  };
+  await writeFile(
+    join(projectRoot, 'netlify', 'functions', '_seo-build-counts.mjs'),
+    `// Generated from the central registries by scripts/generate-seo-site.mjs.\nexport const SEO_BUILD_COUNTS = Object.freeze(${JSON.stringify(seoCounts, null, 2)});\n`,
+    'utf8'
+  );
   await cp(join(projectRoot, 'robots.txt'), join(distRoot, 'robots.txt'));
   await writeFile(join(distRoot, '404.html'), notFoundHtml(), 'utf8');
   await writeFile(join(projectRoot, 'docs', 'SEO_ROUTE_AUDIT.md'), routeAuditMarkdown(tools, blockedIds, contentPages), 'utf8');
 
-  console.log(`Generated ${tools.length} tool routes, ${contentPages.length} company/legal routes, ${sitemapUrls.length} sitemap URLs, protected admin shell, ads.txt, robots.txt, and a real 404 in dist/.`);
+  console.log(`Generated ${tools.length} tool routes, ${contentPages.length} company/legal routes, ${sitemapUrls.length} sitemap URLs, protected admin shell, Netlify control files, ads.txt, robots.txt, and a real 404 in dist/.`);
 }
 
 await main();

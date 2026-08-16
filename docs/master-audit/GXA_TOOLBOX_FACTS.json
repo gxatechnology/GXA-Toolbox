@@ -1,0 +1,194 @@
+{
+  "audit": {
+    "date": "2026-08-16",
+    "scope": "documentation-only repository and generated-build audit",
+    "confidenceSystem": ["VERIFIED", "TESTED", "DOCUMENTED", "INFERRED", "UNKNOWN"],
+    "productionSourceModified": false
+  },
+  "product": {
+    "name": "GXA Toolbox",
+    "tagline": "Your Complete Digital Toolbox",
+    "company": "GXA Technologies",
+    "type": "browser-first multi-utility web application",
+    "productionDomain": "https://gxatoolbox.in",
+    "repository": "gxatechnology/GXA-Toolbox",
+    "primaryBranch": "main"
+  },
+  "toolCount": {
+    "registered": 92,
+    "workingClientSide": 91,
+    "fullyWorkingBrowser": 59,
+    "fullyWorkingWasm": 3,
+    "browserLimited": 29,
+    "blocked": 1,
+    "blockedToolIds": ["ppt-to-pdf"],
+    "dedicatedWorkerWorkflows": 5,
+    "serverlessFileProcessing": 0,
+    "aiMlWorkflows": 3
+  },
+  "categories": {
+    "pdf": {
+      "count": 22,
+      "toolIds": ["merge-pdf", "organize-pdf", "split-pdf", "protect-pdf", "unlock-pdf", "pdf-to-jpg", "jpg-to-pdf", "word-to-pdf", "pdf-to-word", "compress-pdf", "rotate-pdf", "watermark-pdf", "pagenumber-pdf", "pdf-metadata", "remove-pdf-pages", "extract-pdf-pages", "extract-images-pdf", "crop-pdf", "header-footer-pdf", "sign-pdf", "repair-pdf", "ocr-pdf"]
+    },
+    "image": {
+      "count": 5,
+      "toolIds": ["compress-image", "resize-image", "crop-image", "image-ocr", "background-remover"]
+    },
+    "utility": {
+      "count": 27,
+      "toolIds": ["password-generator", "barcode-generator", "color-extractor", "text-to-speech", "qr-reader", "barcode-reader", "base64-tool", "url-tool", "json-tool", "hash-tool", "case-converter", "word-counter", "lorem-ipsum", "diff-checker", "sql-formatter", "xml-to-json", "uuid-generator", "user-agent", "regex-tester", "markdown-editor", "css-beautifier", "js-beautifier", "html-beautifier", "cron-generator", "color-converter", "exif-viewer", "timestamp-converter"]
+    },
+    "zip": {
+      "count": 2,
+      "toolIds": ["zip-manager", "zip-extractor"]
+    },
+    "convert": {
+      "count": 21,
+      "toolIds": ["epub-to-pdf", "pdf-to-epub", "gif-maker", "excel-to-pdf", "ppt-to-pdf", "pdf-to-text", "html-to-pdf", "pdf-to-html", "markdown-to-pdf", "pdf-to-markdown", "svg-to-png", "png-to-svg", "webp-to-jpg", "gif-to-png", "image-to-pdf", "png-to-pdf", "txt-to-pdf", "pdf-to-image", "pdf-to-png", "pdf-to-excel", "pdf-to-ppt"]
+    },
+    "calculator": {
+      "count": 15,
+      "toolIds": ["calculator", "scientific-calculator", "percentage-calculator", "age-calculator", "date-calculator", "emi-calculator", "loan-calculator", "interest-calculator", "gst-calculator", "sip-calculator", "bmi-calculator", "discount-calculator", "unit-converter", "currency-converter", "time-calculator"]
+    }
+  },
+  "routes": {
+    "toolRoutes": 92,
+    "companyLegalRoutes": 6,
+    "publicDirectRoutes": 99,
+    "privateDirectRoutes": 2,
+    "generatedDirectRoutes": 101,
+    "generatedHtmlEntrypoints": 102,
+    "sitemapUrls": 98,
+    "indexableToolPages": 91,
+    "noindexToolPages": 1,
+    "noindexPagesTotal": 3,
+    "contentPageIds": ["about", "careers", "security", "privacy-policy", "terms", "gdpr"],
+    "privateRouteIds": ["dashboard", "admin"],
+    "hasReal404": true,
+    "usesBroad200SpaFallback": false
+  },
+  "architecture": {
+    "primaryFrontend": "generated static HTML plus vanilla JavaScript application shell",
+    "specializedFrontend": "React 19 + TypeScript + Vite Background Remover",
+    "routing": "generated directory routes with History API client navigation",
+    "processing": ["native browser APIs", "JavaScript libraries", "Web Workers", "WebAssembly", "ONNX Runtime Web"],
+    "authentication": "Netlify Identity",
+    "backend": "Netlify Functions",
+    "database": "Netlify Database/PostgreSQL",
+    "hosting": "Netlify static dist publish",
+    "state": ["in-memory app state", "localStorage preferences", "Netlify Identity session state"]
+  },
+  "engines": [
+    {"name": "pdf-lib", "version": "1.17.1", "license": "MIT", "class": "browser JavaScript"},
+    {"name": "PDF.js", "version": "3.11.174", "license": "Apache-2.0", "class": "browser Worker"},
+    {"name": "JSZip", "version": "3.10.1", "license": "MIT OR GPL-3.0-or-later", "class": "browser JavaScript"},
+    {"name": "qpdf/qpdf-wasm", "version": "wrapper 0.3.0", "license": "Apache-2.0 / ISC", "class": "Worker + WASM"},
+    {"name": "ONNX Runtime Web", "version": "1.23 declared / 1.27 resolved", "license": "MIT", "class": "WASM/WebGPU"},
+    {"name": "Tesseract.js", "version": "7.0", "license": "Apache-2.0", "class": "Worker + WASM"},
+    {"name": "Mammoth", "version": "1.12.1", "license": "BSD-2-Clause", "class": "browser JavaScript"},
+    {"name": "SheetJS CE", "version": "vendored", "license": "Apache-2.0", "class": "browser JavaScript"},
+    {"name": "PptxGenJS", "version": "vendored", "license": "MIT", "class": "browser JavaScript"},
+    {"name": "gifenc", "version": "1.0.3", "license": "MIT", "class": "Worker JavaScript"},
+    {"name": "custom GIF89a decoder", "version": "project", "license": "project code", "class": "browser JavaScript"},
+    {"name": "Canvas/Web APIs", "version": "browser", "license": "platform", "class": "native browser"},
+    {"name": "Netlify Functions", "version": "platform", "license": "platform", "class": "serverless"},
+    {"name": "PostgreSQL", "version": "Netlify-managed", "license": "platform/database", "class": "database"}
+  ],
+  "features": {
+    "implemented": ["global search", "category filters", "favorites", "recent tools", "user dashboard", "admin dashboard", "sign up", "sign in", "logout", "password recovery", "invitation flow", "persistent identity session", "profile sync", "job/history metadata", "dark mode", "responsive navigation", "desktop mega menus", "mobile drawer", "preview/result panels", "downloads", "copy", "toasts", "loading and progress", "drag and drop", "file validation", "error handling", "route SEO", "robots", "sitemap", "structured data", "Open Graph", "PWA manifest", "real 404"],
+    "partial": ["language localization", "contact support delivery", "share coverage", "undo/redo coverage", "keyboard and accessibility verification", "cancellation coverage", "output validation coverage", "offline behavior", "privacy messaging"],
+    "notImplemented": ["uploaded-file storage", "Service Worker", "full offline PWA", "billing", "premium entitlements", "live currency-rate API", "faithful PPT-to-PDF renderer"]
+  },
+  "privacy": {
+    "primaryFileProcessingLocal": true,
+    "serverlessFileProcessingCount": 0,
+    "uploadedFileBlobStorageFound": false,
+    "networkServices": ["static assets", "runtime/CDN libraries", "OCR core/language data", "Netlify Identity", "metadata Functions/database", "GTM", "AdSense", "Google Fonts"],
+    "safeClaim": "Many file tools process uploaded content locally in the browser; some engines/assets require network loading.",
+    "unsafeClaims": ["100% offline", "zero network", "anonymous/no tracking", "all browsers", "live exchange rates", "cryptographic PDF signing"]
+  },
+  "authentication": {
+    "provider": "Netlify Identity",
+    "modalScreenCount": 5,
+    "screens": ["sign in", "sign up", "recovery request", "choose new password", "complete invitation"],
+    "normalUserCredentialHandling": "provider-managed",
+    "legacyCustomUserAuthHandlers": "preserved but return 410",
+    "adminAuth": "environment credentials plus HMAC-signed secure HttpOnly SameSite=Lax cookie"
+  },
+  "database": {
+    "tableCount": 6,
+    "tables": ["users", "user_profiles", "file_jobs", "tool_analytics_events", "auth_events", "system_events"],
+    "migrationCount": 4,
+    "storesUploadedFileBytes": false
+  },
+  "deployment": {
+    "provider": "Netlify",
+    "buildCommand": "npm run build",
+    "publishDirectory": "dist",
+    "functionsDirectory": "netlify/functions",
+    "functionModules": 19,
+    "functionHandlers": 11,
+    "functionHelpers": 8,
+    "activeEndpoints": 8,
+    "databaseMigrations": "netlify/database/migrations",
+    "didAuditDeploy": false
+  },
+  "dependencies": {
+    "uniqueDirectProduction": 10,
+    "uniqueDirectDevelopment": 17,
+    "uniqueDirectTotal": 27,
+    "vendoredLibraryFamilies": 7,
+    "vendoredBundleGroups": 8,
+    "licenseReviewItems": ["JSZip dual-license selection", "U2NetP model provenance/license", "Tesseract core/language data", "Google Fonts", "transitive lockfile notices"]
+  },
+  "testing": {
+    "testSourceFiles": 25,
+    "normalExecutedSuiteFiles": 23,
+    "nodeContractFiles": 17,
+    "backgroundRemoverVitestFiles": 6,
+    "nodeAssertCallSites": 703,
+    "namedVitestCases": 10,
+    "fixtureFiles": 67,
+    "latestLint": "PASS",
+    "latestTest": "PASS",
+    "latestBuild": "PASS",
+    "latestBuildExitCode": 0,
+    "postgresIntegration": "PASS when explicitly enabled",
+    "realBrowserE2eComplete": false
+  },
+  "inventory": {
+    "baselineFiles": 330,
+    "baselineDirectories": 51,
+    "sourceFiles": 142,
+    "documentationFiles": 38,
+    "testFixtureFiles": 92,
+    "vendoredFiles": 30,
+    "generatedFiles": 7,
+    "staticAssetFiles": 21,
+    "fixtureFiles": 67,
+    "wasmFiles": 12,
+    "workerNamedFiles": 5,
+    "images": 53,
+    "localFonts": 0,
+    "authoredApplicationLocApprox": 33928,
+    "testLocApprox": 2673,
+    "documentationLocBeforeAudit": 1866
+  },
+  "analyticsAdvertising": {
+    "gtmContainer": "GTM-TBQN2SJ4",
+    "directGa4LoaderInstalled": false,
+    "adsensePublisher": "ca-pub-9226826319752464",
+    "adsTxtSellerId": "pub-9226826319752464",
+    "adsTxtEntry": "google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0"
+  },
+  "limitations": [
+    "PPT to PDF has no faithful renderer and is noindex.",
+    "Contact Support posts to an unmapped PHP endpoint under the Netlify routing configuration.",
+    "Public privacy/security copy describes a retired normal-user session cookie instead of Netlify Identity.",
+    "Twenty-nine tools have browser, fidelity, capability or resource limitations.",
+    "Real-browser end-to-end coverage does not yet execute every tool workflow and touch interaction.",
+    "The CSP is incomplete and runtime CDN/version pinning can be improved.",
+    "There is no Service Worker or verified full offline mode."
+  ]
+}

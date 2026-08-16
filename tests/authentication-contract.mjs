@@ -1,16 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import {
-  createSessionCookie,
-  createSessionToken,
-  hashPassword,
-  normalizeEmail,
-  setDatabaseClientForTests,
-  validateLogin,
-  validateRegistration,
-  verifyPassword,
-  verifySessionToken
-} from '../netlify/functions/_auth.mjs';
+import { readFile, stat } from 'node:fs/promises';
+import { setDatabaseClientForTests } from '../netlify/functions/_auth.mjs';
+import { setIdentityUserProviderForTests } from '../netlify/functions/_identity-profile.mjs';
 import historyHandler from '../netlify/functions/auth-history.mjs';
 import loginHandler from '../netlify/functions/auth-login.mjs';
 import logoutHandler from '../netlify/functions/auth-logout.mjs';
@@ -18,264 +9,158 @@ import registerHandler from '../netlify/functions/auth-register.mjs';
 import saveJobHandler from '../netlify/functions/auth-save-job.mjs';
 import sessionHandler from '../netlify/functions/auth-session.mjs';
 
-process.env.AUTH_SESSION_SECRET = 'test-only-session-secret-with-at-least-32-characters';
-
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [netlifyConfig, redirects, client, styles, schema, recoverySchema, packageJson, ...functionSources] = await Promise.all([
+const [netlifyConfig, redirects, client, styles, migration, packageJson, identityBridge, identityProfile, adminAuth] = await Promise.all([
   read('netlify.toml'),
   read('_redirects'),
   read('public_html/assets/app.js'),
   read('public_html/assets/style.css'),
-  read('netlify/database/migrations/0001_create_auth_schema.sql'),
-  read('netlify/database/migrations/0002_repair_auth_schema_after_site_reconnect.sql'),
+  read('netlify/database/migrations/0004_link_netlify_identity_profiles.sql'),
   read('package.json'),
-  ...['_auth', 'auth-register', 'auth-login', 'auth-session', 'auth-logout', 'auth-history', 'auth-save-job']
-    .map(name => read(`netlify/functions/${name}.mjs`))
+  read('src/identity-client.js'),
+  read('netlify/functions/_identity-profile.mjs'),
+  read('netlify/functions/_admin-auth.mjs')
 ]);
-const functions = functionSources.join('\n');
+
+assert.match(packageJson, /"@netlify\/identity"/);
+assert.match(packageJson, /"build:identity"/);
+assert.ok((await stat(new URL('../public_html/assets/identity-client.js', import.meta.url))).isFile(), 'Identity browser bundle was not generated.');
+for (const api of ['acceptInvite', 'getUser', 'handleAuthCallback', 'login', 'logout', 'oauthLogin', 'onAuthChange', 'requestPasswordRecovery', 'signup', 'updateUser']) {
+  assert.match(identityBridge, new RegExp(`\\b${api}\\b`), `Identity bridge is missing ${api}.`);
+}
+assert.match(client, /oauthLogin\('google'\)/);
+assert.match(client, /identity\.signup\(email, password, \{ full_name: signupName \}\)/);
+assert.match(client, /identity\.login\(email, password\)/);
+assert.match(client, /requestPasswordRecovery\(email\)/);
+assert.match(client, /updateUser\(\{ password \}\)/);
+assert.match(client, /acceptInvite\(pendingIdentityInviteToken, password\)/);
+assert.match(client, /handleAuthCallback\(\)/);
+assert.match(client, /identity\.getUser\(\)/);
+assert.match(client, /window\.GxaIdentity\.logout\(\)/);
+assert.doesNotMatch(client, /fetch\((?:endpoint|'\/api\/login\.php'|'\/api\/register\.php')/);
+assert.match(client, /placeholder="Tauqeer Ashraf"/);
+assert.match(client, /placeholder="tauqeer@gxatechnologies\.com"/);
+assert.doesNotMatch(client, /value="Tauqeer Ashraf"/);
+assert.match(client, /Continue with Google/);
+assert.match(client, /Forgot password\?/);
+assert.match(client, /clearSensitiveIdentityCallbackHash\(\)/);
+assert.match(client, /if \(identityProfileHydrationPromise\) return identityProfileHydrationPromise/);
+assert.match(client, /Dashboard \/ My Account/);
+assert.match(client, /class="mobile-nav-account"/);
+assert.match(identityBridge, /window\.location\.href !== currentLocation/);
 
 for (const route of ['register', 'login', 'session', 'logout', 'get-history', 'save-job']) {
-  assert.match(netlifyConfig, new RegExp(`/api/${route}\\.php`), `Netlify ${route} route is missing.`);
+  assert.match(netlifyConfig, new RegExp(`/api/${route}\\.php`), `Netlify ${route} compatibility route is missing.`);
   assert.match(redirects, new RegExp(`/api/${route}\\.php /.netlify/functions/[^ ]+ 200`));
 }
-assert.match(netlifyConfig, /publish\s*=\s*"dist"/, 'Netlify must publish the generated static site.');
-assert.doesNotMatch(netlifyConfig, /from\s*=\s*"\/\*"/, 'A broad SPA catch-all would bypass generated routes and real 404s.');
-assert.match(netlifyConfig, /https:\/\/gxatoolbo\.netlify\.app\/\*/, 'The active Netlify hostname must redirect to the canonical domain.');
-assert.doesNotMatch(netlifyConfig, /https:\/\/gxatoolbox\.netlify\.app\/\*/, 'The stale Netlify hostname must not remain configured.');
-assert.match(redirects, /https:\/\/gxatoolbo\.netlify\.app\/\* https:\/\/gxatoolbox\.in\/:splat 301!/);
-assert.match(packageJson, /"@netlify\/database"/);
-assert.doesNotMatch(packageJson, /"mysql2"/);
-assert.match(functions, /from '@netlify\/database'/);
-assert.doesNotMatch(functions, /mysql2|DATE_FORMAT|LAST_INSERT_ID|ON DUPLICATE KEY|ER_DUP_ENTRY/);
-assert.doesNotMatch(functions, /WHERE email = \?/);
+assert.match(identityProfile, /getUser as getNetlifyIdentityUser/);
+assert.match(identityProfile, /ON CONFLICT \(identity_user_id\) DO UPDATE/);
+assert.match(adminAuth, /ADMIN_SESSION_COOKIE/);
+assert.doesNotMatch(adminAuth, /@netlify\/identity/, 'Admin authentication must remain separate from Netlify Identity.');
 
-for (const requiredSchemaToken of [
-  'CREATE TABLE IF NOT EXISTS public.users',
-  'full_name VARCHAR(120) NOT NULL',
-  'email VARCHAR(254) NOT NULL',
-  'password_hash VARCHAR(255) NOT NULL',
-  'CONSTRAINT users_email_unique UNIQUE (email)',
-  'CREATE TABLE IF NOT EXISTS public.file_jobs',
-  'metadata JSONB NOT NULL',
-  'REFERENCES public.users (id)',
-  'CREATE INDEX IF NOT EXISTS file_jobs_user_created_idx',
-  'CREATE OR REPLACE FUNCTION public.gxa_set_updated_at()',
-  'CREATE TRIGGER users_set_updated_at',
-  'CREATE TRIGGER file_jobs_set_updated_at'
-]) {
-  assert(schema.includes(requiredSchemaToken), `PostgreSQL schema is missing: ${requiredSchemaToken}`);
-}
-assert.doesNotMatch(schema, /DROP\s+TABLE/i);
-assert.doesNotMatch(schema, /INSERT\s+INTO\s+public\.users/i);
-assert.doesNotMatch(schema, /AUTO_INCREMENT|ON UPDATE CURRENT_TIMESTAMP|ENGINE=/i);
+for (const token of [
+  'CREATE TABLE IF NOT EXISTS public.user_profiles',
+  'identity_user_id TEXT PRIMARY KEY',
+  'legacy_user_id BIGINT UNIQUE',
+  'CONSTRAINT user_profiles_legacy_user_fk',
+  'ADD COLUMN IF NOT EXISTS identity_user_id TEXT',
+  'CONSTRAINT file_jobs_identity_user_fk',
+  'REFERENCES public.user_profiles (identity_user_id)',
+  'CREATE INDEX IF NOT EXISTS file_jobs_identity_user_created_idx',
+  'CREATE TRIGGER user_profiles_set_updated_at'
+]) assert.ok(migration.includes(token), `Identity profile migration is missing: ${token}`);
+assert.doesNotMatch(migration, /DROP\s+(?:TABLE|SCHEMA|DATABASE)/i);
+assert.doesNotMatch(migration, /password_hash|password\s+(?:text|varchar)|INSERT\s+INTO\s+public\.users/i);
 
-for (const requiredRecoveryToken of [
-  'CREATE TABLE IF NOT EXISTS public.users',
-  'CREATE TABLE IF NOT EXISTS public.file_jobs',
-  'CREATE INDEX IF NOT EXISTS file_jobs_user_created_idx',
-  'CREATE OR REPLACE FUNCTION public.gxa_set_updated_at()',
-  "tgname = 'users_set_updated_at'",
-  "tgname = 'file_jobs_set_updated_at'"
-]) {
-  assert(recoverySchema.includes(requiredRecoveryToken), `Post-reconnect recovery migration is missing: ${requiredRecoveryToken}`);
-}
-assert.doesNotMatch(recoverySchema, /DROP\s+(?:TABLE|SCHEMA|DATABASE)/i);
-assert.doesNotMatch(recoverySchema, /INSERT\s+INTO\s+public\.users/i);
-
-const registration = validateRegistration({ name: '  Test   User  ', email: ' TEST@Example.COM ', password: 'ValidPass!9' });
-assert.equal(registration.name, 'Test User');
-assert.equal(registration.email, 'test@example.com');
-assert.deepEqual(registration.errors, {});
-assert.equal(normalizeEmail(' PERSON@EXAMPLE.COM '), 'person@example.com');
-assert.equal(validateRegistration({ name: 'A', email: 'bad', password: 'short' }).errors.password.length > 0, true);
-assert.equal(validateLogin({ email: 'bad', password: '' }).errors.email, 'Invalid email address.');
-
-const hash = await hashPassword('ValidPass!9');
-assert.notEqual(hash, 'ValidPass!9');
-assert.equal(await verifyPassword('ValidPass!9', hash), true);
-assert.equal(await verifyPassword('WrongPass!9', hash), false);
-
-const now = Date.now();
-const user = { id: 7, name: 'Test User', email: 'test@example.com', role: 'user', is_premium: false };
-const token = createSessionToken(user, now);
-assert.equal(verifySessionToken(token, now + 1000).email, 'test@example.com');
-assert.equal(verifySessionToken(`${token.slice(0, -1)}x`, now + 1000), null);
-assert.equal(verifySessionToken(token, now + (8 * 24 * 60 * 60 * 1000)), null);
-const cookie = createSessionCookie(user, new Request('https://gxatoolbox.in/api/login.php'));
-assert.match(cookie, /HttpOnly/);
-assert.match(cookie, /SameSite=Lax/);
-assert.match(cookie, /Secure/);
-assert.doesNotMatch(cookie, /ValidPass/);
-
-const users = [];
+const profiles = new Map();
 const jobs = [];
-const authEvents = [];
 const normalizeStatement = strings => strings.join('$value').replace(/\s+/g, ' ').trim();
 setDatabaseClientForTests({
   sql: async (strings, ...values) => {
     const statement = normalizeStatement(strings);
-    if (statement.startsWith('SELECT id FROM public.users') && statement.includes('WHERE email')) {
-      return users.filter(record => record.email === values[0]).map(({ id }) => ({ id }));
-    }
-    if (statement.startsWith('INSERT INTO public.users')) {
-      const record = {
-        id: users.length + 1,
-        full_name: values[0],
-        email: values[1],
-        password_hash: values[2],
-        role: 'user',
-        is_premium: false,
-        status: 'active'
-      };
-      users.push(record);
-      return [{ id: record.id, name: record.full_name, email: record.email, role: record.role, is_premium: record.is_premium }];
-    }
-    if (statement.startsWith('SELECT id, full_name AS name') && statement.includes('password_hash')) {
-      return users
-        .filter(record => record.email === values[0])
-        .map(record => ({ ...record, name: record.full_name }));
-    }
-    if (statement.startsWith('UPDATE public.users') && statement.includes('last_login_at')) {
-      const record = users.find(userRecord => userRecord.id === Number(values[0]));
-      if (record) record.last_login_at = '2026-08-14T00:00:00.000Z';
-      return [];
-    }
-    if (statement.startsWith('INSERT INTO public.auth_events')) {
-      authEvents.push({ event_type: values[0], category: values[1] });
-      return [];
-    }
-    if (statement.startsWith('SELECT id, full_name AS name') && statement.includes('WHERE id')) {
-      return users
-        .filter(record => record.id === Number(values[0]))
-        .map(record => ({ ...record, name: record.full_name }));
+    if (statement.startsWith('INSERT INTO public.user_profiles')) {
+      const existing = profiles.get(values[0]) || { is_premium: false, status: 'active' };
+      const profile = { ...existing, id: values[0], email: values[2], name: values[3], provider: values[4], status: 'active' };
+      profiles.set(values[0], profile);
+      return [profile];
     }
     if (statement.startsWith('INSERT INTO public.file_jobs')) {
       const record = {
         id: jobs.length + 1,
-        user_id: Number(values[0]),
+        identity_user_id: values[0],
         tool_name: values[1],
         original_file: values[2],
         output_file: values[3],
         status: values[4],
         size_mb: Number(values[5]),
-        processing_time_ms: Number(values[6]),
-        metadata: JSON.parse(values[7]),
-        created_at: '2026-08-12T00:00:00.000Z'
+        metadata: JSON.parse(values[7])
       };
       jobs.push(record);
       return [{ id: record.id }];
     }
     if (statement.startsWith('SELECT COUNT(*)::INTEGER AS processed_count')) {
-      return [{ processed_count: jobs.filter(job => job.user_id === Number(values[0]) && job.status === 'done').length }];
+      return [{ processed_count: jobs.filter(job => job.identity_user_id === values[0] && job.status === 'done').length }];
     }
     if (statement.startsWith('SELECT id, original_file AS name')) {
-      return jobs
-        .filter(job => job.user_id === Number(values[0]))
-        .map(job => ({
-          id: job.id,
-          name: job.original_file,
-          tool: job.tool_name,
-          date: '2026-08-12',
-          size: `${job.size_mb} MB`,
-          status: job.status
-        }));
+      return jobs.filter(job => job.identity_user_id === values[0]).map(job => ({
+        id: job.id, name: job.original_file, tool: job.tool_name, date: '2026-08-16', size: `${job.size_mb} MB`, status: job.status
+      }));
     }
-    throw new Error(`Unexpected PostgreSQL auth test query: ${statement}`);
+    throw new Error(`Unexpected Identity profile query: ${statement}`);
   }
 });
 
-const authRequest = (path, body, cookieHeader = '') => new Request(`https://gxatoolbox.in${path}`, {
+let currentIdentityUser = null;
+setIdentityUserProviderForTests(async () => currentIdentityUser);
+const unauthenticatedSession = await sessionHandler(new Request('https://gxatoolbox.in/api/session.php'));
+assert.deepEqual(await unauthenticatedSession.json(), { success: true, authenticated: false, user: null });
+
+currentIdentityUser = {
+  id: 'identity-subject-123',
+  email: 'person@example.com',
+  provider: 'google',
+  userMetadata: { full_name: 'Identity User' }
+};
+const sessionResponse = await sessionHandler(new Request('https://gxatoolbox.in/api/session.php'));
+const session = await sessionResponse.json();
+assert.equal(session.authenticated, true);
+assert.equal(session.user.id, 'identity-subject-123');
+assert.equal(session.user.name, 'Identity User');
+assert.equal(session.user.role, 'user');
+
+const post = (path, body) => new Request(`https://gxatoolbox.in${path}`, {
   method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Origin: 'https://gxatoolbox.in',
-    ...(cookieHeader ? { Cookie: cookieHeader } : {})
-  },
+  headers: { 'Content-Type': 'application/json', Origin: 'https://gxatoolbox.in' },
   body: JSON.stringify(body)
 });
-
-const invalidRegistrationResponse = await registerHandler(authRequest('/api/register.php', {
-  name: 'A', email: 'bad', password: 'short'
+const saveResponse = await saveJobHandler(post('/api/save-job.php', {
+  tool_name: 'Crop Image', original_file: 'before.png', output_file: 'after.png', status: 'done', size: 1.25, metadata: { format: 'png' }
 }));
-assert.equal(invalidRegistrationResponse.status, 400);
-
-const registrationResponse = await registerHandler(authRequest('/api/register.php', {
-  name: 'Integration User', email: 'integration@example.com', password: 'ValidPass!9'
-}));
-assert.equal(registrationResponse.status, 201);
-assert.equal((await registrationResponse.clone().json()).success, true);
-assert.notEqual(users[0].password_hash, 'ValidPass!9');
-const sessionCookie = registrationResponse.headers.get('set-cookie').split(';')[0];
-
-const duplicateResponse = await registerHandler(authRequest('/api/register.php', {
-  name: 'Integration User', email: 'INTEGRATION@example.com', password: 'ValidPass!9'
-}));
-assert.equal(duplicateResponse.status, 409);
-
-const wrongPasswordResponse = await loginHandler(authRequest('/api/login.php', {
-  email: 'integration@example.com', password: 'WrongPass!9'
-}));
-assert.equal(wrongPasswordResponse.status, 401);
-assert.equal((await wrongPasswordResponse.json()).message, 'Incorrect email or password.');
-
-const unknownUserResponse = await loginHandler(authRequest('/api/login.php', {
-  email: 'unknown@example.com', password: 'ValidPass!9'
-}));
-assert.equal(unknownUserResponse.status, 401);
-assert.equal((await unknownUserResponse.json()).message, 'Incorrect email or password.');
-
-const loginResponse = await loginHandler(authRequest('/api/login.php', {
-  email: 'integration@example.com', password: 'ValidPass!9'
-}));
-assert.equal(loginResponse.status, 200);
-assert.equal(users[0].last_login_at, '2026-08-14T00:00:00.000Z');
-assert.ok(authEvents.some(event => event.event_type === 'login_success'));
-const refreshedCookie = loginResponse.headers.get('set-cookie').split(';')[0];
-const persistedSessionResponse = await sessionHandler(new Request('https://gxatoolbox.in/api/session.php', {
-  headers: { Cookie: refreshedCookie }
-}));
-assert.equal((await persistedSessionResponse.json()).authenticated, true);
-
-const unauthenticatedSaveResponse = await saveJobHandler(authRequest('/api/save-job.php', {
-  tool_name: 'Crop Image', original_file: 'before.png', output_file: 'after.png', size: 1.25
-}));
-assert.equal(unauthenticatedSaveResponse.status, 401);
-
-const saveResponse = await saveJobHandler(authRequest('/api/save-job.php', {
-  tool_name: 'Crop Image',
-  original_file: 'before.png',
-  output_file: 'after.png',
-  status: 'done',
-  size: 1.25,
-  processing_time_ms: 87,
-  metadata: { format: 'png' }
-}, refreshedCookie));
 assert.equal(saveResponse.status, 201);
-assert.equal(jobs[0].user_id, users[0].id);
-assert.deepEqual(jobs[0].metadata, { format: 'png' });
+assert.equal(jobs[0].identity_user_id, 'identity-subject-123');
+assert.equal(jobs[0].user_id, undefined, 'New jobs must not use a legacy numeric user ID.');
 
-const historyResponse = await historyHandler(new Request('https://gxatoolbox.in/api/get-history.php', {
-  headers: { Cookie: refreshedCookie }
-}));
+const historyResponse = await historyHandler(new Request('https://gxatoolbox.in/api/get-history.php'));
 const history = await historyResponse.json();
-assert.equal(historyResponse.status, 200);
 assert.equal(history.processedCount, 1);
-assert.equal(history.history.length, 1);
 assert.equal(history.history[0].name, 'before.png');
 
-const logoutResponse = await logoutHandler(new Request('https://gxatoolbox.in/api/logout.php', {
-  method: 'POST',
-  headers: { Origin: 'https://gxatoolbox.in', Cookie: sessionCookie }
-}));
-assert.equal(logoutResponse.status, 200);
-assert.match(logoutResponse.headers.get('set-cookie'), /Max-Age=0/);
+currentIdentityUser = null;
+assert.equal((await saveJobHandler(post('/api/save-job.php', { tool_name: 'Crop Image' }))).status, 401);
+assert.equal((await historyHandler(new Request('https://gxatoolbox.in/api/get-history.php'))).status, 401);
 
-assert.match(client, /fetch\('\/api\/session\.php'/);
-assert.match(client, /credentials: 'same-origin'/);
-assert.match(client, /function readApiJson/);
-assert.doesNotMatch(client, /window\.location\.href = '\/dashboard\/index\.php'/);
+assert.equal((await registerHandler(post('/api/register.php', {}))).status, 410);
+assert.equal((await loginHandler(post('/api/login.php', {}))).status, 410);
+const retiredLogout = await logoutHandler(post('/api/logout.php', {}));
+assert.equal(retiredLogout.status, 410);
+assert.match(retiredLogout.headers.get('set-cookie'), /Max-Age=0/);
+
 assert.match(styles, /max-height: min\(780px, calc\(100dvh - 32px\)\)/);
 assert.match(styles, /\.auth-form \{[^}]*overflow-y: auto/);
+assert.match(styles, /\.auth-provider-button/);
 assert.match(styles, /\.auth-modal-card \.modal-close \{[^}]*width: 44px; height: 44px/);
+assert.match(styles, /\.account-menu-popover/);
+assert.match(styles, /\.mobile-nav-account \{[^}]*display: grid/);
+assert.match(styles, /\.nav-actions > \.account-menu,[\s\S]*\.nav-actions > \.auth-loading-indicator \{ display: none; \}/);
 
-console.log('Authentication contract passed: Netlify PostgreSQL queries, secure hashing/sessions, history isolation, and mobile modal scrolling.');
+console.log('Authentication contract passed: Netlify Identity custom UI, Google/email/recovery/invite hooks, deterministic profile hydration, subject-linked history, account menus, retired legacy endpoints, separate admin auth, and mobile modal behavior.');

@@ -1,4 +1,5 @@
-import { assertSameOrigin, getDatabaseClient, jsonResponse, methodNotAllowed, readJsonBody } from './_auth.mjs';
+import { assertSameOrigin, jsonResponse, methodNotAllowed, readJsonBody } from './_auth.mjs';
+import { databaseErrorCategory, getDatabaseClient, recordSystemEvent } from './_database.mjs';
 
 const EVENT_TYPES = new Set(['tool_open', 'tool_start', 'tool_complete', 'tool_fail', 'tool_download']);
 const CATEGORIES = new Set(['pdf', 'image', 'utility', 'zip', 'convert', 'calculator']);
@@ -39,6 +40,7 @@ export default async function handler(request) {
     return jsonResponse({ success: true }, 202);
   } catch (error) {
     console.error('Tool analytics event rejected:', error?.code || error?.name || 'unknown');
+    await recordSystemEvent('tool_event', databaseErrorCategory(error));
     return jsonResponse({ success: false, message: 'Analytics event was not recorded.' }, 503);
   }
 }

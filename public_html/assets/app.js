@@ -22,7 +22,7 @@ const appState = {
   currentPage: 'home', // 'home', 'dashboard', or 'tool-[id]'
   theme: 'light',      // 'light' or 'dark'
   lang: 'en',          // 'en', 'de', 'es', 'fr', 'ar'
-  user: null,          // Will be initialized dynamically via PHP session
+  user: null,          // Hydrated from Netlify Identity and the GXA profile service
   activeFiles: [],     // Holds currently uploaded files in queue
   activeToolOptions: {}, // Config options for active tool
   favorites: [],
@@ -37,6 +37,10 @@ const NOT_FOUND_PAGE = 'not-found';
 const contentPages = Array.isArray(window.GXA_CONTENT_PAGES) ? window.GXA_CONTENT_PAGES : [];
 let routeEventsBound = false;
 let lastAnalyticsToolOpen = '';
+let identityAuthEventsBound = false;
+let identityAuthStatus = 'loading';
+let identityProfileHydrationPromise = null;
+let pendingIdentityInviteToken = '';
 
 // Crop Image owns a dedicated, route-scoped editor. Cropper.js is loaded only
 // after this route is opened so the rest of GXA Toolbox keeps its current payload.
@@ -125,6 +129,7 @@ function setAuthenticatedUser(user) {
     appState.user = null;
     return;
   }
+  identityAuthStatus = 'authenticated';
   appState.user = {
     id: user.id,
     name: user.name,
@@ -138,12 +143,74 @@ function setAuthenticatedUser(user) {
 }
 
 async function initUserSession() {
-  if (window.PHP_SESSION && window.PHP_SESSION.loggedIn) {
-    setAuthenticatedUser(window.PHP_SESSION.user);
-    fetchHistoryFromDB();
-    return;
-  }
+  try {
+    const identity = window.GxaIdentity;
+    if (!identity) {
+      identityAuthStatus = 'error';
+      renderNavbar();
+      return;
+    }
+    if (!identityAuthEventsBound) {
+      identity.onAuthChange((event, user) => {
+        if (event === 'logout' || !user) {
+          clearNormalUserSession();
+          return;
+        }
+        if (event === 'recovery') {
+          identityAuthStatus = 'recovery';
+          return;
+        }
+        if (event === 'login' || event === 'user-updated') {
+          void hydrateApplicationProfile().catch(error => {
+            console.error('Identity profile synchronization failed:', error?.name || 'IdentityError');
+          });
+        }
+      });
+      identityAuthEventsBound = true;
+    }
 
+    const callback = await identity.handleAuthCallback();
+    if (callback?.type === 'recovery') {
+      identityAuthStatus = 'recovery';
+      showPasswordResetModal();
+      return;
+    }
+    if (callback?.type === 'invite') {
+      identityAuthStatus = 'invite';
+      pendingIdentityInviteToken = String(callback.token || '');
+      showIdentityInviteModal();
+      return;
+    }
+    const identityUser = await identity.getUser();
+    if (!identityUser) {
+      clearNormalUserSession({ render: false });
+      return;
+    }
+    await hydrateApplicationProfile();
+    if (callback?.type === 'oauth' || callback?.type === 'confirmation') {
+      showToast('Your GXA Toolbox account is ready.', 'success');
+    }
+  } catch (error) {
+    clearSensitiveIdentityCallbackHash();
+    console.error('Identity session initialization failed:', error?.name || 'IdentityError');
+    appState.user = null;
+    identityAuthStatus = 'error';
+    renderNavbar();
+    showToast('We could not complete the account link. Please request a new link or sign in again.', 'error');
+  }
+}
+
+async function hydrateApplicationProfile() {
+  if (identityProfileHydrationPromise) return identityProfileHydrationPromise;
+  identityProfileHydrationPromise = loadApplicationProfile();
+  try {
+    return await identityProfileHydrationPromise;
+  } finally {
+    identityProfileHydrationPromise = null;
+  }
+}
+
+async function loadApplicationProfile() {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 5000);
   try {
@@ -154,7 +221,10 @@ async function initUserSession() {
       signal: controller.signal
     });
     const data = await readApiJson(response);
-    if (!data.authenticated || !data.user) return;
+    if (!data.authenticated || !data.user) {
+      clearNormalUserSession();
+      return null;
+    }
     setAuthenticatedUser(data.user);
     window.PHP_SESSION = {
       loggedIn: true,
@@ -162,11 +232,32 @@ async function initUserSession() {
       premium_tools: window.PHP_SESSION?.premium_tools || []
     };
     fetchHistoryFromDB();
-  } catch (error) {
-    // Public tools stay available if optional account/session infrastructure is offline.
-    appState.user = null;
+    renderNavbar();
+    return data.user;
   } finally {
     window.clearTimeout(timeoutId);
+  }
+}
+
+function clearNormalUserSession({ render = true } = {}) {
+  appState.user = null;
+  identityAuthStatus = 'anonymous';
+  if (window.PHP_SESSION) {
+    window.PHP_SESSION.loggedIn = false;
+    window.PHP_SESSION.user = null;
+  }
+  if (render) {
+    renderNavbar();
+    if (appState.currentPage === 'dashboard') navigate('home');
+  }
+}
+
+function clearSensitiveIdentityCallbackHash() {
+  if (!window.location.hash) return;
+  const parameters = new URLSearchParams(window.location.hash.slice(1));
+  const sensitiveKeys = ['access_token', 'refresh_token', 'confirmation_token', 'recovery_token', 'invite_token', 'email_change_token'];
+  if (sensitiveKeys.some(key => parameters.has(key))) {
+    history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}`);
   }
 }
 
@@ -794,11 +885,17 @@ function setupGlobalExperience() {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       openCommandPalette();
+    } else if (event.key === 'Tab' && document.body.classList.contains('modal-open')) {
+      trapModalFocus(event);
     } else if (event.key === 'Escape') {
       closeCommandPalette();
       closeMobileNavigation();
+      closeAccountMenu({ restoreFocus: true });
       closeModal();
     }
+  });
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.account-menu')) closeAccountMenu();
   });
   window.addEventListener('resize', syncMobileNavigationState, { passive: true });
   lucide.createIcons();
@@ -957,6 +1054,30 @@ function navigateToToolCategory(category = 'all') {
   });
 }
 
+function closeAccountMenu({ restoreFocus = false } = {}) {
+  const menu = document.querySelector('.account-menu');
+  const trigger = menu?.querySelector('.account-menu-trigger');
+  menu?.classList.remove('is-open');
+  trigger?.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) trigger?.focus({ preventScroll: true });
+}
+
+function toggleAccountMenu(event) {
+  event?.stopPropagation();
+  const menu = event?.currentTarget?.closest('.account-menu');
+  if (!menu) return;
+  const open = !menu.classList.contains('is-open');
+  menu.classList.toggle('is-open', open);
+  event.currentTarget.setAttribute('aria-expanded', String(open));
+}
+
+function openAccountHistory() {
+  closeAccountMenu();
+  closeMobileNavigation();
+  navigate('dashboard');
+  requestAnimationFrame(() => document.getElementById('dashboard-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+
 function renderHeaderToolMenu(category) {
   const categoryTools = toolsList.filter(tool => tool.category === category);
   const titles = {
@@ -1096,15 +1217,30 @@ function renderNavbar() {
   const currentPageAttribute = section => activeNavSection === section ? ' aria-current="page"' : '';
   
   let authActionsHTML = '';
+  const accountInitial = appState.user
+    ? escapeHTML((appState.user.name || appState.user.email || 'G').charAt(0).toUpperCase())
+    : '';
   if (appState.user) {
     authActionsHTML = `
-      <a href="/dashboard/" onclick="handleRouteLink(event, 'dashboard')" class="btn btn-ghost btn-sm" style="display:inline-flex; align-items:center; gap:4px; font-weight:600;">
-        <i data-lucide="user" style="width:14px; height:14px;"></i>
-        <span>${escapeHTML(appState.user.name)}</span>
-      </a>
-      ${appState.user.role === 'developer' ? `<a href="/developer/index.php" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center;">Developer</a>` : ''}
-      <button class="btn btn-primary btn-sm" onclick="handleLogout()">Sign Out</button>
+      <div class="account-menu">
+        <button type="button" class="account-menu-trigger" aria-haspopup="true" aria-expanded="false" onclick="toggleAccountMenu(event)">
+          <span class="account-avatar" aria-hidden="true">${accountInitial}</span>
+          <span class="account-trigger-name">${escapeHTML(appState.user.name)}</span>
+          <i data-lucide="chevron-down" aria-hidden="true"></i>
+        </button>
+        <div class="account-menu-popover" aria-label="Account menu">
+          <div class="account-menu-profile">
+            <span class="account-avatar" aria-hidden="true">${accountInitial}</span>
+            <span><strong>${escapeHTML(appState.user.name)}</strong><small>${escapeHTML(appState.user.email)}</small></span>
+          </div>
+          <a href="/dashboard/" onclick="closeAccountMenu(); handleRouteLink(event, 'dashboard')"><i data-lucide="layout-dashboard"></i><span>Dashboard / My Account</span></a>
+          <button type="button" onclick="openAccountHistory()"><i data-lucide="history"></i><span>History</span></button>
+          <button type="button" class="account-menu-signout" onclick="closeAccountMenu(); handleLogout()"><i data-lucide="log-out"></i><span>Sign Out</span></button>
+        </div>
+      </div>
     `;
+  } else if (identityAuthStatus === 'loading') {
+    authActionsHTML = '<div class="auth-loading-indicator" role="status" aria-label="Checking account session"><span></span></div>';
   } else {
     authActionsHTML = `
       <button class="btn btn-ghost btn-sm" onclick="showAuthModal('login')">Sign In</button>
@@ -1165,7 +1301,14 @@ function renderNavbar() {
           <button type="button" onclick="setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark')"><i data-lucide="${appState.theme === 'dark' ? 'sun' : 'moon'}"></i><span>${appState.theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button>
           <button type="button" onclick="closeMobileNavigation(); showContactModal()"><i data-lucide="life-buoy"></i><span>Contact Support</span></button>
         </li>
-        ${!appState.user ? `
+        ${appState.user ? `
+          <li class="mobile-nav-account" aria-label="Signed-in account">
+            <div class="mobile-account-profile"><span class="account-avatar" aria-hidden="true">${accountInitial}</span><span><strong>${escapeHTML(appState.user.name)}</strong><small>${escapeHTML(appState.user.email)}</small></span></div>
+            <a href="/dashboard/" class="btn btn-secondary" onclick="closeMobileNavigation(); handleRouteLink(event, 'dashboard')">Dashboard / My Account</a>
+            <button type="button" class="btn btn-secondary" onclick="openAccountHistory()">History</button>
+            <button type="button" class="btn btn-primary" onclick="closeMobileNavigation(); handleLogout()">Sign Out</button>
+          </li>
+        ` : identityAuthStatus !== 'loading' ? `
           <li class="mobile-nav-auth" aria-label="Account actions">
             <button class="btn btn-secondary" onclick="closeMobileNavigation(); showAuthModal('login')">Sign In</button>
             <button class="btn btn-primary" onclick="closeMobileNavigation(); showAuthModal('signup')">${t('signup')}</button>
@@ -1328,29 +1471,16 @@ function transitionToCurrentPage({ scroll = true } = {}) {
   if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function handleLogout() {
-  fetch('/api/logout.php?ajax=1', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' }
-  })
-    .then(readApiJson)
-    .then(data => {
-      if (data.success) {
-        appState.user = null;
-        if (window.PHP_SESSION) {
-          window.PHP_SESSION.loggedIn = false;
-          window.PHP_SESSION.user = null;
-        }
-        showToast('Logged out successfully.', 'info');
-        renderNavbar();
-        navigate('home');
-      }
-    })
-    .catch(error => {
-      console.error('Sign out failed:', error);
-      showToast('Unable to sign out right now. Please try again.', 'error');
-    });
+async function handleLogout() {
+  try {
+    if (!window.GxaIdentity) throw new Error('Identity client unavailable.');
+    await window.GxaIdentity.logout();
+    clearNormalUserSession();
+    showToast('Logged out successfully.', 'info');
+  } catch (error) {
+    console.error('Sign out failed:', error?.name || 'IdentityError');
+    showToast('Unable to sign out right now. Please try again.', 'error');
+  }
 }
 
 function renderPage() {
@@ -1629,6 +1759,23 @@ function openModalContainer(modal, focusId) {
   window.setTimeout(() => document.getElementById(focusId)?.focus({ preventScroll: true }), 0);
 }
 
+function trapModalFocus(event) {
+  const modal = document.getElementById('modal-container');
+  if (!modal || modal.classList.contains('hidden')) return;
+  const focusable = [...modal.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter(element => element.getClientRects().length > 0);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function showAuthModal(mode = 'signup') {
   const modal = document.getElementById('modal-container');
   if (!modal) return;
@@ -1654,6 +1801,10 @@ function showAuthModal(mode = 'signup') {
         <p class="auth-description">${description}</p>
         <div id="auth-error-msg" class="auth-status auth-status-error hidden" role="alert"></div>
         <div id="auth-success-msg" class="auth-status auth-status-success hidden" role="status"></div>
+        <button type="button" class="btn auth-provider-button" id="auth-google-button" onclick="continueWithGoogle()">
+          <span class="auth-google-mark" aria-hidden="true">G</span><span>Continue with Google</span>
+        </button>
+        <div class="auth-divider" role="separator"><span>OR</span></div>
         ${isLogin ? '' : `
           <div class="auth-field">
             <label class="form-label" for="auth-name">Full Name</label>
@@ -1675,10 +1826,13 @@ function showAuthModal(mode = 'signup') {
           <small id="auth-password-error" class="auth-field-error"></small>
         </div>
         ${isLogin ? `
-          <label class="auth-remember">
-            <input type="checkbox" id="auth-remember" ${rememberedEmail ? 'checked' : ''}>
-            <span>Remember me <small>Stores only your email on this device</small></span>
-          </label>
+          <div class="auth-login-options">
+            <label class="auth-remember">
+              <input type="checkbox" id="auth-remember" ${rememberedEmail ? 'checked' : ''}>
+              <span>Remember me <small>Stores only your email on this device</small></span>
+            </label>
+            <button type="button" class="auth-text-button" onclick="showPasswordRecoveryModal()">Forgot password?</button>
+          </div>
         ` : `
           <div class="auth-strength" id="auth-password-strength" data-level="0" aria-live="polite">
             <div class="auth-strength-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
@@ -1798,8 +1952,7 @@ async function submitAuth(event, type) {
     firstInvalid ||= invalidField;
   }
 
-  const endpoint = type === 'login' ? '/api/login.php' : '/api/register.php';
-  const payload = { email, password };
+  let signupName = '';
   if (type === 'signup') {
     const name = document.getElementById('auth-name')?.value.trim() || '';
     const confirmation = document.getElementById('auth-confirm-password')?.value || '';
@@ -1815,7 +1968,7 @@ async function submitAuth(event, type) {
       const invalidField = showAuthFieldError('confirm', 'Passwords do not match.');
       firstInvalid ||= invalidField;
     }
-    payload.name = name;
+    signupName = name;
   }
 
   if (firstInvalid) {
@@ -1830,45 +1983,11 @@ async function submitAuth(event, type) {
   }
 
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(payload)
-    });
-    const data = await readApiJson(response);
-    if (!data.success) {
-      if (data.errors && typeof data.errors === 'object') {
-        Object.entries(data.errors).forEach(([field, message]) => showAuthFieldError(field, message));
-      }
-      if (errorEl) {
-        errorEl.textContent = data.message || 'Authentication was not accepted. Check your details and try again.';
-        errorEl.classList.remove('hidden');
-      }
-      return;
-    }
-
-    appState.user = {
-      id: data.user.id,
-      name: data.user.name,
-      email: data.user.email,
-      role: data.user.role,
-      is_premium: parseInt(data.user.is_premium) || 0,
-      tier: parseInt(data.user.is_premium) ? 'Premium' : 'Free',
-      processedCount: 0,
-      history: []
-    };
-    window.PHP_SESSION = {
-      loggedIn: true,
-      user: {
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role,
-        is_premium: data.user.is_premium
-      },
-      premium_tools: window.PHP_SESSION ? window.PHP_SESSION.premium_tools : []
-    };
+    const identity = window.GxaIdentity;
+    if (!identity) throw new Error('Identity client unavailable.');
+    const identityUser = type === 'login'
+      ? await identity.login(email, password)
+      : await identity.signup(email, password, { full_name: signupName });
 
     if (type === 'login') {
       try {
@@ -1879,23 +1998,38 @@ async function submitAuth(event, type) {
       }
     }
 
+    const activeIdentityUser = await identity.getUser();
+    if (!activeIdentityUser) {
+      identityAuthStatus = 'confirmation-required';
+      if (successEl) {
+        successEl.textContent = 'Check your inbox to verify your email before signing in.';
+        successEl.classList.remove('hidden');
+      }
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButton;
+      }
+      showToast('Please check your email to confirm your GXA Toolbox account.', 'success');
+      return;
+    }
+
+    await hydrateApplicationProfile();
+    if (!appState.user && identityUser) throw new Error('Application profile synchronization failed.');
     if (successEl) {
-      successEl.textContent = data.message || (type === 'login' ? 'Signed in successfully.' : 'Account created successfully.');
+      successEl.textContent = type === 'login' ? 'Signed in successfully.' : 'Account created successfully.';
       successEl.classList.remove('hidden');
     }
     if (submitButton) submitButton.innerHTML = '<i data-lucide="check"></i><span>Success</span>';
-    showToast(data.message || 'Authentication completed.', 'success');
-    fetchHistoryFromDB();
-    renderNavbar();
+    showToast(type === 'login' ? 'Signed in successfully.' : 'Account created successfully.', 'success');
     lucide.createIcons();
     setTimeout(() => {
       closeModal();
       navigate('dashboard');
     }, 650);
   } catch (error) {
-    console.error('Auth request failed:', error);
+    console.error('Identity request failed:', error?.name || 'IdentityError');
     if (errorEl) {
-      errorEl.textContent = 'The authentication service is unavailable. Please try again.';
+      errorEl.textContent = friendlyIdentityError(error, type);
       errorEl.classList.remove('hidden');
     }
   } finally {
@@ -1904,6 +2038,161 @@ async function submitAuth(event, type) {
       submitButton.innerHTML = originalButton;
       lucide.createIcons();
     }
+  }
+}
+
+function friendlyIdentityError(error, action = 'login') {
+  const message = String(error?.message || '').toLowerCase();
+  if (message.includes('invalid login') || message.includes('invalid credentials')) return 'Incorrect email or password.';
+  if (message.includes('already registered') || message.includes('already exists')) return 'An account already exists for this email.';
+  if (message.includes('password') && (message.includes('weak') || message.includes('short'))) return 'Use a stronger password with at least 8 characters.';
+  if (message.includes('confirm')) return 'Please verify your email before signing in.';
+  if (message.includes('identity') && message.includes('not')) return 'Account sign-in is not configured for this deployment.';
+  return action === 'signup'
+    ? 'Unable to create the account right now. Check your details and try again.'
+    : 'Unable to sign in right now. Check your details and try again.';
+}
+
+async function continueWithGoogle() {
+  const errorEl = document.getElementById('auth-error-msg');
+  const button = document.getElementById('auth-google-button');
+  try {
+    if (!window.GxaIdentity) throw new Error('Identity client unavailable.');
+    if (button) button.disabled = true;
+    await window.GxaIdentity.getSettings();
+    window.GxaIdentity.oauthLogin('google');
+  } catch (error) {
+    console.error('Google sign-in could not start:', error?.name || 'IdentityError');
+    if (button) button.disabled = false;
+    if (errorEl) {
+      errorEl.textContent = 'Google sign-in is unavailable. Please try email sign-in or try again later.';
+      errorEl.classList.remove('hidden');
+    }
+  }
+}
+
+function showPasswordRecoveryModal() {
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+  const rememberedEmail = getRememberedAuthEmail();
+  modal.innerHTML = `
+    <div class="modal-card auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="recovery-modal-title">
+      <div class="modal-header auth-modal-header"><div><span class="auth-eyebrow">GXA Technologies</span><h3 class="modal-title" id="recovery-modal-title">Reset your password</h3></div><button type="button" class="modal-close" onclick="closeModal()" aria-label="Close password recovery dialog"><i data-lucide="x"></i></button></div>
+      <form class="modal-body auth-form" onsubmit="submitPasswordRecovery(event)" novalidate>
+        <p class="auth-description">Enter your account email and Netlify Identity will send a secure recovery link.</p>
+        <div id="auth-error-msg" class="auth-status auth-status-error hidden" role="alert"></div>
+        <div id="auth-success-msg" class="auth-status auth-status-success hidden" role="status"></div>
+        <div class="auth-field"><label class="form-label" for="auth-recovery-email">Email Address</label><input type="email" id="auth-recovery-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${escapeHTML(rememberedEmail)}" autocomplete="email" inputmode="email"></div>
+        <button type="submit" class="btn btn-primary auth-submit" id="auth-submit-button">Send recovery email</button>
+        <p class="auth-switch"><a href="#" onclick="showAuthModal('login'); return false;">Back to Sign In</a></p>
+      </form>
+    </div>`;
+  openModalContainer(modal, 'auth-recovery-email');
+}
+
+async function submitPasswordRecovery(event) {
+  event.preventDefault();
+  const email = document.getElementById('auth-recovery-email')?.value.trim().toLowerCase() || '';
+  const errorEl = document.getElementById('auth-error-msg');
+  const successEl = document.getElementById('auth-success-msg');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errorEl.textContent = 'Enter a valid email address.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  try {
+    await window.GxaIdentity.requestPasswordRecovery(email);
+    successEl.textContent = 'Recovery email sent. Follow its secure link to choose a new password.';
+    successEl.classList.remove('hidden');
+    errorEl.classList.add('hidden');
+  } catch (error) {
+    console.error('Password recovery failed:', error?.name || 'IdentityError');
+    errorEl.textContent = 'Unable to send a recovery email right now. Please try again.';
+    errorEl.classList.remove('hidden');
+  }
+}
+
+function showPasswordResetModal() {
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+  modal.innerHTML = `
+    <div class="modal-card auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+      <div class="modal-header auth-modal-header"><div><span class="auth-eyebrow">GXA Technologies</span><h3 class="modal-title" id="reset-modal-title">Choose a new password</h3></div><button type="button" class="modal-close" onclick="closeModal()" aria-label="Close password reset dialog"><i data-lucide="x"></i></button></div>
+      <form class="modal-body auth-form" onsubmit="submitPasswordReset(event)" novalidate>
+        <p class="auth-description">Your secure recovery link was accepted. Set a new password for your account.</p>
+        <div id="auth-error-msg" class="auth-status auth-status-error hidden" role="alert"></div>
+        <div class="auth-field"><label class="form-label" for="auth-reset-password">New Password</label><input type="password" id="auth-reset-password" class="form-input-text" autocomplete="new-password"></div>
+        <div class="auth-field"><label class="form-label" for="auth-reset-confirm">Confirm Password</label><input type="password" id="auth-reset-confirm" class="form-input-text" autocomplete="new-password"></div>
+        <button type="submit" class="btn btn-primary auth-submit" id="auth-submit-button">Update password</button>
+      </form>
+    </div>`;
+  openModalContainer(modal, 'auth-reset-password');
+}
+
+async function submitPasswordReset(event) {
+  event.preventDefault();
+  const password = document.getElementById('auth-reset-password')?.value || '';
+  const confirmation = document.getElementById('auth-reset-confirm')?.value || '';
+  const errorEl = document.getElementById('auth-error-msg');
+  if (password.length < 8 || password !== confirmation) {
+    errorEl.textContent = password.length < 8 ? 'Use at least 8 characters.' : 'Passwords do not match.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  try {
+    await window.GxaIdentity.updateUser({ password });
+    await hydrateApplicationProfile();
+    showToast('Your password was updated successfully.', 'success');
+    closeModal();
+    navigate('dashboard');
+  } catch (error) {
+    console.error('Password reset failed:', error?.name || 'IdentityError');
+    errorEl.textContent = 'Unable to update your password. Request a new recovery link and try again.';
+    errorEl.classList.remove('hidden');
+  }
+}
+
+function showIdentityInviteModal() {
+  const modal = document.getElementById('modal-container');
+  if (!modal || !pendingIdentityInviteToken) return;
+  modal.innerHTML = `
+    <div class="modal-card auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="invite-modal-title">
+      <div class="modal-header auth-modal-header"><div><span class="auth-eyebrow">GXA Technologies</span><h3 class="modal-title" id="invite-modal-title">Complete your invitation</h3></div><button type="button" class="modal-close" onclick="closeModal()" aria-label="Close invitation dialog"><i data-lucide="x"></i></button></div>
+      <form class="modal-body auth-form" onsubmit="submitIdentityInvite(event)" novalidate>
+        <p class="auth-description">Your secure invitation was accepted. Choose a password to finish creating your GXA Toolbox account.</p>
+        <div id="auth-error-msg" class="auth-status auth-status-error hidden" role="alert"></div>
+        <div class="auth-field"><label class="form-label" for="auth-invite-password">Password</label><div class="auth-password-control"><input type="password" id="auth-invite-password" class="form-input-text" autocomplete="new-password"><button type="button" class="auth-password-toggle" onclick="toggleAuthPassword('auth-invite-password', this)" aria-label="Show password" title="Show password"><i data-lucide="eye"></i></button></div></div>
+        <div class="auth-field"><label class="form-label" for="auth-invite-confirm">Confirm Password</label><div class="auth-password-control"><input type="password" id="auth-invite-confirm" class="form-input-text" autocomplete="new-password"><button type="button" class="auth-password-toggle" onclick="toggleAuthPassword('auth-invite-confirm', this)" aria-label="Show confirmed password" title="Show confirmed password"><i data-lucide="eye"></i></button></div></div>
+        <button type="submit" class="btn btn-primary auth-submit" id="auth-submit-button">Complete account</button>
+      </form>
+    </div>`;
+  openModalContainer(modal, 'auth-invite-password');
+}
+
+async function submitIdentityInvite(event) {
+  event.preventDefault();
+  const password = document.getElementById('auth-invite-password')?.value || '';
+  const confirmation = document.getElementById('auth-invite-confirm')?.value || '';
+  const errorEl = document.getElementById('auth-error-msg');
+  const submitButton = document.getElementById('auth-submit-button');
+  if (password.length < 8 || password !== confirmation) {
+    errorEl.textContent = password.length < 8 ? 'Use at least 8 characters.' : 'Passwords do not match.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  try {
+    submitButton.disabled = true;
+    await window.GxaIdentity.acceptInvite(pendingIdentityInviteToken, password);
+    pendingIdentityInviteToken = '';
+    await hydrateApplicationProfile();
+    showToast('Your GXA Toolbox account is ready.', 'success');
+    closeModal();
+    navigate('dashboard');
+  } catch (error) {
+    console.error('Identity invitation failed:', error?.name || 'IdentityError');
+    errorEl.textContent = 'Unable to complete this invitation. Request a new invitation and try again.';
+    errorEl.classList.remove('hidden');
+    submitButton.disabled = false;
   }
 }
 
@@ -2293,7 +2582,7 @@ function renderDashboard(container) {
           </div>
           
           <!-- History Log List -->
-          <div class="db-table-card">
+          <div class="db-table-card" id="dashboard-history">
             <div class="db-table-header">
               <h3 class="db-table-title">${t('historyTitle')}</h3>
               <button class="btn btn-ghost btn-sm" onclick="clearHistoryLog()">Clear History</button>

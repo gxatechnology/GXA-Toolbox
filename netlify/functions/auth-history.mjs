@@ -1,16 +1,19 @@
-import { getDatabaseClient, jsonResponse, methodNotAllowed, readSession, safeErrorResponse } from './_auth.mjs';
+import { jsonResponse, methodNotAllowed, safeErrorResponse } from './_auth.mjs';
+import { getDatabaseClient } from './_database.mjs';
+import { requireIdentityUser } from './_identity-profile.mjs';
 
 export default async function handler(request) {
   if (request.method !== 'GET') return methodNotAllowed(['GET']);
 
   try {
-    const session = readSession(request);
-    if (!session) return jsonResponse({ success: false, message: 'Sign in to view account history.' }, 401);
+    const auth = await requireIdentityUser();
+    if (auth.response) return auth.response;
     const { sql } = getDatabaseClient();
     const countRows = await sql`
       SELECT COUNT(*)::INTEGER AS processed_count
         FROM public.file_jobs
-       WHERE user_id = ${session.id}
+       WHERE (identity_user_id = ${auth.user.id}
+          OR user_id = (SELECT legacy_user_id FROM public.user_profiles WHERE identity_user_id = ${auth.user.id}))
          AND status = 'done'
     `;
     const rows = await sql`
@@ -21,7 +24,8 @@ export default async function handler(request) {
              TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM size_mb::TEXT)) || ' MB' AS size,
              status
         FROM public.file_jobs
-       WHERE user_id = ${session.id}
+       WHERE (identity_user_id = ${auth.user.id}
+          OR user_id = (SELECT legacy_user_id FROM public.user_profiles WHERE identity_user_id = ${auth.user.id}))
        ORDER BY created_at DESC
        LIMIT 100
     `;

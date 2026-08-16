@@ -140,7 +140,7 @@
           id: 'accounts-and-passwords',
           title: 'Accounts, passwords, and sessions',
           paragraphs: [
-            'Account passwords are validated and stored as bcrypt password hashes rather than intentional plaintext password records. Authentication requests are same-origin checked, request sizes are limited, and account responses are marked no-store.',
+            'Normal-user credentials and sessions are handled by Netlify Identity. The GXA application database stores only the linked profile fields needed for account history and does not store Identity passwords or tokens.',
             'The production session is represented by a signed cookie configured as HttpOnly, Secure, SameSite=Lax, with a seven-day maximum age. Session signatures use a deployment secret that is not embedded in public browser code.'
           ],
           note: 'Users remain responsible for choosing a unique password, protecting access to their email and device, and signing out on shared devices.'
@@ -209,7 +209,7 @@
           id: 'information-you-provide',
           title: 'Information you provide',
           paragraphs: [
-            'Creating an account requires a full name, email address, and password. The password is transformed into a bcrypt hash for storage; it is not intended to be stored as plaintext. Account records also include role, status, premium status, and timestamps.',
+            'Creating an account requires a full name, email address, and password. Netlify Identity handles the credential and confirmation workflow; the GXA application database receives only the linked profile fields required by the product.',
             'A support request can include the name, email address, and message entered in the Contact Support form. Careers, privacy, security, and other inquiries sent through that form are processed as support messages.'
           ]
         },
@@ -508,7 +508,7 @@
           title: 'Retention and security practices',
           paragraphs: [
             'Personal data is retained according to service, account, support, security, dispute, and legal needs rather than one unsupported universal period. Browser storage remains until cleared, the production session cookie has a seven-day maximum age, and providers apply configured retention to logs and analytics.',
-            'Current safeguards include HTTPS, bcrypt password hashing, signed session cookies, same-origin checks, response headers, authenticated history isolation, and browser-local processing where appropriate. These measures reduce risk but cannot guarantee absolute security.'
+            'Current safeguards include HTTPS, Netlify Identity for normal-user sessions, a separate signed administrator session, same-origin checks, response headers, authenticated history isolation, and browser-local processing where appropriate. These measures reduce risk but cannot guarantee absolute security.'
           ]
         },
         {

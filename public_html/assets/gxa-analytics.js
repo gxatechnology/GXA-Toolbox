@@ -5,6 +5,8 @@
   const allowedEvents = new Set(['tool_open', 'tool_start', 'tool_complete', 'tool_fail', 'tool_download']);
   const allowedCategories = new Set(['pdf', 'image', 'utility', 'zip', 'convert', 'calculator']);
   const allowedDurations = new Set(['under_1s', '1_3s', '3_10s', '10_30s', '30_60s', 'over_60s']);
+  const recentEvents = new Map();
+  const DEDUPE_WINDOW_MS = 1000;
 
   function safeText(value, maxLength) {
     return String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
@@ -31,6 +33,13 @@
       status,
       duration_bucket: durationBucket
     };
+    const eventKey = `${event}:${toolId}:${status || ''}:${durationBucket || ''}`;
+    const now = Date.now();
+    if (now - (recentEvents.get(eventKey) || 0) < DEDUPE_WINDOW_MS) return false;
+    recentEvents.set(eventKey, now);
+    if (recentEvents.size > 100) {
+      for (const [key, timestamp] of recentEvents) if (now - timestamp > DEDUPE_WINDOW_MS) recentEvents.delete(key);
+    }
     windowObject.dataLayer = windowObject.dataLayer || [];
     windowObject.dataLayer.push({
       event,
