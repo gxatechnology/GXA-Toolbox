@@ -119,6 +119,7 @@ table { width: 100%; border-collapse: collapse; min-width: 640px; }
 th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; font-size: .78rem; vertical-align: top; }
 th { color: #506176; background: #f7f9fc; font-size: .69rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
 tbody tr:last-child td { border-bottom: 0; }
+.support-message-preview { display: -webkit-box; min-width: 180px; max-width: 420px; overflow: hidden; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow-wrap: anywhere; }
 .metric-unavailable { color: var(--muted); font-weight: 650; }
 .section-intro { margin: -8px 0 2px; color: var(--muted); font-size: .88rem; }
 .definition { padding: 12px 14px; border-left: 3px solid var(--blue); color: #344054; background: var(--blue-soft); font-size: .78rem; }

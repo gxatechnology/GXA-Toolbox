@@ -7,6 +7,7 @@ import { setIdentityUserProviderForTests } from '../netlify/functions/_identity-
 import historyHandler from '../netlify/functions/auth-history.mjs';
 import saveJobHandler from '../netlify/functions/auth-save-job.mjs';
 import sessionHandler from '../netlify/functions/auth-session.mjs';
+import contactHandler from '../netlify/functions/contact-support.mjs';
 
 if (process.env.RUN_POSTGRES_INTEGRATION !== 'true') {
   console.log('PostgreSQL auth integration skipped.');
@@ -32,7 +33,8 @@ async function runPostgresAuthIntegration() {
       '0001_create_auth_schema',
       '0002_repair_auth_schema_after_site_reconnect',
       '0003_create_admin_analytics_schema',
-      '0004_link_netlify_identity_profiles'
+      '0004_link_netlify_identity_profiles',
+      '0005_create_support_messages'
     ];
     assert.deepEqual(await localDatabase.applyMigrations(migrationsDirectory), expectedMigrations);
     assert.deepEqual(await localDatabase.applyMigrations(migrationsDirectory), []);
@@ -52,10 +54,10 @@ async function runPostgresAuthIntegration() {
     const tables = await database.sql`
       SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public'
-         AND table_name IN ('users', 'user_profiles', 'file_jobs', 'tool_analytics_events', 'auth_events', 'system_events')
+         AND table_name IN ('users', 'user_profiles', 'file_jobs', 'tool_analytics_events', 'auth_events', 'system_events', 'support_messages')
        ORDER BY table_name
     `;
-    assert.deepEqual(tables.map(row => row.table_name), ['auth_events', 'file_jobs', 'system_events', 'tool_analytics_events', 'user_profiles', 'users']);
+    assert.deepEqual(tables.map(row => row.table_name), ['auth_events', 'file_jobs', 'support_messages', 'system_events', 'tool_analytics_events', 'user_profiles', 'users']);
 
     const foreignKeys = await database.sql`
       SELECT constraint_name FROM information_schema.table_constraints
@@ -100,7 +102,28 @@ async function runPostgresAuthIntegration() {
     assert.deepEqual(storedJobs[0].metadata, { pages: 3 });
     assert.equal(storedJobs[0].processing_time_ms, 123);
 
-    console.log('PostgreSQL Identity-profile integration passed against an isolated Netlify development database.');
+    const contactResponse = await contactHandler(request('/api/contact.php', {
+      name: 'Postgres Support User',
+      email: 'postgres.support@example.com',
+      message: 'This verifies genuine support-message persistence in the isolated database.'
+    }));
+    assert.equal(contactResponse.status, 201);
+    const contact = await contactResponse.json();
+    assert.equal(contact.success, true);
+    assert.match(contact.reference_id, /^\d+$/);
+    const storedMessages = await database.sql`
+      SELECT id, full_name, email, message, status FROM public.support_messages
+       WHERE id = ${Number(contact.reference_id)}
+    `;
+    assert.deepEqual(storedMessages[0], {
+      id: contact.reference_id,
+      full_name: 'Postgres Support User',
+      email: 'postgres.support@example.com',
+      message: 'This verifies genuine support-message persistence in the isolated database.',
+      status: 'new'
+    });
+
+    console.log('PostgreSQL Identity-profile, history, and Contact Support integration passed against an isolated Netlify development database.');
   } finally {
     await database?.pool.end();
     await localDatabase.stop();

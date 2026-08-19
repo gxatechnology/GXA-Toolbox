@@ -10,8 +10,9 @@ The authoritative migrations are applied in filename order by the supported Netl
 2. `0002_repair_auth_schema_after_site_reconnect.sql`
 3. `0003_create_admin_analytics_schema.sql`
 4. `0004_link_netlify_identity_profiles.sql`
+5. `0005_create_support_messages.sql`
 
-Migration 0004 adds the Netlify Identity profile link, provider field, file-job relationship, indexes, and update trigger without dropping user data. Do not paste these migrations into the read-only production SQL console. Trigger the later normal production deploy and confirm in the Netlify deploy log that migration 0004 was discovered and applied.
+Migration 0004 adds the Netlify Identity profile link, provider field, file-job relationship, indexes, and update trigger. Migration 0005 additively creates the protected `support_messages` table used by Contact Support and its administrator-only report. Neither migration drops or rewrites existing account/history data. Do not paste these migrations into the read-only production SQL console. Trigger the later normal production deploy and confirm in the Netlify deploy log that migration 0005 was discovered and applied.
 
 ## Netlify environment variables
 
@@ -38,9 +39,9 @@ Grant the service-account email Viewer access in GA4 and access to the verified 
 - `GOOGLE_ADSENSE_OAUTH_CLIENT_SECRET`: server-side OAuth client secret.
 - `GOOGLE_ADSENSE_REFRESH_TOKEN`: offline refresh token issued to a user authorized for the AdSense account with read-only reporting scope.
 
-The public publisher identity remains `ca-pub-9226826319752464`, and `/ads.txt` remains exactly:
+The canonical public publisher identity is maintained in `config/adsense-config.mjs` as `ca-pub-6705105270847964`, and `/ads.txt` remains exactly:
 
-`google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0`
+`google.com, pub-6705105270847964, DIRECT, f08c47fec0942fa0`
 
 AdSense approval, policy state, and Auto Ads configuration remain external Google states. The Admin dashboard reports them only when authenticated API reporting is available and never fabricates earnings.
 
@@ -48,12 +49,14 @@ AdSense approval, policy state, and Auto Ads configuration remain external Googl
 
 Keep registration open, email confirmation required, and the configured Google provider enabled. Confirm the external provider callback uses the Netlify Identity callback URL shown in the Netlify UI. The main application and administrator portal remain separate authentication systems.
 
+The current OAuth flow is hosted by Netlify Identity, so Google can show the Netlify Identity service/domain during provider handoff even though users return to `gxatoolbox.in`. Do not migrate providers as part of UI maintenance. A future fully branded OAuth/OIDC change must be a separate, tested migration that preserves Identity subjects, existing accounts, and database links; it requires real provider/domain configuration in Netlify and Google rather than frontend-only changes.
+
 ## Post-deploy verification
 
 1. Confirm the deploy publishes `dist` and the log shows all database migrations successful.
 2. Confirm `/`, representative tool routes, `/admin/`, `/robots.txt`, `/sitemap.xml`, `/ads.txt`, `/_headers` behavior, and real 404 behavior.
 3. Sign up and sign in with email/password and Google; confirm email verification, recovery, logout, dashboard, and history.
-4. Sign in to `/admin/`; confirm the database card is Connected and each external report shows Connected, Connected · No Data, Configuration Required, Permission Required, or Error truthfully.
+4. Submit one genuine Contact Support request, confirm the returned database reference, then sign in to `/admin/` and confirm it appears under Support Messages. Confirm the database card is Connected and each external report shows Connected, Connected · No Data, Configuration Required, Permission Required, or Error truthfully.
 5. Confirm GA4 DebugView/Realtime receives one GTM-driven page view and intended tool events without a direct GA4 loader.
 6. Confirm Search Console and AdSense reporting permissions from their respective Google consoles.
 7. Run a representative PDF, image, Background Remover, calculator, ZIP, and developer tool and confirm processing/download behavior.

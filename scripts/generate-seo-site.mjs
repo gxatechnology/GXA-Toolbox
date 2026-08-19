@@ -2,6 +2,12 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  ADSENSE_PUBLISHER_ID,
+  ADSENSE_SELLER_LINE,
+  ADSENSE_TEMPLATE_TOKEN,
+  injectAdSensePublisherId
+} from '../config/adsense-config.mjs';
+import {
   PRODUCTION_ORIGIN,
   canonicalContentUrl,
   canonicalToolUrl,
@@ -249,12 +255,13 @@ function routeAuditMarkdown(tools, blockedIds, contentPages) {
 }
 
 async function main() {
-  const [tools, blockedIds, contentPages, baseTemplate] = await Promise.all([
+  const [tools, blockedIds, contentPages, baseTemplateSource] = await Promise.all([
     loadToolRegistry(),
     loadBlockedToolIds(),
     loadContentPageRegistry(),
     readFile(join(projectRoot, 'index.html'), 'utf8')
   ]);
+  const baseTemplate = injectAdSensePublisherId(baseTemplateSource, 'main public HTML template');
   for (const id of blockedIds) {
     if (!tools.some(tool => tool.id === id)) throw new Error(`Blocker references an unknown tool: ${id}`);
   }
@@ -265,11 +272,18 @@ async function main() {
   await cp(join(projectRoot, 'public_html', 'background-remover'), join(distRoot, 'background-remover'), { recursive: true });
   await mkdir(join(distRoot, 'admin'), { recursive: true });
   for (const file of ['index.html', 'admin.css', 'admin.js']) {
-    await cp(join(projectRoot, 'public_html', 'admin', file), join(distRoot, 'admin', file));
+    const source = join(projectRoot, 'public_html', 'admin', file);
+    const destination = join(distRoot, 'admin', file);
+    if (file === 'admin.js') {
+      await writeFile(destination, injectAdSensePublisherId(await readFile(source, 'utf8'), 'Admin integration display'), 'utf8');
+    } else {
+      await cp(source, destination);
+    }
   }
-  for (const file of ['_headers', '_redirects', 'ads.txt', 'apple-touch-icon.png', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'gxa-logo.png', 'site.webmanifest']) {
+  for (const file of ['_headers', '_redirects', 'apple-touch-icon.png', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'gxa-logo.png', 'site.webmanifest']) {
     await cp(join(projectRoot, file), join(distRoot, file));
   }
+  await writeFile(join(distRoot, 'ads.txt'), `${ADSENSE_SELLER_LINE}\n`, 'utf8');
 
   const homeDescription = 'Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.';
   const homeHtml = applyMetadata(baseTemplate, {
@@ -285,7 +299,8 @@ async function main() {
   for (const tool of tools) {
     if (tool.id === 'background-remover') continue;
     const description = toolDescription(tool);
-    await writeRoute(tool.id, applyMetadata(baseTemplate, {
+    const toolTemplate = blockedIds.has(tool.id) ? withoutAdSense(baseTemplate) : baseTemplate;
+    await writeRoute(tool.id, applyMetadata(toolTemplate, {
       title: toolTitle(tool),
       description,
       canonical: canonicalToolUrl(tool.id),
@@ -309,6 +324,9 @@ async function main() {
   const background = tools.find(tool => tool.id === 'background-remover');
   const backgroundPath = join(distRoot, 'background-remover', 'index.html');
   let backgroundHtml = await readFile(backgroundPath, 'utf8');
+  if (!backgroundHtml.includes(ADSENSE_PUBLISHER_ID) || backgroundHtml.includes(ADSENSE_TEMPLATE_TOKEN)) {
+    throw new Error('Background Remover build does not contain the canonical AdSense publisher configuration. Run npm run build:bg.');
+  }
   const backgroundDescription = toolDescription(background);
   const backgroundCanonical = canonicalToolUrl(background.id);
   const removableHeadEntries = [

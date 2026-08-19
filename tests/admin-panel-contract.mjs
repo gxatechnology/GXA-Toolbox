@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { ADSENSE_PUBLISHER_ID } from '../config/adsense-config.mjs';
 import { readFile, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -63,6 +64,9 @@ normalAuth.setDatabaseClientForTests({
     }
     if (statement.startsWith('SELECT event_type, category')) return [];
     if (statement.startsWith('SELECT source, category')) return [];
+    if (statement.startsWith('SELECT id, full_name AS name')) {
+      return [{ id: 9, name: 'Support User', email: 'support@example.test', message: 'A persisted support request.', status: 'new', created_at: '2026-08-14T03:00:00.000Z' }];
+    }
     if (statement.startsWith('INSERT INTO public.tool_analytics_events')) {
       recordedToolEvents.push({ event_type: values[0], tool_id: values[1], tool_name: values[2], category: values[3], status: values[4], duration_bucket: values[5] });
       return [];
@@ -124,9 +128,11 @@ for (const credentialField of ['private_key', 'client_email', 'access_token', 'G
 }
 assert.equal(adminData.integrations.find(item => item.id === 'gtm').containerId, 'GTM-TBQN2SJ4');
 assert.equal(adminData.integrations.find(item => item.id === 'gtm').status, 'installed_unverified');
-assert.equal(adminData.integrations.find(item => item.id === 'adsense-site-code').publisherId, 'ca-pub-9226826319752464');
+assert.equal(adminData.integrations.find(item => item.id === 'adsense-site-code').publisherId, ADSENSE_PUBLISHER_ID);
 assert.equal(adminData.integrations.find(item => item.id === 'netlify-identity').status, 'installed_unverified');
 assert.equal(adminData.overview.trend.length, 1);
+assert.equal(adminData.support.rows.length, 1);
+assert.equal(adminData.support.rows[0].id, 9);
 
 const telemetry = await toolEventHandler(request('/.netlify/functions/tool-event', {
   event_type: 'tool_complete', tool_id: 'crop-image', tool_name: 'Crop Image', tool_category: 'image', status: 'completed', duration_bucket: '1_3s'
@@ -150,7 +156,7 @@ const [adminHtml, adminCss, adminJs, migration, analytics, netlify, generator, p
 ]);
 assert.match(adminHtml, /GXA Toolbox[\s\S]*Admin Dashboard/);
 assert.match(adminHtml, /Secure Administration Portal/);
-for (const label of ['Overview', 'Analytics', 'Tool Analytics', 'SEO / Search Console', 'AdSense', 'Users', 'System', 'Administrator', 'Logout']) assert.ok(adminHtml.includes(label), `Admin navigation is missing ${label}.`);
+for (const label of ['Overview', 'Analytics', 'Tool Analytics', 'SEO / Search Console', 'AdSense', 'Users', 'Support Messages', 'System', 'Administrator', 'Logout']) assert.ok(adminHtml.includes(label), `Admin navigation is missing ${label}.`);
 assert.match(adminHtml, /<img src="\/gxa-logo\.png"/);
 assert.match(adminHtml, /<meta name="robots" content="noindex, nofollow, noarchive">/);
 assert.doesNotMatch(adminHtml + adminJs, /googletagmanager\.com|googlesyndication\.com|adsbygoogle|gtag\s*\(/i, 'Private admin assets must not load public advertising or tracking code.');

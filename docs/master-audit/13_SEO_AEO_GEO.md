@@ -67,7 +67,7 @@ Recommendations:
 
 - GTM container: `GTM-TBQN2SJ4`.
 - GA4 Measurement ID is intended to be configured **through GTM**; no direct `gtag.js` loader is installed.
-- AdSense publisher: `ca-pub-9226826319752464`.
-- Authorized `ads.txt` seller: `google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0`.
+- AdSense publisher: `ca-pub-6705105270847964`.
+- Authorized `ads.txt` seller: `google.com, pub-6705105270847964, DIRECT, f08c47fec0942fa0`.
 - Public-page generator contracts check one GTM and one AdSense loader; dashboard/admin/404 remain ad-free.
 - Consent, jurisdictional privacy obligations and external account configuration require owner/legal review.

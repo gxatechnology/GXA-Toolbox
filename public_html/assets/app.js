@@ -21,7 +21,7 @@ const LEGACY_STORAGE_KEYS = {
 const appState = {
   currentPage: 'home', // 'home', 'dashboard', or 'tool-[id]'
   theme: 'light',      // 'light' or 'dark'
-  lang: 'en',          // 'en', 'de', 'es', 'fr', 'ar'
+  lang: 'en',          // 'en', 'de', 'es', 'fr', 'hi', 'ar'
   user: null,          // Hydrated from Netlify Identity and the GXA profile service
   activeFiles: [],     // Holds currently uploaded files in queue
   activeToolOptions: {}, // Config options for active tool
@@ -41,6 +41,9 @@ let identityAuthEventsBound = false;
 let identityAuthStatus = 'loading';
 let identityProfileHydrationPromise = null;
 let pendingIdentityInviteToken = '';
+let dashboardView = 'overview';
+let contactSubmissionController = null;
+let contactSubmissionInFlight = false;
 
 // Crop Image owns a dedicated, route-scoped editor. Cropper.js is loaded only
 // after this route is opened so the rest of GXA Toolbox keeps its current payload.
@@ -740,6 +743,7 @@ function setTheme(theme) {
 
 // --- Toggle Language & RTL Settings ---
 function setLanguage(lang) {
+  if (!new Set(['en', 'de', 'es', 'fr', 'hi', 'ar']).has(lang)) return;
   appState.lang = lang;
   document.documentElement.lang = lang;
   
@@ -1294,9 +1298,10 @@ function renderNavbar() {
           <select id="mobile-language-select" aria-label="Select language" onchange="setLanguage(this.value)">
             <option value="en" ${appState.lang === 'en' ? 'selected' : ''}>English</option>
             <option value="de" ${appState.lang === 'de' ? 'selected' : ''}>Deutsch</option>
-            <option value="es" ${appState.lang === 'es' ? 'selected' : ''}>EspaÃ±ol</option>
-            <option value="fr" ${appState.lang === 'fr' ? 'selected' : ''}>FranÃ§ais</option>
-            <option value="ar" ${appState.lang === 'ar' ? 'selected' : ''}>Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©</option>
+            <option value="es" ${appState.lang === 'es' ? 'selected' : ''}>Español</option>
+            <option value="fr" ${appState.lang === 'fr' ? 'selected' : ''}>Français</option>
+            <option value="hi" ${appState.lang === 'hi' ? 'selected' : ''}>हिन्दी</option>
+            <option value="ar" ${appState.lang === 'ar' ? 'selected' : ''}>العربية</option>
           </select>
           <button type="button" onclick="setTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark')"><i data-lucide="${appState.theme === 'dark' ? 'sun' : 'moon'}"></i><span>${appState.theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button>
           <button type="button" onclick="closeMobileNavigation(); showContactModal()"><i data-lucide="life-buoy"></i><span>Contact Support</span></button>
@@ -1335,6 +1340,7 @@ function renderNavbar() {
             <button class="lang-option ${appState.lang === 'de' ? 'active' : ''}" onclick="setLanguage('de')">🇩🇪 Deutsch</button>
             <button class="lang-option ${appState.lang === 'es' ? 'active' : ''}" onclick="setLanguage('es')">🇪🇸 Español</button>
             <button class="lang-option ${appState.lang === 'fr' ? 'active' : ''}" onclick="setLanguage('fr')">🇫🇷 Français</button>
+            <button class="lang-option ${appState.lang === 'hi' ? 'active' : ''}" onclick="setLanguage('hi')">🇮🇳 हिन्दी</button>
             <button class="lang-option ${appState.lang === 'ar' ? 'active' : ''}" onclick="setLanguage('ar')">🇸🇦 العربية</button>
           </div>
         </div>
@@ -1922,6 +1928,9 @@ function showAuthFieldError(field, message) {
 function closeModal() {
   const modal = document.getElementById('modal-container');
   if (!modal || modal.classList.contains('hidden')) return;
+  contactSubmissionController?.abort();
+  contactSubmissionController = null;
+  contactSubmissionInFlight = false;
   modal.classList.add('hidden');
   modal.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('modal-open');
@@ -2210,81 +2219,110 @@ async function readApiJson(response) {
 function showContactModal() {
   const modal = document.getElementById('modal-container');
   if (!modal) return;
-  
+
   modal.innerHTML = `
     <div class="modal-card contact-modal-card" role="dialog" aria-modal="true" aria-labelledby="contact-modal-title">
-      <div class="modal-header">
-        <h3 class="modal-title" id="contact-modal-title">Contact Support</h3>
+      <div class="modal-header contact-modal-header">
+        <div><span class="auth-eyebrow">GXA Technologies</span><h3 class="modal-title" id="contact-modal-title">Contact Support</h3></div>
         <button type="button" class="modal-close" onclick="closeModal()" aria-label="Close contact support dialog"><i data-lucide="x"></i></button>
       </div>
-      <div class="modal-body">
-        <p style="font-size:14px; color:var(--color-text-secondary); margin-bottom:15px;">
+      <form id="contact-form" class="modal-body contact-form" onsubmit="submitContact(event)" novalidate>
+        <p class="contact-description">
           Have questions or feedback? Send us a message and our support team will respond shortly.
         </p>
-        <div id="contact-status-msg" style="font-size:13px; font-weight:700; margin-bottom:10px; display:none;"></div>
-        <div class="form-group" style="margin-bottom:12px;">
-          <label for="contact-name" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Full Name</label>
-          <input type="text" id="contact-name" class="form-input-text" placeholder="Tauqeer Ashraf" value="${appState.user ? escapeHTML(appState.user.name) : ''}" autocomplete="name" style="width:100%; height:44px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
+        <div id="contact-status-msg" class="contact-status hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+        <div class="form-group contact-field">
+          <label for="contact-name" class="form-label">Full Name</label>
+          <input type="text" id="contact-name" class="form-input-text" placeholder="Tauqeer Ashraf" value="${appState.user ? escapeHTML(appState.user.name) : ''}" autocomplete="name" minlength="2" maxlength="120" aria-describedby="contact-status-msg" required>
         </div>
-        <div class="form-group" style="margin-bottom:12px;">
-          <label for="contact-email" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Email Address</label>
-          <input type="email" id="contact-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${appState.user ? escapeHTML(appState.user.email) : ''}" autocomplete="email" inputmode="email" style="width:100%; height:44px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:0 10px; font-family:inherit;">
+        <div class="form-group contact-field">
+          <label for="contact-email" class="form-label">Email Address</label>
+          <input type="email" id="contact-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${appState.user ? escapeHTML(appState.user.email) : ''}" autocomplete="email" inputmode="email" maxlength="254" aria-describedby="contact-status-msg" required>
         </div>
-        <div class="form-group" style="margin-bottom:15px;">
-          <label for="contact-message" class="form-label" style="display:block; font-size:12px; font-weight:700; margin-bottom:4px;">Message Details</label>
-          <textarea id="contact-message" placeholder="Describe your inquiry..." style="width:100%; min-height:110px; border-radius:var(--radius-sm); border:1px solid var(--color-border); padding:10px; font-family:inherit; resize:vertical; line-height:1.4;"></textarea>
+        <div class="form-group contact-field">
+          <label for="contact-message" class="form-label">Message Details</label>
+          <textarea id="contact-message" class="form-input-text contact-message" placeholder="Describe your inquiry..." minlength="10" maxlength="4000" aria-describedby="contact-status-msg" required></textarea>
         </div>
-        <button class="btn btn-primary" onclick="submitContact()" style="width:100%; margin-top:5px; height:40px;">Send Message</button>
-      </div>
+        <div class="contact-submit-row"><button type="submit" class="btn btn-primary" id="contact-submit-button">Send Message</button></div>
+      </form>
     </div>
   `;
-  
+
   openModalContainer(modal, 'contact-name');
 }
 
-function submitContact() {
+function showContactStatus(message, type = 'error') {
   const statusEl = document.getElementById('contact-status-msg');
-  if (statusEl) statusEl.style.display = 'none';
-  
-  const name = document.getElementById('contact-name').value.trim();
-  const email = document.getElementById('contact-email').value.trim();
-  const message = document.getElementById('contact-message').value.trim();
-  
-  if (!name || !email || !message) {
-    if (statusEl) {
-      statusEl.innerText = 'Please fill in all contact fields.';
-      statusEl.style.color = 'var(--color-danger)';
-      statusEl.style.display = 'block';
-    }
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.className = `contact-status contact-status-${type}`;
+}
+
+async function submitContact(event) {
+  event?.preventDefault();
+  if (contactSubmissionInFlight) return;
+  const nameInput = document.getElementById('contact-name');
+  const emailInput = document.getElementById('contact-email');
+  const messageInput = document.getElementById('contact-message');
+  const submitButton = document.getElementById('contact-submit-button');
+  const name = nameInput?.value.trim() || '';
+  const email = emailInput?.value.trim() || '';
+  const message = messageInput?.value.trim() || '';
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (name.length < 2) {
+    showContactStatus('Enter your full name.');
+    nameInput?.focus();
     return;
   }
-  
-  fetch('/api/contact.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, message })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.success) {
-      showToast(data.message, 'success');
-      closeModal();
-    } else {
-      if (statusEl) {
-        statusEl.innerText = data.message;
-        statusEl.style.color = 'var(--color-danger)';
-        statusEl.style.display = 'block';
-      }
+  if (!emailPattern.test(email)) {
+    showContactStatus('Enter a valid email address.');
+    emailInput?.focus();
+    return;
+  }
+  if (message.length < 10) {
+    showContactStatus('Message details must contain at least 10 characters.');
+    messageInput?.focus();
+    return;
+  }
+
+  contactSubmissionInFlight = true;
+  contactSubmissionController = new AbortController();
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.setAttribute('aria-busy', 'true');
+    submitButton.textContent = 'Sending…';
+  }
+  showContactStatus('Sending your message…', 'pending');
+
+  try {
+    const response = await fetch('/api/contact.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ name, email, message }),
+      signal: contactSubmissionController.signal
+    });
+    const data = await readApiJson(response);
+    if (!response.ok || !data.success) throw Object.assign(new Error(data.message || 'Unable to send your message.'), { responseError: true });
+    const reference = data.reference_id ? ` Reference #${data.reference_id}.` : '';
+    showContactStatus(`${data.message || 'Message sent successfully.'}${reference}`, 'success');
+    if (messageInput) messageInput.value = '';
+    if (submitButton) submitButton.textContent = 'Message Sent';
+    showToast('Message sent successfully.', 'success');
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    console.error('Contact submission failed:', error?.name || 'ContactError');
+    showContactStatus(error?.responseError ? error.message : 'Unable to send your message right now. Please try again.');
+    if (submitButton) submitButton.textContent = 'Send Message';
+  } finally {
+    contactSubmissionController = null;
+    contactSubmissionInFlight = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.removeAttribute('aria-busy');
     }
-  })
-  .catch(err => {
-    console.error('Contact submission failed:', err);
-    if (statusEl) {
-      statusEl.innerText = 'Failed to submit contact message. Please try again.';
-      statusEl.style.color = 'var(--color-danger)';
-      statusEl.style.display = 'block';
-    }
-  });
+  }
 }
 
 // --- RENDER PAGE: HOMEPAGE ---
@@ -2497,6 +2535,12 @@ function startStatsCounters() {
 }
 
 // --- RENDER PAGE: USER DASHBOARD ---
+function setDashboardView(view) {
+  dashboardView = view === 'settings' ? 'settings' : 'overview';
+  renderPage();
+  requestAnimationFrame(() => document.getElementById('dashboard-view-title')?.focus({ preventScroll: true }));
+}
+
 function renderDashboard(container) {
   if (!appState.user) {
     container.innerHTML = `
@@ -2522,111 +2566,99 @@ function renderDashboard(container) {
     return { key, label: date.toLocaleString(undefined, { month: 'short' }), count: history.filter(item => String(item.date || '').startsWith(key)).length };
   });
   const maxMonthCount = Math.max(1, ...months.map(item => item.count));
-  const monthlyBars = months.map(item => `<div class="mock-chart-bar" style="height:${Math.max(4, (item.count / maxMonthCount) * 100)}%"><span class="mock-chart-val">${item.count}</span><span class="mock-chart-label" style="bottom:-24px;">${item.label}</span></div>`).join('');
-  
-  container.innerHTML = `
-    <section class="container" style="padding: 40px 0;">
-      <div class="dashboard-grid">
-        <!-- Sidebar -->
-        <aside class="dashboard-sidebar">
-          <div class="user-profile-widget">
-            <div class="avatar">${escapeHTML(appState.user.name.charAt(0))}</div>
-            <div class="user-profile-name">${escapeHTML(appState.user.name)}</div>
-            <div class="user-profile-tier">${appState.user.tier} Account</div>
-          </div>
-          
-          <ul class="db-sidebar-menu">
-            <li><a class="db-sidebar-link active"><i data-lucide="layout-dashboard"></i> Overview</a></li>
-            <li><a class="db-sidebar-link" onclick="showToast('Loading settings panel...', 'info')"><i data-lucide="settings"></i> Settings</a></li>
-            <li><a class="db-sidebar-link" onclick="navigate('home')"><i data-lucide="home"></i> Home</a></li>
-          </ul>
-        </aside>
-        
-        <!-- Main Dashboard content area -->
-        <div class="dashboard-content">
-          <h2 class="db-title">Welcome back, ${escapeHTML(appState.user.name)}!</h2>
-          
-          <!-- Key Statistics -->
-          <div class="db-stats-grid">
-            <div class="db-stat-card">
-              <div class="db-stat-icon"><i data-lucide="files"></i></div>
-              <div class="db-stat-info">
-                <div class="db-stat-num">${totalFiles}</div>
-                <div class="db-stat-label">${t('statsProcessed')}</div>
-              </div>
-            </div>
-            
-            <div class="db-stat-card">
-              <div class="db-stat-icon"><i data-lucide="hard-drive"></i></div>
-              <div class="db-stat-info">
-                <div class="db-stat-num">${history.length}</div>
-                <div class="db-stat-label">History entries</div>
-              </div>
-            </div>
-            
-            <div class="db-stat-card">
-              <div class="db-stat-icon"><i data-lucide="trending-down"></i></div>
-              <div class="db-stat-info">
-                <div class="db-stat-num">${failedFiles}</div>
-                <div class="db-stat-label">Failed operations</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Monthly activity from actual local history -->
-          <div class="db-chart-card">
-            <div class="db-chart-header">Monthly Volume (Files Processed)</div>
-            <div class="mock-chart-container">
-              ${monthlyBars}
-            </div>
-          </div>
-          
-          <!-- History Log List -->
-          <div class="db-table-card" id="dashboard-history">
-            <div class="db-table-header">
-              <h3 class="db-table-title">${t('historyTitle')}</h3>
-              <button class="btn btn-ghost btn-sm" onclick="clearHistoryLog()">Clear History</button>
-            </div>
-            <div class="db-table-wrapper">
-              <table class="db-table">
-                <thead>
-                  <tr>
-                    <th>Filename</th>
-                    <th>Tool</th>
-                    <th>Date</th>
-                    <th>Size</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="db-history-rows"></tbody>
-              </table>
-            </div>
-          </div>
+  const monthlyBars = months.map(item => `<div class="dashboard-chart-bar" style="height:${Math.max(4, (item.count / maxMonthCount) * 100)}%"><span class="dashboard-chart-val">${item.count}</span><span class="dashboard-chart-label" style="bottom:-24px;">${item.label}</span></div>`).join('');
+  const overviewHTML = `
+    <h1 class="db-title" id="dashboard-view-title" tabindex="-1">Welcome back, ${escapeHTML(appState.user.name)}!</h1>
+    <div class="db-stats-grid" aria-label="Account usage summary">
+      <article class="db-stat-card">
+        <div class="db-stat-icon"><i data-lucide="files"></i></div>
+        <div class="db-stat-info"><div class="db-stat-num">${totalFiles}</div><div class="db-stat-label">${t('statsProcessed')}</div></div>
+      </article>
+      <article class="db-stat-card">
+        <div class="db-stat-icon"><i data-lucide="hard-drive"></i></div>
+        <div class="db-stat-info"><div class="db-stat-num">${history.length}</div><div class="db-stat-label">History entries</div></div>
+      </article>
+      <article class="db-stat-card">
+        <div class="db-stat-icon"><i data-lucide="trending-down"></i></div>
+        <div class="db-stat-info"><div class="db-stat-num">${failedFiles}</div><div class="db-stat-label">Failed operations</div></div>
+      </article>
+    </div>
+    <section class="db-chart-card" aria-labelledby="monthly-usage-title">
+      <h2 class="db-chart-header" id="monthly-usage-title">Monthly Usage</h2>
+      <div class="dashboard-chart-container" aria-label="Files processed during the last five months">${monthlyBars}</div>
+    </section>
+    <section class="db-table-card" id="dashboard-history" aria-labelledby="dashboard-history-title">
+      <div class="db-table-header"><h2 class="db-table-title" id="dashboard-history-title">${t('historyTitle')}</h2></div>
+      <div class="db-table-wrapper">
+        <table class="db-table dashboard-history-table">
+          <thead><tr><th>Filename</th><th>Tool</th><th>Date</th><th>Size</th><th>Status</th></tr></thead>
+          <tbody id="db-history-rows"></tbody>
+        </table>
+      </div>
+    </section>`;
+  const settingsHTML = `
+    <div class="dashboard-settings-view">
+      <div class="db-section-heading">
+        <span class="section-kicker">Account</span>
+        <h1 class="db-title" id="dashboard-view-title" tabindex="-1">Account Settings</h1>
+        <p>Review your signed-in account and choose how GXA Toolbox appears on this device.</p>
+      </div>
+      <section class="dashboard-settings-card" aria-labelledby="account-details-title">
+        <h2 id="account-details-title">Account details</h2>
+        <dl class="account-detail-list">
+          <div><dt>Name</dt><dd>${escapeHTML(appState.user.name)}</dd></div>
+          <div><dt>Email</dt><dd>${escapeHTML(appState.user.email)}</dd></div>
+          <div><dt>Account</dt><dd>${escapeHTML(appState.user.tier)} Account</dd></div>
+        </dl>
+      </section>
+      <section class="dashboard-settings-card" aria-labelledby="appearance-settings-title">
+        <h2 id="appearance-settings-title">Appearance</h2>
+        <p>Theme preferences are stored only in this browser.</p>
+        <div class="dashboard-theme-actions" role="group" aria-label="Theme preference">
+          <button type="button" class="btn ${appState.theme === 'light' ? 'btn-primary' : 'btn-secondary'}" onclick="setTheme('light'); renderPage()"><i data-lucide="sun"></i> Light</button>
+          <button type="button" class="btn ${appState.theme === 'dark' ? 'btn-primary' : 'btn-secondary'}" onclick="setTheme('dark'); renderPage()"><i data-lucide="moon"></i> Dark</button>
         </div>
+      </section>
+      <button type="button" class="btn btn-secondary dashboard-signout" onclick="handleLogout()"><i data-lucide="log-out"></i> Sign Out</button>
+    </div>`;
+
+  container.innerHTML = `
+    <section class="container dashboard-page">
+      <div class="dashboard-grid">
+        <aside class="dashboard-sidebar" aria-label="Dashboard account and navigation">
+          <div class="user-profile-widget">
+            <div class="avatar" aria-hidden="true">${escapeHTML(appState.user.name.charAt(0))}</div>
+            <div class="user-profile-copy"><div class="user-profile-name">${escapeHTML(appState.user.name)}</div><div class="user-profile-tier">${escapeHTML(appState.user.tier)} Account</div></div>
+          </div>
+          <nav class="db-sidebar-menu" aria-label="Dashboard views">
+            <button type="button" class="db-sidebar-link ${dashboardView === 'overview' ? 'active' : ''}" aria-current="${dashboardView === 'overview' ? 'page' : 'false'}" onclick="setDashboardView('overview')"><i data-lucide="layout-dashboard"></i><span>Overview</span></button>
+            <button type="button" class="db-sidebar-link ${dashboardView === 'settings' ? 'active' : ''}" aria-current="${dashboardView === 'settings' ? 'page' : 'false'}" onclick="setDashboardView('settings')"><i data-lucide="settings"></i><span>Settings</span></button>
+            <a href="/" class="db-sidebar-link" onclick="handleRouteLink(event, 'home')"><i data-lucide="home"></i><span>Home</span></a>
+          </nav>
+        </aside>
+        <main class="dashboard-content">${dashboardView === 'settings' ? settingsHTML : overviewHTML}</main>
       </div>
     </section>
   `;
-  
-  // Render rows
+
   const tbody = document.getElementById('db-history-rows');
   if (tbody) {
-    if (appState.user.history.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--color-text-secondary);">No files processed yet. Try running some tools first!</td></tr>`;
+    if (history.length === 0) {
+      tbody.innerHTML = `<tr class="dashboard-empty-row"><td colspan="5"><div class="dashboard-empty-state"><strong>No activity yet.</strong><span>Start using a tool and your processing history will appear here.</span><a href="/" class="btn btn-primary btn-sm" onclick="handleRouteLink(event, 'home')">Explore Tools</a></div></td></tr>`;
     } else {
-      appState.user.history.forEach(log => {
+      history.forEach(log => {
         tbody.innerHTML += `
           <tr>
-            <td style="font-weight:700;">${escapeHTML(log.name)}</td>
-            <td>${escapeHTML(log.tool)}</td>
-            <td>${escapeHTML(log.date)}</td>
-            <td>${escapeHTML(log.size)}</td>
-            <td><span class="badge-history-status status-${log.status === 'done' ? 'done' : 'fail'}">${escapeHTML(log.status.toUpperCase())}</span></td>
+            <td data-label="Filename"><span class="dashboard-filename" title="${escapeHTML(log.name)}">${escapeHTML(log.name)}</span></td>
+            <td data-label="Tool">${escapeHTML(log.tool)}</td>
+            <td data-label="Date">${escapeHTML(log.date)}</td>
+            <td data-label="Size">${escapeHTML(log.size)}</td>
+            <td data-label="Status"><span class="badge-history-status status-${log.status === 'done' ? 'done' : 'fail'}">${escapeHTML(String(log.status || 'unknown').toUpperCase())}</span></td>
           </tr>
         `;
       });
     }
   }
-  
   lucide.createIcons();
 }
 
@@ -4388,14 +4420,6 @@ function renderToolPage(container, toolId) {
     'remove-pdf-pages': 'Remove Selected Pages', 'extract-pdf-pages': 'Extract Selected Pages',
     'crop-pdf': 'Crop PDF', 'header-footer-pdf': 'Add Header & Footer', 'sign-pdf': 'Add Signature Appearance'
   })[toolId] || 'Process File(s)';
-  if (dependencyBlocker) {
-    optionsHTML = `
-      <div class="dependency-required-state" role="alert">
-        <strong>Presentation renderer unavailable</strong>
-        <p>${dependencyBlocker}</p>
-      </div>`;
-  }
-  
   // Dynamic FAQs
   const faqs = getFAQForTool(toolId, tool.name);
   const faqHTML = faqs.map(faq => `
@@ -4404,6 +4428,38 @@ function renderToolPage(container, toolId) {
       <div class="faq-content">${faq.a}</div>
     </div>
   `).join('');
+
+  if (dependencyBlocker) {
+    const relatedIds = ['pdf-to-ppt', 'image-to-pdf', 'pdf-to-image'];
+    const relatedLinks = relatedIds.map(id => toolsList.find(item => item.id === id)).filter(Boolean).map(item => `
+      <a href="/${item.id}/" class="unavailable-related-link" onclick="handleRouteLink(event, 'tool-${item.id}')">
+        <i data-lucide="${item.icon}"></i><span><strong>${item.name}</strong><small>${item.desc}</small></span><i data-lucide="arrow-right"></i>
+      </a>`).join('');
+    container.innerHTML = `
+      <section class="container tool-container unavailable-tool-page">
+        <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span>&gt;</span><span>${tool.name}</span></nav>
+        <header class="tool-header">
+          <div class="tool-title-wrapper">
+            <div class="tool-heading-group"><span class="tool-page-icon cat-${tool.category}"><i data-lucide="${tool.icon}"></i></span><div><span class="tool-category-label">${tool.category} tool</span><h1 class="tool-page-title">${tool.name}</h1></div></div>
+          </div>
+          <p class="section-desc">${tool.desc}</p>
+        </header>
+        <div class="dependency-service-state unavailable-tool-state" role="status" aria-labelledby="unavailable-tool-title">
+          <span class="upload-icon-shell"><i data-lucide="clock-3"></i></span>
+          <h2 id="unavailable-tool-title">Presentation renderer unavailable</h2>
+          <p>${dependencyBlocker}</p>
+          <p>Your source file stays on your device because this deployment does not include a faithful presentation renderer. Upload and conversion controls are disabled until that renderer is available.</p>
+        </div>
+        <section class="unavailable-related" aria-labelledby="unavailable-related-title">
+          <h2 id="unavailable-related-title">Related working tools</h2>
+          <div class="unavailable-related-grid">${relatedLinks}</div>
+        </section>
+        ${renderToolAdPlacementPlaceholder()}
+        <section class="faq-section"><h2 class="faq-title">Frequently Asked Questions</h2><div class="faq-list">${faqHTML}</div></section>
+      </section>`;
+    lucide.createIcons();
+    return;
+  }
 
   if (toolId === 'crop-image') {
     renderCropImageEditor(container, tool, processingProfile, faqHTML);
@@ -4474,13 +4530,6 @@ function renderToolPage(container, toolId) {
               <button class="btn btn-primary btn-lg" id="btn-process-action" onclick="runFileProcessingPipeline()" style="width:100%; margin-top:20px;">
                 ${processActionLabel}
               </button>
-            </div>
-          ` : dependencyBlocker ? `
-            <div class="dependency-service-state" role="status">
-              <span class="upload-icon-shell"><i data-lucide="clock-3"></i></span>
-              <h3>Presentation renderer unavailable</h3>
-              <p>${dependencyBlocker}</p>
-              <p>Your source file stays on your device because this deployment does not include a faithful presentation renderer.</p>
             </div>
           ` : `
             <!-- Generator Preview Box -->

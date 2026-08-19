@@ -14,6 +14,7 @@
     seo: 'SEO / Search Console',
     adsense: 'AdSense',
     users: 'Users',
+    support: 'Support Messages',
     system: 'System'
   });
   const state = { section: 'overview', range: '30d', data: null };
@@ -171,7 +172,7 @@
     const money = key => ads.metrics ? formatMoney(ads.metrics[key], ads.currencyCode || 'USD') : unavailable(ads.label);
     const trend = table([{ label: 'Date', key: 'DATE' }, { label: 'Earnings', render: row => formatMoney(row.ESTIMATED_EARNINGS, ads.currencyCode || 'USD') }, { label: 'Page Views', render: row => formatNumber(row.PAGE_VIEWS) }, { label: 'Clicks', render: row => formatNumber(row.CLICKS) }], ads.trend || []);
     const status = ads.status === 'connected' ? `<div class="status-message">Authenticated AdSense reporting is connected.</div>` : empty(ads.label, 'Server-side OAuth configuration and account permission are required. No earnings are estimated locally.');
-    return `<div class="section-stack"><p class="section-intro">The existing AdSense site code and publisher identity are preserved. Reporting access is a separate server-side integration.</p><div class="kpi-grid">${kpi('Estimated Earnings', money('ESTIMATED_EARNINGS'), 'AdSense API')}${kpi('Page Views', reportMetric(ads, 'PAGE_VIEWS'), 'AdSense API')}${kpi('Ad Impressions', reportMetric(ads, 'IMPRESSIONS'), 'AdSense API')}${kpi('Clicks', reportMetric(ads, 'CLICKS'), 'AdSense API')}${kpi('Page RPM', money('PAGE_VIEWS_RPM'), 'AdSense API')}${kpi('CPC', money('COST_PER_CLICK'), 'AdSense API')}</div>${panel('AdSense Reporting Status', 'Publisher: ca-pub-9226826319752464', status)}${panel('Revenue Trend', 'Selected dashboard date range.', trend)}</div>`;
+    return `<div class="section-stack"><p class="section-intro">The existing AdSense site code and publisher identity are preserved. Reporting access is a separate server-side integration.</p><div class="kpi-grid">${kpi('Estimated Earnings', money('ESTIMATED_EARNINGS'), 'AdSense API')}${kpi('Page Views', reportMetric(ads, 'PAGE_VIEWS'), 'AdSense API')}${kpi('Ad Impressions', reportMetric(ads, 'IMPRESSIONS'), 'AdSense API')}${kpi('Clicks', reportMetric(ads, 'CLICKS'), 'AdSense API')}${kpi('Page RPM', money('PAGE_VIEWS_RPM'), 'AdSense API')}${kpi('CPC', money('COST_PER_CLICK'), 'AdSense API')}</div>${panel('AdSense Reporting Status', 'Publisher: __GXA_ADSENSE_PUBLISHER_ID__', status)}${panel('Revenue Trend', 'Selected dashboard date range.', trend)}</div>`;
   }
 
   function users() {
@@ -187,6 +188,17 @@
     return `<div class="section-stack"><p class="section-intro">Normal GXA Toolbox users only. Administrator credentials are never stored in this account database.</p><div class="kpi-grid">${kpi('Total Accounts', value('total_accounts'), 'GXA Database')}${kpi('New Signups Today', value('signups_today'), 'GXA Database')}${kpi('New Signups 7 Days', value('signups_7d'), 'GXA Database')}${kpi('Active Users', value('active_users'), 'GXA Database', 'Based on recorded last login')}</div>${panel('Accounts', 'Password hashes, session tokens, and authentication secrets are never returned.', rows)}</div>`;
   }
 
+  function support() {
+    const rows = table([
+      { label: 'Name', key: 'name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Message', render: row => `<span class="support-message-preview" title="${escapeHtml(row.message)}">${escapeHtml(row.message)}</span>` },
+      { label: 'Submitted', render: row => formatDate(row.created_at) },
+      { label: 'Status', render: row => `<span class="status-chip ${row.status === 'resolved' ? 'connected' : ''}">${escapeHtml(String(row.status || 'new').replace(/_/g, ' '))}</span>` }
+    ], state.data.support?.rows || []);
+    return `<div class="section-stack"><p class="section-intro">Genuine Contact Support submissions are available only through this authenticated administration service.</p>${panel('Support Messages', 'No example tickets are generated. The newest persisted submissions appear first.', rows)}</div>`;
+  }
+
   function system() {
     const database = state.data.integrations.find(item => item.id === 'gxa-database');
     const databaseConnected = database.status === 'connected';
@@ -200,7 +212,7 @@
   }
 
   function renderSection() {
-    const renderers = { overview, analytics, tools, seo, adsense, users, system };
+    const renderers = { overview, analytics, tools, seo, adsense, users, support, system };
     byId('section-title').textContent = titles[state.section];
     byId('dashboard-content').innerHTML = renderers[state.section]();
     document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.section === state.section));

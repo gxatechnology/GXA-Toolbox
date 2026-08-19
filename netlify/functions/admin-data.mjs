@@ -26,7 +26,7 @@ function databaseIntegration(status, detail) {
 }
 
 async function loadInternalData(sql, from) {
-  const [userSummary, eventTrend, eventSummary, topTools, recentSignups, users, toolRows, authFailures, systemErrors] = await Promise.all([
+  const [userSummary, eventTrend, eventSummary, topTools, recentSignups, users, toolRows, authFailures, systemErrors, supportMessages] = await Promise.all([
     sql`
       SELECT COUNT(*)::INTEGER AS total_accounts,
              COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::INTEGER AS signups_today,
@@ -105,6 +105,12 @@ async function loadInternalData(sql, from) {
        WHERE occurred_at >= ${from}::TIMESTAMPTZ
        ORDER BY occurred_at DESC
        LIMIT 50
+    `,
+    sql`
+      SELECT id, full_name AS name, email, message, status, created_at
+        FROM public.support_messages
+       ORDER BY created_at DESC
+       LIMIT 100
     `
   ]);
 
@@ -148,6 +154,9 @@ async function loadInternalData(sql, from) {
       formula: 'Successful Tool Completions / Tool Starts × 100',
       rows: withConversion(toolRows)
     },
+    support: {
+      rows: supportMessages
+    },
     system: {
       auth_failures: authFailures.map(row => ({ ...row, count: number(row.count) })),
       errors: systemErrors
@@ -160,6 +169,7 @@ function emptyInternalData() {
     overview: { internal: null, top_tools: [], recent_signups: [], recent_system_errors: [], trend: [] },
     users: { summary: null, rows: [] },
     toolAnalytics: { formula: 'Successful Tool Completions / Tool Starts × 100', rows: [] },
+    support: { rows: [] },
     system: { auth_failures: [], errors: [] }
   };
 }

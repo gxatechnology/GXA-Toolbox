@@ -43,7 +43,7 @@
 | Structured data | IMPLEMENTED | Organization/WebSite/WebApplication and route Breadcrumb/Application data |
 | Google Tag Manager | IMPLEMENTED | `GTM-TBQN2SJ4`, one loader/noscript on 99 public pages |
 | Direct GA4 script | NOT IMPLEMENTED | Correctly absent; GA4 is configured through GTM externally |
-| AdSense site loader | IMPLEMENTED | Publisher `ca-pub-9226826319752464`; no fabricated ad units |
+| AdSense site loader | IMPLEMENTED | Canonical publisher `ca-pub-6705105270847964`; no fabricated ad units |
 | `ads.txt` | IMPLEMENTED | Authorized seller line preserved in source/build |
 | PWA manifest | IMPLEMENTED | Branded manifest and icons |
 | Service Worker/offline install | NOT IMPLEMENTED | No Service Worker found; do not claim offline app |

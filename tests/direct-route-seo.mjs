@@ -3,6 +3,7 @@ import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ADSENSE_SELLER_LINE } from '../config/adsense-config.mjs';
 import { createQaServer } from './browser-qa-server.mjs';
 
 const projectRoot = resolve(fileURLToPath(new URL('../', import.meta.url)));
@@ -63,7 +64,7 @@ try {
   await request('/sitemap.xml', 200, /^(?:application|text)\/xml\b/i);
   await request('/robots.txt', 200, /^text\/plain\b/i);
   const adsText = await request('/ads.txt', 200, /^text\/plain\b/i);
-  assert.equal(adsText.body.trim(), 'google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0', 'ads.txt seller authorization is incorrect.');
+  assert.equal(adsText.body.trim(), ADSENSE_SELLER_LINE, 'ads.txt seller authorization is incorrect.');
   const favicon = await fetch(`${origin}/favicon-32x32.png`);
   assert.equal(favicon.status, 200);
   assert.match(favicon.headers.get('content-type') || '', /^image\/png\b/i);

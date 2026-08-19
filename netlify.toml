@@ -46,6 +46,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/contact.php"
+  to = "/.netlify/functions/contact-support"
+  status = 200
+
+[[redirects]]
   from = "/api/register.php"
   to = "/.netlify/functions/auth-register"
   status = 200

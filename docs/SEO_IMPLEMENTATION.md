@@ -40,9 +40,9 @@ After deployment, use GTM Preview to verify the container on the homepage, repre
 
 ## Google AdSense readiness
 
-The official asynchronous AdSense site loader uses publisher ID `ca-pub-9226826319752464`. It is installed once in the shared GXA Toolbox template and once in the standalone Background Remover source template, so the build propagates one loader to each of the 99 eligible public pages. The private dashboard and generated 404 page intentionally do not load AdSense. GTM remains a separate single installation, and direct GA4 code is still prohibited.
+The official asynchronous AdSense site loader uses canonical publisher ID `ca-pub-6705105270847964` from `config/adsense-config.mjs`. The shared GXA Toolbox and standalone Background Remover source templates each contain one build token, so the build injects one loader into every indexable public page without independently maintained IDs. The private dashboard, noindex PPT to PDF route, Admin panel, and generated 404 page intentionally do not load AdSense. GTM remains a separate single installation, and direct GA4 code is still prohibited.
 
-The generator copies the root `ads.txt` into `dist/ads.txt`. Its authorized-seller line is `google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0`. Netlify serves it as plain text at `https://gxatoolbox.in/ads.txt`.
+The generator writes `dist/ads.txt` from the canonical configuration and the root `ads.txt` carries the same required authorization artifact. Its authorized-seller line is `google.com, pub-6705105270847964, DIRECT, f08c47fec0942fa0`. Netlify serves it as plain text at `https://gxatoolbox.in/ads.txt`.
 
 Tool pages include a hidden, responsive integration point after the workspace/result area and before related information. It contains no `data-ad-slot`, `adsbygoogle` request, or invented unit ID. It must remain hidden until a real AdSense ad-unit ID is issued and consent-aware activation is implemented. Auto Ads formats such as anchor, side rail, and vignette ads are controlled only from AdSense; the repository does not imitate or force them.
 

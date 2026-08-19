@@ -178,9 +178,9 @@
   "analyticsAdvertising": {
     "gtmContainer": "GTM-TBQN2SJ4",
     "directGa4LoaderInstalled": false,
-    "adsensePublisher": "ca-pub-9226826319752464",
-    "adsTxtSellerId": "pub-9226826319752464",
-    "adsTxtEntry": "google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0"
+    "adsensePublisher": "ca-pub-6705105270847964",
+    "adsTxtSellerId": "pub-6705105270847964",
+    "adsTxtEntry": "google.com, pub-6705105270847964, DIRECT, f08c47fec0942fa0"
   },
   "limitations": [
     "PPT to PDF has no faithful renderer and is noindex.",

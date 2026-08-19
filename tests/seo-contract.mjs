@@ -3,6 +3,11 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  ADSENSE_PUBLISHER_ID,
+  ADSENSE_SELLER_LINE,
+  ADSENSE_TEMPLATE_TOKEN
+} from '../config/adsense-config.mjs';
+import {
   PRODUCTION_ORIGIN,
   canonicalContentUrl,
   canonicalToolUrl,
@@ -17,8 +22,6 @@ const projectRoot = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const distRoot = join(projectRoot, 'dist');
 const GTM_CONTAINER_ID = 'GTM-TBQN2SJ4';
 const GA4_MEASUREMENT_ID = 'G-E16HBF4R7W';
-const ADSENSE_PUBLISHER_ID = 'ca-pub-6705105270847964';
-const ADSENSE_SELLER_LINE = 'google.com, pub-6705105270847964, DIRECT, f08c47fec0942fa0';
 const ADSENSE_LOADER_URL = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_PUBLISHER_ID}`;
 
 const escapeRegex = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -134,6 +137,11 @@ function assertAdSenseLoader(html, route) {
   assert.doesNotMatch(html, /\(\s*adsbygoogle\s*=|adsbygoogle\s*\.\s*push\s*\(/i, `${route} must not request a manual ad without a real unit ID.`);
 }
 
+function assertAdSenseTemplate(html, route) {
+  assert.equal(countOccurrences(html, ADSENSE_TEMPLATE_TOKEN), 1, `${route} must consume the canonical AdSense publisher token exactly once.`);
+  assert.doesNotMatch(html, /ca-pub-\d+/i, `${route} must not maintain an independent AdSense publisher ID.`);
+}
+
 async function listFiles(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -144,20 +152,24 @@ async function listFiles(directory) {
   return files;
 }
 
-const [tools, blockedIds, contentPages, netlify, robots, manifestSource, rootTemplate, backgroundTemplate, appSource, backgroundFooterSource, backgroundAdPlaceholderSource] = await Promise.all([
+const [tools, blockedIds, contentPages, netlify, robots, manifestSource, rootAdsText, rootTemplate, backgroundTemplate, adminSource, appSource, backgroundFooterSource, backgroundAdPlaceholderSource] = await Promise.all([
   loadToolRegistry(),
   loadBlockedToolIds(),
   loadContentPageRegistry(),
   readFile(join(projectRoot, 'netlify.toml'), 'utf8'),
   readFile(join(distRoot, 'robots.txt'), 'utf8'),
   readFile(join(distRoot, 'site.webmanifest'), 'utf8'),
+  readFile(join(projectRoot, 'ads.txt'), 'utf8'),
   readFile(join(projectRoot, 'index.html'), 'utf8'),
   readFile(join(projectRoot, 'background-remover-app', 'index.html'), 'utf8'),
+  readFile(join(projectRoot, 'public_html', 'admin', 'admin.js'), 'utf8'),
   readFile(join(projectRoot, 'public_html', 'assets', 'app.js'), 'utf8'),
   readFile(join(projectRoot, 'background-remover-app', 'src', 'components', 'SiteFooter.tsx'), 'utf8'),
   readFile(join(projectRoot, 'background-remover-app', 'src', 'components', 'AdPlacementPlaceholder.tsx'), 'utf8')
 ]);
 
+assert.equal(ADSENSE_PUBLISHER_ID, 'ca-pub-6705105270847964', 'Canonical AdSense publisher configuration changed unexpectedly.');
+assert.equal(rootAdsText.trim(), ADSENSE_SELLER_LINE, 'Root ads.txt must match the canonical seller authorization.');
 assert.ok(tools.length >= 90, 'SEO generation unexpectedly lost registered tools.');
 assert.equal(contentPages.length, 6, 'All six company/legal pages must remain registered.');
 assert.deepEqual([...blockedIds], ['ppt-to-pdf'], 'Only PPT to PDF may be excluded from indexing.');
@@ -165,8 +177,10 @@ assert.match(netlify, /publish\s*=\s*["']dist["']/, 'Netlify must publish the ge
 assert.doesNotMatch(netlify, /from\s*=\s*["']\/\*["']/, 'Netlify must not restore a broad SPA catch-all.');
 assertGoogleTagManager(rootTemplate, 'root HTML template');
 assertGoogleTagManager(backgroundTemplate, 'Background Remover HTML template');
-assertAdSenseLoader(rootTemplate, 'root HTML template');
-assertAdSenseLoader(backgroundTemplate, 'Background Remover HTML template');
+assertAdSenseTemplate(rootTemplate, 'root HTML template');
+assertAdSenseTemplate(backgroundTemplate, 'Background Remover HTML template');
+assert.equal(countOccurrences(adminSource, ADSENSE_TEMPLATE_TOKEN), 1, 'Admin integration display must consume the canonical publisher token once.');
+assert.doesNotMatch(adminSource, /ca-pub-\d+/i, 'Admin source must not maintain an independent AdSense publisher ID.');
 assert.match(appSource, /data-ad-placement="tool-content"/i, 'Tool pages are missing the future responsive ad mount.');
 assert.match(appSource, /data-ad-state="awaiting-ad-unit"/i, 'Tool ad mount must remain explicitly unconfigured.');
 assert.match(appSource, /data-ad-placement="tool-content"[\s\S]*?hidden/i, 'Tool ad mount must stay hidden until a real unit ID exists.');
@@ -263,9 +277,13 @@ for (const tool of tools) {
   const graph = structuredData(html, route);
   assert.ok(JSON.stringify(graph).includes(canonical), `${route} JSON-LD does not identify its canonical URL.`);
   assertGoogleTagManager(html, route);
-  assertAdSenseLoader(html, route);
+  if (blockedIds.has(tool.id)) {
+    assert.doesNotMatch(html, /pagead2\.googlesyndication\.com/i, `${route} is noindex and must not load AdSense.`);
+  } else {
+    assertAdSenseLoader(html, route);
+    adSenseVerifiedPublicPageCount += 1;
+  }
   generatedPublicPageCount += 1;
-  adSenseVerifiedPublicPageCount += 1;
 }
 for (const page of contentPages) {
   const route = `/${page.id}/`;
@@ -283,7 +301,7 @@ for (const page of contentPages) {
   adSenseVerifiedPublicPageCount += 1;
 }
 assert.equal(generatedPublicPageCount, 1 + tools.length + contentPages.length, 'GTM contract must cover the homepage and every current public route.');
-assert.equal(adSenseVerifiedPublicPageCount, 1 + tools.length + contentPages.length, 'AdSense contract must cover the homepage and every current public route.');
+assert.equal(adSenseVerifiedPublicPageCount, 1 + tools.length - blockedIds.size + contentPages.length, 'AdSense contract must cover every current indexable public route exactly once.');
 
 const dashboard = await readFile(join(distRoot, 'dashboard', 'index.html'), 'utf8');
 assert.doesNotMatch(dashboard, /pagead2\.googlesyndication\.com/i, 'Private dashboard must not load AdSense.');
@@ -301,4 +319,4 @@ for (const file of files) {
   assert.ok(!forbiddenNames.has(path.toLowerCase()), `Repository source leaked into dist: ${path}`);
 }
 
-console.log(`SEO contract passed: ${tools.length} tools, ${contentPages.length} company/legal pages, ${sitemapUrls.length} sitemap URLs, ${generatedPublicPageCount} GTM/AdSense-verified public pages, ads.txt, unique route metadata/JSON-LD, footer links, robots, manifest, and artifact isolation.`);
+console.log(`SEO contract passed: ${tools.length} tools, ${contentPages.length} company/legal pages, ${sitemapUrls.length} sitemap URLs, ${generatedPublicPageCount} GTM-verified public pages, ${adSenseVerifiedPublicPageCount} AdSense-verified indexable pages, ads.txt, unique route metadata/JSON-LD, footer links, robots, manifest, and artifact isolation.`);

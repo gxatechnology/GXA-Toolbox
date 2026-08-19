@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { ADSENSE_SELLER_ID } from '../config/adsense-config.mjs';
 import { generateKeyPairSync } from 'node:crypto';
 import { getAdminDateRange, loadAdminIntegrations, resetAdminIntegrationCacheForTests } from '../netlify/functions/_admin-integrations.mjs';
 import { getGoogleServiceAccountCredentials, resetGoogleTokenCacheForTests } from '../netlify/functions/_google-auth.mjs';
@@ -24,7 +25,7 @@ const env = {
   GA4_PROPERTY_ID: '123456789',
   SEARCH_CONSOLE_SITE_URL: 'sc-domain:gxatoolbox.in',
   GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify(serviceAccount),
-  ADSENSE_ACCOUNT_ID: 'pub-9226826319752464',
+  ADSENSE_ACCOUNT_ID: ADSENSE_SELLER_ID,
   GOOGLE_ADSENSE_OAUTH_CLIENT_ID: 'oauth-client-id.example.test',
   GOOGLE_ADSENSE_OAUTH_CLIENT_SECRET: 'test-only-client-secret',
   GOOGLE_ADSENSE_REFRESH_TOKEN: 'test-only-refresh-token'
@@ -71,7 +72,7 @@ async function fetchMock(url, options = {}) {
   }
   if (href.includes('adsense.googleapis.com')) {
     adsenseRequestCount += 1;
-    assert.match(href, /accounts\/pub-9226826319752464\/reports:generate/);
+    assert.ok(href.includes(`/accounts/${ADSENSE_SELLER_ID}/reports:generate`));
     assert.equal(new URL(href).searchParams.get('dateRange'), 'CUSTOM');
     const headers = [
       { name: 'DATE', type: 'DIMENSION' },

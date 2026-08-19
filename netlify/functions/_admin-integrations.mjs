@@ -1,5 +1,6 @@
 import { getRefreshTokenAccessToken, getServiceAccountAccessToken, GoogleIntegrationError } from './_google-auth.mjs';
 import { recordSystemEvent } from './_database.mjs';
+import { ADSENSE_PUBLISHER_ID } from '../../config/adsense-config.mjs';
 
 const GA4_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
 const SEARCH_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
@@ -28,7 +29,7 @@ export function getGoogleIntegrationStates(env = process.env) {
     integration('search-console', 'Google Search Console', ['SEARCH_CONSOLE_SITE_URL', 'GOOGLE_SERVICE_ACCOUNT_JSON'], env, configured(env, ['SEARCH_CONSOLE_SITE_URL']) && serviceAccountConfigured(env)),
     integration('adsense-reporting', 'Google AdSense Reporting', ['ADSENSE_ACCOUNT_ID', 'GOOGLE_ADSENSE_OAUTH_CLIENT_ID', 'GOOGLE_ADSENSE_OAUTH_CLIENT_SECRET', 'GOOGLE_ADSENSE_REFRESH_TOKEN'], env),
     { id: 'gtm', name: 'Google Tag Manager', installed: true, status: 'installed_unverified', label: 'Installed · Reporting Unverified', containerId: 'GTM-TBQN2SJ4' },
-    { id: 'adsense-site-code', name: 'Google AdSense Site Code', installed: true, status: 'installed_unverified', label: 'Installed · Approval External', publisherId: 'ca-pub-9226826319752464' },
+    { id: 'adsense-site-code', name: 'Google AdSense Site Code', installed: true, status: 'installed_unverified', label: 'Installed · Approval External', publisherId: ADSENSE_PUBLISHER_ID },
     { id: 'netlify-identity', name: 'Netlify Identity', installed: true, status: 'installed_unverified', label: 'Installed · Provider Status External' }
   ];
 }
