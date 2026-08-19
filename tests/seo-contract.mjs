@@ -17,8 +17,8 @@ const projectRoot = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const distRoot = join(projectRoot, 'dist');
 const GTM_CONTAINER_ID = 'GTM-TBQN2SJ4';
 const GA4_MEASUREMENT_ID = 'G-E16HBF4R7W';
-const ADSENSE_PUBLISHER_ID = 'ca-pub-9226826319752464';
-const ADSENSE_SELLER_LINE = 'google.com, pub-9226826319752464, DIRECT, f08c47fec0942fa0';
+const ADSENSE_PUBLISHER_ID = 'ca-pub-6705105270847964';
+const ADSENSE_SELLER_LINE = 'google.com, pub-6705105270847964, DIRECT, f08c47fec0942fa0';
 const ADSENSE_LOADER_URL = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_PUBLISHER_ID}`;
 
 const escapeRegex = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
