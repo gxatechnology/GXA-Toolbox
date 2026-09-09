@@ -32,8 +32,8 @@ assert(renderTools.includes('tool-card-arrow'), 'The card open arrow must remain
 
 const blockerSource = workspace.slice(workspace.indexOf('const blockers'), workspace.indexOf('const serverTools'));
 const blockers = [...blockerSource.matchAll(/^\s*'([^']+)':\s*'[^']+'/gm)].map(match => match[1]);
-assert.deepEqual(blockers, ['ppt-to-pdf'], 'Only the native presentation-to-PDF fidelity limitation should remain blocked.');
-for (const requiredSource of ['runQpdfOperation', 'mammoth.extractRawText', 'createTextPdf', 'runEPUBToPDF', 'runPDFToEPUB', 'runGifToPng', 'runPDFExtractImages', 'runImageOCR', 'Tesseract.createWorker', 'runPDFToExcel', 'PptxGenJS']) {
+assert.deepEqual(blockers, [], 'No tool may remain blocked after the supported PPTX renderer is enabled.');
+for (const requiredSource of ['runQpdfOperation', 'mammoth.extractRawText', 'createTextPdf', 'runEPUBToPDF', 'runPDFToEPUB', 'runGifToPng', 'runPDFExtractImages', 'runImageOCR', 'Tesseract.createWorker', 'runPDFToExcel', 'PptxGenJS', 'runPPTToPDF', 'GxaPptxToPdf']) {
   assert(app.includes(requiredSource), `Missing selected browser-engine implementation: ${requiredSource}`);
 }
 assert(app.includes("new Worker('/assets/gif-encoder-worker.js', { type: 'module' })"), 'GIF quantization/encoding must run in its dedicated module worker.');
@@ -52,6 +52,7 @@ const vendorFiles = [
   'vendor/sheetjs/xlsx.full.min.js', 'gif-encoder-worker.js'
 ];
 vendorFiles.forEach(path => assert(existsSync(join(root, 'public_html', 'assets', path)), `Missing route-local engine asset: ${path}`));
+assert(existsSync(join(root, 'public_html', 'assets', 'pptx-to-pdf.js')), 'Missing browser-local PPTX renderer asset.');
 
 const manifest = JSON.parse(await readFile(join(fixtures, 'manifest.json'), 'utf8'));
 for (const filename of manifest.required) assert(existsSync(join(fixtures, filename)), `Missing required synthetic fixture: ${filename}`);

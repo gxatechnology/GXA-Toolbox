@@ -19,6 +19,7 @@
     const toolCategory = safeText(tool?.category, 40).toLowerCase();
     const durationBucket = safeText(details.durationBucket, 32) || null;
     const status = safeText(details.status, 40) || null;
+    const pagePath = safeText(windowObject.location?.pathname, 256) || '/';
     if (!allowedEvents.has(event)
       || !/^[a-z0-9-]{1,100}$/.test(toolId)
       || !toolName
@@ -31,7 +32,8 @@
       tool_name: toolName,
       tool_category: toolCategory,
       status,
-      duration_bucket: durationBucket
+      duration_bucket: durationBucket,
+      page_path: pagePath
     };
     const eventKey = `${event}:${toolId}:${status || ''}:${durationBucket || ''}`;
     const now = Date.now();

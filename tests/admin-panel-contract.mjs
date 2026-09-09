@@ -192,9 +192,9 @@ assert.match(packageJson, /admin-panel-contract\.mjs/);
 const tools = await loadToolRegistry();
 assert.ok(tools.length >= 90, 'The admin build audit unexpectedly lost registered tools.');
 assert.equal(ADMIN_BUILD_STATE.registeredTools, tools.length);
-assert.equal(ADMIN_BUILD_STATE.indexableToolPages, tools.length - 1);
+assert.equal(ADMIN_BUILD_STATE.indexableToolPages, tools.length);
 assert.equal(ADMIN_BUILD_STATE.sitemapUrls, (sitemap.match(/<url>/g) || []).length);
-assert.equal(ADMIN_BUILD_STATE.noindexPages, 3);
+assert.equal(ADMIN_BUILD_STATE.noindexPages, 2);
 assert.equal(ADMIN_BUILD_STATE.canonicalIssues, 0);
 assert.equal(ADMIN_BUILD_STATE.brokenInternalLinks, 0);
 

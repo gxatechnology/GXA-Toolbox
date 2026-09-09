@@ -171,8 +171,8 @@ const [tools, blockedIds, contentPages, netlify, robots, manifestSource, rootAds
 assert.equal(ADSENSE_PUBLISHER_ID, 'ca-pub-6705105270847964', 'Canonical AdSense publisher configuration changed unexpectedly.');
 assert.equal(rootAdsText.trim(), ADSENSE_SELLER_LINE, 'Root ads.txt must match the canonical seller authorization.');
 assert.ok(tools.length >= 90, 'SEO generation unexpectedly lost registered tools.');
-assert.equal(contentPages.length, 6, 'All six company/legal pages must remain registered.');
-assert.deepEqual([...blockedIds], ['ppt-to-pdf'], 'Only PPT to PDF may be excluded from indexing.');
+assert.equal(contentPages.length, 7, 'Help plus all six company/legal pages must remain registered.');
+assert.deepEqual([...blockedIds], [], 'Every registered public tool is indexable once no blockers remain.');
 assert.match(netlify, /publish\s*=\s*["']dist["']/, 'Netlify must publish the generated dist directory.');
 assert.doesNotMatch(netlify, /from\s*=\s*["']\/\*["']/, 'Netlify must not restore a broad SPA catch-all.');
 assertGoogleTagManager(rootTemplate, 'root HTML template');
@@ -236,7 +236,7 @@ const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => d
 assert.equal(sitemapUrls.length, 1 + (tools.length - blockedIds.size) + contentPages.length, 'Sitemap count does not match the current registries.');
 assert.equal(new Set(sitemapUrls).size, sitemapUrls.length, 'Sitemap URLs must be unique.');
 assert.ok(sitemapUrls.includes(`${PRODUCTION_ORIGIN}/`), 'Homepage is missing from sitemap.');
-assert.ok(!sitemapUrls.includes(canonicalToolUrl('ppt-to-pdf')), 'Blocked PPT to PDF route must not enter sitemap.');
+assert.ok(sitemapUrls.includes(canonicalToolUrl('ppt-to-pdf')), 'Supported PPT to PDF route must enter the sitemap.');
 for (const tool of tools.filter(tool => !blockedIds.has(tool.id))) {
   assert.ok(sitemapUrls.includes(canonicalToolUrl(tool.id)), `Sitemap is missing ${tool.id}.`);
 }

@@ -17,7 +17,7 @@ Page thumbnails are lazy-rendered and capped at 60 visible thumbnail canvases fo
 | `extract-pdf-pages` | Extract | Visual/range selection into one valid PDF | Functional |
 | `rotate-pdf` | Rotate | Selected/all pages, 90/180/270 degrees | Functional |
 | `crop-pdf` | Manual crop | Draggable eight-handle crop overlay mapped to PDF points and `setCropBox` | Functional; shared rectangle applies to selected/all pages |
-| `compress-pdf` | Compress | Honest pdf-lib object-stream reserialization | Partial: no image downsampling; no-savings output is rejected |
+| `compress-pdf` | Compress | qpdf WASM structural/stream compression plus optional raster-image recompression | Three real presets; 25 MB browser cap; encrypted/corrupt inputs and no-savings outputs are rejected |
 | `watermark-pdf` | Add Watermark | Text, image/logo, and built-in icon/symbol watermarks; position, opacity, rotation, page targets, and optional tiling | Local `pdf-lib` output; source PDF is unchanged |
 | `pagenumber-pdf` | Page numbers | Position, start, prefix, suffix, size, skip first, selection | Functional |
 | `header-footer-pdf` | Header/footer | Tokens, alignment, size, selection, valid PDF | Functional; tokens include page, total, date, filename |

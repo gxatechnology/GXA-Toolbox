@@ -7,9 +7,9 @@ This document describes the production behavior generated from the existing GXA 
 - Canonical origin: `https://gxatoolbox.in`
 - Canonical homepage: `https://gxatoolbox.in/`
 - Canonical tool pattern: `https://gxatoolbox.in/{tool-id}/`
-- The central 92-tool registry in `public_html/assets/app.js` remains the source of truth.
-- Ninety-one working public tools are `index, follow` and are listed in the sitemap.
-- `ppt-to-pdf` remains directly reachable but is `noindex, follow` and is omitted from the sitemap until its presentation-renderer dependency is implemented.
+- The central 95-tool registry in `public_html/assets/app.js` remains the source of truth.
+- All 95 public tools are `index, follow` and are listed in the sitemap.
+- `ppt-to-pdf` supports browser-local PPTX conversion for basic text, solid shapes, PNG/JPEG images, colors, backgrounds, slide order, and slide dimensions. Legacy PPT and advanced PowerPoint features remain outside its supported scope.
 - Six registry-driven company and legal pages are `index, follow` and are listed in the sitemap: About Us, Careers, Security Policies, Privacy Policy, Terms of Service, and GDPR Compliance.
 - UI category filters are not separate routes. Thin category pages were deliberately not invented.
 - `/all-tools/` redirects to the homepage, where the real tool directory is visible.
@@ -40,7 +40,7 @@ After deployment, use GTM Preview to verify the container on the homepage, repre
 
 ## Google AdSense readiness
 
-The official asynchronous AdSense site loader uses canonical publisher ID `ca-pub-6705105270847964` from `config/adsense-config.mjs`. The shared GXA Toolbox and standalone Background Remover source templates each contain one build token, so the build injects one loader into every indexable public page without independently maintained IDs. The private dashboard, noindex PPT to PDF route, Admin panel, and generated 404 page intentionally do not load AdSense. GTM remains a separate single installation, and direct GA4 code is still prohibited.
+The official asynchronous AdSense site loader uses canonical publisher ID `ca-pub-6705105270847964` from `config/adsense-config.mjs`. The shared GXA Toolbox and standalone Background Remover source templates each contain one build token, so the build injects one loader into every indexable public page without independently maintained IDs. The private dashboard, Admin panel, and generated 404 page intentionally do not load AdSense. GTM remains a separate single installation, and direct GA4 code is still prohibited.
 
 The generator writes `dist/ads.txt` from the canonical configuration and the root `ads.txt` carries the same required authorization artifact. Its authorized-seller line is `google.com, pub-6705105270847964, DIRECT, f08c47fec0942fa0`. Netlify serves it as plain text at `https://gxatoolbox.in/ads.txt`.
 

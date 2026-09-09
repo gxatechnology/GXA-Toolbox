@@ -33,7 +33,7 @@ assert.equal(new Set(tools.map(tool => tool.id)).size, tools.length, 'Registered
 assert.equal(indexableTools.length + blockedIds.size, tools.length, 'Index/noindex tool counts do not reconcile.');
 assert.equal(sitemapUrls.length, expectedSitemap.size, 'Sitemap count does not match current indexable registries.');
 assert.deepEqual(new Set(sitemapUrls), expectedSitemap, 'Sitemap URLs drifted from current canonical registries.');
-assert.ok(blockedIds.has('ppt-to-pdf'), 'PPT to PDF must remain explicitly noindex while its blocker exists.');
+assert.ok(!blockedIds.has('ppt-to-pdf'), 'Supported PPTX to PDF must be indexable and included in the sitemap.');
 assert.ok(tools.some(tool => tool.id === 'background-remover'), 'Background Remover is missing from the registry.');
 assert.ok(tools.some(tool => tool.id === 'image-ocr'), 'Image OCR is missing from the registry.');
 assert.ok(sitemapUrls.includes(canonicalToolUrl('background-remover')), 'Background Remover is missing from the sitemap.');

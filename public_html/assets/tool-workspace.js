@@ -7,9 +7,8 @@
   let pdfJsPromise = null;
   let pasteHandler = null;
 
-  const blockers = Object.freeze({
-    'ppt-to-pdf': 'Faithful presentation-to-PDF layout conversion requires a presentation renderer such as LibreOffice, which is not included in this deployment. No file is uploaded or processed.',
-  });
+  // Tool-specific blockers belong here only when a workflow has no safe implementation.
+  const blockers = Object.freeze({});
 
   const serverTools = new Set([]);
   const capabilityTools = new Set(['qr-reader', 'barcode-reader']);
@@ -74,6 +73,16 @@
       .replace(/\.\.+/g, '.')
       .trim();
     return cleaned || 'output';
+  }
+
+  function scrollToResult(element, block = 'start') {
+    if (!(element instanceof Element)) return;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    window.requestAnimationFrame(() => element.scrollIntoView({
+      behavior: reducedMotion ? 'auto' : 'smooth',
+      block,
+      inline: 'nearest'
+    }));
   }
 
   function matchesAccept(file, accept) {
@@ -1088,10 +1097,12 @@
   }
 
   window.GxaWorkspace = Object.freeze({
+    ensurePdfJs,
     MAX_FILE_SIZE,
     validateFiles,
     formatBytes,
     safeFileName,
+    scrollToResult,
     getBlocker,
     getProcessingProfile,
     renderFilePreview,

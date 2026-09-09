@@ -22,6 +22,11 @@ export function UploadScreen({ error, onFile }: UploadScreenProps) {
         <span className="eyebrow">Browser-local image tool</span>
         <h1>Background Remover</h1>
         <p>Automatically detect the foreground, refine the alpha mask, create a new composition, and export at the source resolution.</p>
+        <ul className="upload-highlights" aria-label="Background Remover capabilities">
+          <li><strong>Editable cutout</strong><span>Erase, restore, and refine the generated alpha mask.</span></li>
+          <li><strong>Flexible background</strong><span>Keep transparency or add a solid, gradient, or image background.</span></li>
+          <li><strong>Full-resolution export</strong><span>Crop and download the rendered result at its working resolution.</span></li>
+        </ul>
         <div className="privacy-note"><Icon name="shield" /> Processed privately in your browser</div>
       </section>
       <section

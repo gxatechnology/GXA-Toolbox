@@ -10,6 +10,7 @@ const required = [
   'background-remover-app/package.json',
   'background-remover-app/vite.config.ts',
   'background-remover-app/src/App.tsx',
+  'background-remover-app/src/components/ToolContentGuide.tsx',
   'background-remover-app/src/components/AdPlacementPlaceholder.tsx',
   'background-remover-app/src/components/SiteFooter.tsx',
   'background-remover-app/src/store/editorStore.ts',
@@ -31,6 +32,8 @@ required.forEach((path) => assert(existsSync(join(root, path)), `Missing React B
 
 const app = read('background-remover-app/src/App.tsx');
 const siteFooter = read('background-remover-app/src/components/SiteFooter.tsx');
+const toolContentGuide = read('background-remover-app/src/components/ToolContentGuide.tsx');
+const backgroundTemplate = read('background-remover-app/index.html');
 const adPlacement = read('background-remover-app/src/components/AdPlacementPlaceholder.tsx');
 const types = read('background-remover-app/src/types/editor.ts');
 const runtime = read('background-remover-app/src/segmentation/onnxRuntime.ts');
@@ -50,6 +53,7 @@ assert(modelManager.includes('for (const provider of providerOrder'), 'Model man
 assert(exportRenderer.includes('fullResolution: true'), 'Export must render from original-resolution state.');
 assert(vite.includes("base: '/background-remover/'"), 'Vite base must match the production subpath.');
 assert(vite.includes("outDir: '../public_html/background-remover'"), 'Vite output must integrate with Hostinger public_html.');
+assert(!vite.includes('closeBundle'), 'Vitest must not rewrite or truncate the generated Background Remover HTML artifact.');
 assert(css.includes('@media (max-width: 820px)'), 'Mobile editor breakpoint is missing.');
 assert(css.includes('.bottom-toolbar { position: fixed'), 'Mobile bottom toolbar styling is missing.');
 assert(css.includes('overflow-x: hidden'), 'Global horizontal overflow protection is missing.');
@@ -63,6 +67,9 @@ assert(!rootIndex.includes('advanced-cutout-studio.js'), 'Root HTML must not glo
 ['/about/', '/careers/', '/security/', '/privacy-policy/', '/terms/', '/gdpr/', '/?support=1'].forEach((href) => assert(siteFooter.includes(href), `Background Remover footer is missing ${href}`));
 assert(siteFooter.includes('Terms of Service'), 'Background Remover footer must use the correct Terms of Service label.');
 assert(app.includes('<AdPlacementPlaceholder />'), 'Background Remover must preserve the future in-content ad mount.');
+assert(app.includes('<ToolContentGuide />'), 'Background Remover must render the shared educational tool content.');
+assert(backgroundTemplate.includes('/assets/tool-content.js'), 'Background Remover must load the central tool content registry.');
+assert(toolContentGuide.includes("window.GXA_TOOL_CONTENT?.['background-remover']"), 'Background Remover content must come from the central registry rather than a duplicate definition.');
 assert(adPlacement.includes('data-ad-state="awaiting-ad-unit"'), 'Background Remover ad mount must remain explicitly unconfigured.');
 assert(adPlacement.includes('hidden'), 'Background Remover ad mount must remain hidden without a real slot ID.');
 assert(!adPlacement.includes('data-ad-slot'), 'Background Remover must not contain a fake ad slot ID.');

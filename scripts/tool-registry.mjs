@@ -4,6 +4,7 @@ import vm from 'node:vm';
 const appUrl = new URL('../public_html/assets/app.js', import.meta.url);
 const workspaceUrl = new URL('../public_html/assets/tool-workspace.js', import.meta.url);
 const contentPagesUrl = new URL('../public_html/assets/content-pages.js', import.meta.url);
+const toolContentUrl = new URL('../public_html/assets/tool-content.js', import.meta.url);
 
 export const PRODUCTION_ORIGIN = 'https://gxatoolbox.in';
 
@@ -43,13 +44,13 @@ export async function loadContentPageRegistry() {
   vm.createContext(context);
   vm.runInContext(source, context);
   const pages = JSON.parse(JSON.stringify(context.GXA_CONTENT_PAGES));
-  const expectedIds = ['about', 'careers', 'security', 'privacy-policy', 'terms', 'gdpr'];
+  const expectedIds = ['help', 'about', 'careers', 'security', 'privacy-policy', 'terms', 'gdpr'];
 
   if (!Array.isArray(pages) || pages.length !== expectedIds.length) {
-    throw new Error(`Expected exactly ${expectedIds.length} company/legal pages, found ${Array.isArray(pages) ? pages.length : 0}.`);
+    throw new Error(`Expected exactly ${expectedIds.length} documentation/company/legal pages, found ${Array.isArray(pages) ? pages.length : 0}.`);
   }
   if (pages.map(page => page.id).sort().join(',') !== [...expectedIds].sort().join(',')) {
-    throw new Error('Company/legal page registry does not contain the required canonical routes.');
+    throw new Error('Documentation/company/legal page registry does not contain the required canonical routes.');
   }
   if (new Set(pages.map(page => page.title)).size !== pages.length) throw new Error('Company/legal page titles must be unique.');
   if (new Set(pages.map(page => page.description)).size !== pages.length) throw new Error('Company/legal page descriptions must be unique.');
@@ -65,6 +66,21 @@ export async function loadContentPageRegistry() {
   return pages;
 }
 
+export async function loadToolContentRegistry() {
+  const source = await readFile(toolContentUrl, 'utf8');
+  const context = {};
+  context.window = context;
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const content = JSON.parse(JSON.stringify(context.GXA_TOOL_CONTENT || {}));
+  for (const [id, entry] of Object.entries(content)) {
+    if (!entry.about?.length || !entry.features?.length || !entry.howToUse?.length || !entry.useCases?.length || !entry.privacy?.description || !entry.supportedFormats?.input?.length || !entry.supportedFormats?.output?.length || !entry.limitations?.length || !entry.faqs?.length || !entry.relatedTools?.length) {
+      throw new Error(`Incomplete tool-content entry: ${id}`);
+    }
+  }
+  return content;
+}
+
 export function canonicalToolUrl(toolId) {
   return `${PRODUCTION_ORIGIN}/${toolId}/`;
 }
@@ -75,6 +91,7 @@ export function canonicalContentUrl(pageId) {
 
 export function toolTitle(tool) {
   if (tool.id === 'image-ocr') return 'Image OCR - Extract Text from Images | GXA Toolbox';
+  if (tool.id === 'gps-map-camera') return 'GPS Map Camera & Geotag Photo Online | GXA Toolbox';
   return `${tool.name} | GXA Toolbox`;
 }
 

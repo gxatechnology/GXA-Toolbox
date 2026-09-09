@@ -26,7 +26,7 @@ The browser-generated DOCX-to-PDF result was also downloaded to `C:\Users\tauqe\
 | `pdf-to-excel` | `text.pdf` | `text_tables.xlsx`, 8.95 KiB | Required OOXML workbook entries validated through JSZip |
 | `pdf-to-ppt` | `one-page.pdf` | `one-page_presentation.pptx`, 53.95 KiB | Required OOXML presentation entries validated through JSZip; output is explicitly image-based |
 
-`ppt-to-pdf` remains the sole blocker. Its route exposes no file input and shows the specific reason: a faithful PPT/PPTX presentation renderer is not included. It does not fabricate output or upload a file.
+`ppt-to-pdf` now has a browser-local PPTX renderer. It produces one PDF page per slide and supports basic text, solid shapes, PNG/JPEG images, colors, backgrounds, and slide dimensions. It rejects legacy PPT, corrupt, empty, oversized, encrypted, and over-limit inputs; advanced PowerPoint features are clearly disclosed as unsupported or simplified.
 
 ## Responsive directory and result checks
 

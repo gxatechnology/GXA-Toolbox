@@ -2,11 +2,11 @@
 
 Generated deterministically from the central tool and company/legal registries by `scripts/generate-seo-site.mjs`. Do not edit the tables by hand.
 
-- Registered tools: **92**
-- Indexable tool routes: **91**
-- Noindex tool routes: **1**
-- Company/legal routes: **6**
-- Sitemap URLs: **98** (homepage, indexable tools, and company/legal pages)
+- Registered tools: **95**
+- Indexable tool routes: **95**
+- Noindex tool routes: **0**
+- Company/legal routes: **7**
+- Sitemap URLs: **103** (homepage, indexable tools, and company/legal pages)
 - Category filter states are not separate URLs and are intentionally excluded to avoid thin duplicate pages.
 - `/all-tools/` permanently redirects to the homepage tool directory rather than creating a duplicate page.
 - Dashboard, API, authentication state, fragments, query variants, outputs, and unknown paths are excluded.
@@ -19,6 +19,8 @@ Generated deterministically from the central tool and company/legal registries b
 | `/organize-pdf/` | Organize PDF | pdf | Yes | https://gxatoolbox.in/organize-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/compress-image/` | Compress Image | image | Yes | https://gxatoolbox.in/compress-image/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/resize-image/` | Resize Image | image | Yes | https://gxatoolbox.in/resize-image/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
+| `/image-converter/` | Image Converter | image | Yes | https://gxatoolbox.in/image-converter/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
+| `/gps-map-camera/` | GPS Map Camera – Geotag Photo | image | Yes | https://gxatoolbox.in/gps-map-camera/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/crop-image/` | Crop Image | image | Yes | https://gxatoolbox.in/crop-image/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/image-ocr/` | Image OCR | image | Yes | https://gxatoolbox.in/image-ocr/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/background-remover/` | Background Remover | image | Yes | https://gxatoolbox.in/background-remover/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
@@ -37,13 +39,14 @@ Generated deterministically from the central tool and company/legal registries b
 | `/pdf-to-epub/` | PDF to EPUB | convert | Yes | https://gxatoolbox.in/pdf-to-epub/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/gif-maker/` | GIF Maker | convert | Yes | https://gxatoolbox.in/gif-maker/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/zip-extractor/` | ZIP Extractor | zip | Yes | https://gxatoolbox.in/zip-extractor/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
-| `/compress-pdf/` | Optimize PDF | pdf | Yes | https://gxatoolbox.in/compress-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
+| `/compress-pdf/` | Compress PDF | pdf | Yes | https://gxatoolbox.in/compress-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
+| `/edit-pdf/` | Edit PDF | pdf | Yes | https://gxatoolbox.in/edit-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/rotate-pdf/` | Rotate PDF | pdf | Yes | https://gxatoolbox.in/rotate-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/watermark-pdf/` | Add Watermark | pdf | Yes | https://gxatoolbox.in/watermark-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/pagenumber-pdf/` | Add Page Numbers | pdf | Yes | https://gxatoolbox.in/pagenumber-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/pdf-metadata/` | PDF Metadata Editor | pdf | Yes | https://gxatoolbox.in/pdf-metadata/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/excel-to-pdf/` | Excel to PDF | convert | Yes | https://gxatoolbox.in/excel-to-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
-| `/ppt-to-pdf/` | PPT to PDF | convert | No | https://gxatoolbox.in/ppt-to-pdf/ | No | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Publicly reachable but noindex until the documented presentation-renderer blocker is resolved. |
+| `/ppt-to-pdf/` | PPT to PDF | convert | Yes | https://gxatoolbox.in/ppt-to-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/pdf-to-text/` | PDF to Text | convert | Yes | https://gxatoolbox.in/pdf-to-text/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/html-to-pdf/` | HTML to PDF | convert | Yes | https://gxatoolbox.in/html-to-pdf/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
 | `/pdf-to-html/` | PDF to HTML | convert | Yes | https://gxatoolbox.in/pdf-to-html/ | Yes | Unique | Unique | Generated HTML + hydration | Crawlable anchors | Public tool landing; generated static shell hydrates into the existing tool workspace. |
@@ -112,6 +115,7 @@ Generated deterministically from the central tool and company/legal registries b
 
 | Route | Page | Indexable | Canonical URL | Sitemap | Title | Description | Direct load | Internal link | Remarks |
 |---|---|---|---|---|---|---|---|---|---|
+| `/help/` | Help Center | Yes | https://gxatoolbox.in/help/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |
 | `/about/` | About Us | Yes | https://gxatoolbox.in/about/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |
 | `/careers/` | Careers | Yes | https://gxatoolbox.in/careers/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |
 | `/security/` | Security Policies | Yes | https://gxatoolbox.in/security/ | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |

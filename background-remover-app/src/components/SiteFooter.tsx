@@ -1,4 +1,5 @@
 const productLinks = [
+  ['/help/', 'Help Center'],
   ['/merge-pdf/', 'Merge PDF'],
   ['/compress-image/', 'Compress Image'],
   ['/color-extractor/', 'Color Extractor'],

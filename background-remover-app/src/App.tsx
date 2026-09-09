@@ -11,6 +11,7 @@ import { ProcessingScreen } from './components/ProcessingScreen';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { SiteFooter } from './components/SiteFooter';
 import { ToolSidebar } from './components/ToolSidebar';
+import { ToolContentGuide } from './components/ToolContentGuide';
 import { UploadScreen } from './components/UploadScreen';
 import { segmentImage } from './segmentation/segmentImage';
 import { useEditorStore } from './store/editorStore';
@@ -175,6 +176,7 @@ export default function App() {
       {exportingHint && <div className="toast">Preparing full-resolution export…</div>}
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
+    {!editing && <ToolContentGuide />}
     {!editing && <AdPlacementPlaceholder />}
     {!editing && <SiteFooter />}
   </>);

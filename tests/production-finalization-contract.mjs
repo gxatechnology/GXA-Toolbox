@@ -37,7 +37,7 @@ assert.match(analytics, /DEDUPE_WINDOW_MS/);
 assert.match(generator, /'_headers', '_redirects'/);
 assert.equal(distHeaders, rootHeaders, 'The production build must preserve the authoritative Netlify headers file byte-for-byte.');
 assert.equal(distRedirects, rootRedirects, 'The production build must preserve the authoritative Netlify redirects file byte-for-byte.');
-assert.match(netlify, /Permissions-Policy\s*=\s*"camera=\(\), microphone=\(\), geolocation=\(\), payment=\(\), usb=\(\)"/);
+assert.match(netlify, /Permissions-Policy\s*=\s*"camera=\(self\), microphone=\(\), geolocation=\(self\), payment=\(\), usb=\(\)"/);
 assert.match(distHeaders, /^\/\*/m);
 assert.match(distHeaders, /X-Content-Type-Options: nosniff/);
 assert.match(distHeaders, /X-Robots-Tag: noindex, nofollow, noarchive/);

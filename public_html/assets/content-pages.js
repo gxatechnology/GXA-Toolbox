@@ -3,6 +3,81 @@
 
   const pages = [
     {
+      id: 'help',
+      name: 'Help Center',
+      title: 'Help Center | GXA Toolbox',
+      description: 'Learn how to choose a GXA Toolbox tool, add files, adjust settings, review results, download outputs, and troubleshoot browser-based processing.',
+      eyebrow: 'GXA Toolbox Help',
+      intro: 'Use this guide to choose the right tool, understand the shared workflow, protect your files, and solve common browser or download problems.',
+      toolDirectory: true,
+      sections: [
+        {
+          id: 'choose-a-tool',
+          title: 'Choose the right tool',
+          paragraphs: [
+            'Search by task or browse the PDF, image, calculator, converter, archive, and utility groups. Each item opens a separate tool route; tools are not modes inside one editor.'
+          ],
+          bullets: [
+            'Use PDF tools to merge, edit, organize, convert, secure, or extract document content.',
+            'Use image tools to optimize, crop, convert, inspect, read, or geotag photos.',
+            'Use calculators and text or developer tools when the task does not need a file upload.',
+            'Use ZIP tools to inspect, create, or extract archives in a focused archive workspace.'
+          ]
+        },
+        {
+          id: 'shared-workflow',
+          title: 'Upload, configure, process, and download',
+          paragraphs: [
+            'File tools start with a file picker or drop zone. After selection, review the filename and order, adjust only the settings that apply to the current task, and use the clearly labelled primary action. The result area then shows an appropriate preview, summary, extracted text, metadata, or download card.',
+            'Generators and calculators show their result beside or immediately before their settings. Copy and regenerate actions stay with copyable values so long passwords, hashes, and other outputs remain complete.'
+          ]
+        },
+        {
+          id: 'files-and-privacy',
+          title: 'Files, privacy, and browser processing',
+          paragraphs: [
+            'Many tools process files in browser memory. Read the notice within the active tool because some capabilities may load a browser library, local model, or service dependency. A tool never claims browser-local processing when its implementation requires a remote service.',
+            'Generated object links are temporary and work only in the current browser session. Download an output before closing the tab or resetting the tool.'
+          ]
+        },
+        {
+          id: 'mobile-and-accessibility',
+          title: 'Mobile, keyboard, and accessibility help',
+          paragraphs: [
+            'Controls use touch-sized targets and stack into normal page flow on narrow screens. File lists can be reordered with their visible arrow buttons; supported queues also accept Alt plus Arrow keys. Use Tab to move through controls and Escape to close open menus or dialogs.'
+          ]
+        },
+        {
+          id: 'troubleshooting',
+          title: 'Troubleshooting',
+          bullets: [
+            'If a file is rejected, check the formats and size limit shown in the upload area.',
+            'If processing fails, keep the page open, read the error, and try a smaller or valid source file.',
+            'If Copy is blocked, select the complete visible value and use the browser or operating-system copy command.',
+            'If a download does not appear, check the browser download indicator and allow downloads for the current local or deployed site.',
+            'If an editor is unavailable, use a supported modern Chromium, Firefox, or Safari browser and confirm that required scripts are not blocked.'
+          ]
+        },
+        {
+          id: 'support',
+          title: 'Contact support',
+          paragraphs: [
+            'If the problem continues, use Contact Support and include the tool name, browser, device type, what you expected, and the visible error. Do not attach passwords, private documents, identity records, or other sensitive source data to a support message.'
+          ]
+        }
+      ],
+      related: [
+        { id: 'security', label: 'Security Policies' },
+        { id: 'privacy-policy', label: 'Privacy Policy' },
+        { id: 'about', label: 'About GXA Toolbox' }
+      ],
+      cta: {
+        title: 'Still need help?',
+        text: 'Send the tool name and a concise description of the issue through Contact Support.',
+        label: 'Contact Support'
+      }
+    },
+    {
       id: 'about',
       name: 'About Us',
       title: 'About GXA Toolbox | GXA Toolbox',
@@ -194,7 +269,7 @@
       title: 'Privacy Policy | GXA Toolbox',
       description: 'Understand how GXA Toolbox handles account information, files, processing history, cookies, local storage, support messages, analytics, and third-party services.',
       eyebrow: 'Privacy Policy',
-      updated: '14 August 2026',
+      updated: '7 September 2026',
       intro: 'This Privacy Policy explains how GXA Technologies handles information in connection with GXA Toolbox. The platform combines browser-local tools, optional accounts, support features, hosting services, and Google Tag Manager, so it would be inaccurate to claim that no data is processed.',
       sections: [
         {
@@ -253,7 +328,8 @@
           title: 'Third-party services',
           paragraphs: [
             'The current architecture uses Netlify for hosting, functions, and database connectivity; Google Tag Manager, Google AdSense, and Google-hosted fonts; and content-delivery networks such as unpkg, cdnjs, and jsDelivr for selected libraries, workers, fonts, language data, or tool dependencies.',
-            'These providers may receive network and device information needed to deliver their resources. Their independent processing is governed by their own terms and privacy notices.'
+            'These providers may receive network and device information needed to deliver their resources. Their independent processing is governed by their own terms and privacy notices.',
+            'GPS Map Camera location search and reverse geocoding send only the entered place query or selected coordinates through a same-origin function to the configured Geoapify service. The photo, logo, EXIF data, and professional stamp fields are not included in that geocoding request. Current location, map selection, existing GPS, and manual coordinates remain available when the optional geocoder is not configured.'
           ]
         },
         {

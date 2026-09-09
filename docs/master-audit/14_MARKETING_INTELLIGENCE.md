@@ -161,7 +161,7 @@ These should be built only when each page contains substantive user value, not t
 14. **Can I save history?** Signed-in users can store job/history metadata; uploaded file blob storage was not found.
 15. **Is an account required?** Public tools are accessible without an account; dashboard/profile/history features use Identity.
 16. **Which browsers can read QR/barcodes?** Reading currently depends on the browser's BarcodeDetector capability.
-17. **Can PDF compression reduce image quality/size?** Optimize PDF currently restructures the PDF losslessly; it does not downsample images and may not reduce size.
+17. **Can PDF compression reduce image quality/size?** Compress PDF Low mode is lossless structural compression. Balanced and High can reduce eligible raster-image size by JPEG recompression, so image quality may change; pixel dimensions are not downsampled and savings are not guaranteed.
 18. **What languages does OCR support in the UI?** The audited OCR flows are configured around English; do not advertise multilingual OCR yet.
 19. **Are analytics or ads present?** GTM and the AdSense site loader are installed on generated public pages.
 20. **Who makes GXA Toolbox?** GXA Toolbox is a product of GXA Technologies.

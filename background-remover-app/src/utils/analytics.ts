@@ -30,7 +30,8 @@ export function trackBackgroundTool(event: ToolEvent, status: string, durationBu
     tool_name: TOOL.name,
     tool_category: TOOL.category,
     status: payload.status,
-    duration_bucket: payload.duration_bucket
+    duration_bucket: payload.duration_bucket,
+    page_path: window.location.pathname || '/background-remover/'
   });
   fetch('/.netlify/functions/tool-event', {
     method: 'POST',

@@ -51,8 +51,8 @@ try {
   const noSlash = await request('/merge-pdf?source=direct-test', 200, /^text\/html\b/i);
   assert.ok(noSlash.body.includes('https://gxatoolbox.in/merge-pdf/'), 'Directory routes without a trailing slash must resolve to their generated shell.');
 
-  const blocked = await request('/ppt-to-pdf/', 200, /^text\/html\b/i);
-  assert.match(blocked.body, /name=["']robots["'][^>]*content=["']noindex, follow["']/i, 'Blocked tool must stay reachable but noindex.');
+  const pptToPdf = await request('/ppt-to-pdf/', 200, /^text\/html\b/i);
+  assert.match(pptToPdf.body, /name=["']robots["'][^>]*content=["']index, follow["']/i, 'Supported PPTX to PDF must be indexable.');
 
   const missing = await request('/this-route-does-not-exist/', 404, /^text\/html\b/i);
   assert.match(missing.body, /Page not found/i);

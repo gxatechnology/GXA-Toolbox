@@ -468,6 +468,8 @@ const toolsList = [
   { id: 'organize-pdf', name: 'Organize PDF', category: 'pdf', desc: 'Reorder, rotate, select, remove, watermark, or insert blank pages in a PDF.', icon: 'grid' },
   { id: 'compress-image', name: 'Compress Image', category: 'image', desc: 'Compress browser-decodable JPG, PNG, and WEBP images with adjustable quality.', icon: 'minimize-2' },
   { id: 'resize-image', name: 'Resize Image', category: 'image', desc: 'Specify exact dimensions, aspect locking, and percentage scales.', icon: 'maximize-2' },
+  { id: 'image-converter', name: 'Image Converter', category: 'image', desc: 'Detect and convert verified image formats locally with explicit quality, transparency, animation, and metadata handling.', icon: 'repeat-2' },
+  { id: 'gps-map-camera', name: 'GPS Map Camera – Geotag Photo', category: 'image', desc: 'Add a professional visible location stamp and, for JPEG output, standard GPS EXIF metadata.', icon: 'map-pin' },
   { id: 'crop-image', name: 'Crop Image', category: 'image', desc: 'Manually select, position, transform, and export an exact image crop.', icon: 'crop' },
   { id: 'image-ocr', name: 'Image OCR', category: 'image', desc: 'Extract text from JPG, JPEG, PNG, and WEBP images with browser-based OCR.', icon: 'scan-text' },
   { id: 'background-remover', name: 'Background Remover', category: 'image', desc: 'Remove image backgrounds with a browser-local foreground segmentation model and refine the alpha mask in Advanced Cutout Studio.', icon: 'sparkles' },
@@ -491,13 +493,14 @@ const toolsList = [
 
 // Append additional concrete tools to toolsList (total 75 tools)
 const extraTools = [
-  { id: 'compress-pdf', name: 'Optimize PDF', category: 'pdf', desc: 'Losslessly reserialize PDF structure and report the actual size change; images are not downsampled.', icon: 'file-archive' },
+  { id: 'compress-pdf', name: 'Compress PDF', category: 'pdf', desc: 'Reduce PDF size locally with lossless structural compression or optional image recompression.', icon: 'file-archive' },
+  { id: 'edit-pdf', name: 'Edit PDF', category: 'pdf', desc: 'Fill PDF forms and add text, checks, dates, images, or visual signatures over the original pages.', icon: 'file-pen-line' },
   { id: 'rotate-pdf', name: 'Rotate PDF', category: 'pdf', desc: 'Rotate individual or all pages inside your PDF document.', icon: 'rotate-cw' },
   { id: 'watermark-pdf', name: 'Add Watermark', category: 'pdf', desc: 'Add text, logos, images, icons, symbols, or custom watermarks to selected PDF pages.', icon: 'stamp' },
   { id: 'pagenumber-pdf', name: 'Add Page Numbers', category: 'pdf', desc: 'Insert dynamic page numbering headers or footers.', icon: 'binary' },
   { id: 'pdf-metadata', name: 'PDF Metadata Editor', category: 'pdf', desc: 'Modify PDF details: Title, Author, Subject, Keywords.', icon: 'tags' },
   { id: 'excel-to-pdf', name: 'Excel to PDF', category: 'convert', desc: 'Convert spreadsheets and CSV data into tables in PDF.', icon: 'file-spreadsheet' },
-  { id: 'ppt-to-pdf', name: 'PPT to PDF', category: 'convert', desc: 'Create a faithful PDF only when a full PPT/PPTX presentation renderer is available.', icon: 'presentation' },
+  { id: 'ppt-to-pdf', name: 'PPT to PDF', category: 'convert', desc: 'Convert supported PPTX slides with text, shapes, images, and solid backgrounds to PDF.', icon: 'presentation' },
   { id: 'pdf-to-text', name: 'PDF to Text', category: 'convert', desc: 'Extract and download all plain text characters from PDF.', icon: 'file-text' },
   { id: 'html-to-pdf', name: 'HTML to PDF', category: 'convert', desc: 'Render HTML structures directly to a PDF template.', icon: 'code' },
   { id: 'pdf-to-html', name: 'PDF to HTML', category: 'convert', desc: 'Convert document structure and text content to HTML.', icon: 'globe' },
@@ -619,7 +622,9 @@ async function initApp() {
       syncPageFromLocation();
       disposeRouteEditors(previousPage, appState.currentPage);
       appState.activeFiles = [];
-      transitionToCurrentPage();
+      // Let the browser restore the saved position for Back/Forward navigation.
+      // Explicit in-app route changes use navigate(), which resets to the top.
+      transitionToCurrentPage({ scroll: false });
     });
     routeEventsBound = true;
   }
@@ -684,6 +689,9 @@ function syncPageFromLocation({ replaceLegacyHash = false } = {}) {
 }
 
 function disposeRouteEditors(previousPage, nextPage) {
+  if (previousPage === 'tool-edit-pdf' && nextPage !== previousPage) window.GxaPdfEditor?.dispose();
+  if (previousPage === 'tool-image-converter' && nextPage !== previousPage) window.GxaImageConverter?.dispose();
+  if (previousPage === 'tool-gps-map-camera' && nextPage !== previousPage) window.GxaGpsMapCamera?.dispose();
   if (previousPage === 'tool-crop-image' && nextPage !== 'tool-crop-image') disposeCropImageEditor();
   if (previousPage.startsWith('tool-') && nextPage !== previousPage) {
     disposePremiumToolEditor();
@@ -704,6 +712,9 @@ function shouldHandleNavigationEvent(event) {
 
 function handleRouteLink(event, pageId) {
   if (!shouldHandleNavigationEvent(event)) return;
+  const href = event?.currentTarget?.getAttribute?.('href') || '';
+  // Preserve native same-page and deep-link anchor behavior.
+  if (href.includes('#')) return;
   event.preventDefault();
   navigate(pageId);
 }
@@ -1083,27 +1094,29 @@ function openAccountHistory() {
 }
 
 function renderHeaderToolMenu(category) {
-  const categoryTools = toolsList.filter(tool => tool.category === category);
-  const titles = {
-    pdf: ['Edit & organize', 'Convert & export', 'More PDF tools'],
-    image: ['Optimize', 'Edit', 'Inspect & enhance'],
-    calculator: ['Everyday', 'Finance', 'More calculators']
-  }[category] || ['Tools', 'More tools', 'Utilities'];
-  const columnSize = Math.ceil(categoryTools.length / 3);
-  const columns = Array.from({ length: 3 }, (_, index) => categoryTools.slice(index * columnSize, (index + 1) * columnSize));
   const toolButton = tool => `<a href="/${tool.id}/" class="mega-list-link" data-tool-id="${tool.id}" onclick="handleRouteLink(event, 'tool-${tool.id}')">${escapeHTML(tool.name)}</a>`;
-
-  return columns.map((column, index) => `
-    <div>
-      <div class="mega-col-title">${titles[index]}</div>
-      <div class="mega-list">${column.map(toolButton).join('')}</div>
-    </div>
-  `).join('') + `
-    <div class="mega-popular">
-      <div class="mega-popular-title">Popular ${category === 'calculator' ? 'calculators' : `${category.toUpperCase()} tools`}</div>
-      ${categoryTools.slice(0, 2).map(toolButton).join('')}
-    </div>
-  `;
+  const group = (title, ids) => `<section class="mega-tool-group"><div class="mega-col-title">${title}</div><div class="mega-list">${ids.map(id => toolsList.find(tool => tool.id === id)).filter(Boolean).map(toolButton).join('')}</div></section>`;
+  const groups = {
+    pdf: [
+      ['Manage pages', ['merge-pdf', 'edit-pdf', 'organize-pdf', 'split-pdf', 'rotate-pdf', 'crop-pdf', 'remove-pdf-pages', 'extract-pdf-pages']],
+      ['Optimize & secure', ['compress-pdf', 'protect-pdf', 'unlock-pdf', 'repair-pdf', 'watermark-pdf', 'pagenumber-pdf', 'header-footer-pdf', 'sign-pdf', 'pdf-metadata', 'ocr-pdf', 'extract-images-pdf']],
+      ['Convert from PDF', ['pdf-to-jpg', 'pdf-to-word', 'pdf-to-text', 'pdf-to-html', 'pdf-to-markdown', 'pdf-to-epub', 'pdf-to-image', 'pdf-to-png', 'pdf-to-excel', 'pdf-to-ppt']],
+      ['Create a PDF', ['jpg-to-pdf', 'word-to-pdf', 'image-to-pdf', 'png-to-pdf', 'txt-to-pdf', 'epub-to-pdf', 'excel-to-pdf', 'ppt-to-pdf', 'html-to-pdf', 'markdown-to-pdf']]
+    ],
+    image: [
+      ['Optimize & edit', ['compress-image', 'resize-image', 'crop-image', 'background-remover']],
+      ['Convert & animate', ['image-converter', 'webp-to-jpg', 'svg-to-png', 'png-to-svg', 'gif-maker', 'gif-to-png']],
+      ['Read & inspect', ['image-ocr', 'color-extractor', 'exif-viewer', 'qr-reader', 'barcode-reader']],
+      ['Capture & location', ['gps-map-camera']]
+    ],
+    calculator: [
+      ['Everyday', ['calculator', 'percentage-calculator', 'age-calculator', 'date-calculator', 'time-calculator']],
+      ['Money', ['emi-calculator', 'loan-calculator', 'interest-calculator', 'gst-calculator', 'sip-calculator']],
+      ['Convert & compare', ['unit-converter', 'currency-converter', 'discount-calculator']],
+      ['Science & health', ['scientific-calculator', 'bmi-calculator']]
+    ]
+  }[category] || [];
+  return groups.map(([title, ids]) => group(title, ids)).join('');
 }
 
 function closeCategoryNavigation({ restoreFocus = false } = {}) {
@@ -1205,7 +1218,7 @@ function renderNavbar() {
 
   const activeToolId = appState.currentPage.startsWith('tool-') ? appState.currentPage.replace('tool-', '') : '';
   const activeTool = toolsList.find(tool => tool.id === activeToolId);
-  const imageAdjacentTools = new Set(['color-extractor', 'exif-viewer', 'svg-to-png', 'png-to-svg', 'webp-to-jpg', 'gif-maker', 'gif-to-png']);
+  const imageAdjacentTools = new Set(['image-converter', 'gps-map-camera', 'color-extractor', 'exif-viewer', 'svg-to-png', 'png-to-svg', 'webp-to-jpg', 'gif-maker', 'gif-to-png']);
   const activeNavSection = appState.currentPage === 'home'
     ? 'home'
     : appState.currentPage === 'dashboard'
@@ -1391,6 +1404,7 @@ function renderFooter() {
         <div class="footer-col">
           <div class="footer-col-title">Products</div>
           <ul class="footer-links">
+            <li><a href="/help/" class="footer-link" onclick="handleRouteLink(event, 'content-help')">Help Center</a></li>
             <li><a href="/merge-pdf/" class="footer-link" onclick="handleRouteLink(event, 'tool-merge-pdf')">Merge PDF</a></li>
             <li><a href="/compress-image/" class="footer-link" onclick="handleRouteLink(event, 'tool-compress-image')">Compress Image</a></li>
             <li><a href="/color-extractor/" class="footer-link" onclick="handleRouteLink(event, 'tool-color-extractor')">Color Extractor</a></li>
@@ -1474,7 +1488,7 @@ function navigate(pageId, { replace = false, scroll = true } = {}) {
 function transitionToCurrentPage({ scroll = true } = {}) {
   renderNavbar();
   renderPage();
-  if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (scroll) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 }
 
 async function handleLogout() {
@@ -1592,7 +1606,6 @@ function applyPageMetadata(pageId) {
         ? 'Extract text from JPG, JPEG, PNG, and WEBP images using browser-based OCR with GXA Toolbox.'
         : `${tool.desc} Use it with GXA Toolbox.`;
       path = `/${tool.id}/`;
-      robots = tool.id === 'ppt-to-pdf' ? 'noindex, follow' : robots;
       schema = {
         '@context': 'https://schema.org',
         '@graph': [
@@ -1619,6 +1632,16 @@ function applyPageMetadata(pageId) {
           }
         ]
       };
+      const visibleFaqs = window.GXA_TOOL_CONTENT?.[tool.id]?.faqs || [];
+      if (visibleFaqs.length) schema['@graph'].push({
+        '@type': 'FAQPage',
+        '@id': `${origin}${path}#faq`,
+        mainEntity: visibleFaqs.map(item => ({
+          '@type': 'Question',
+          name: item.question,
+          acceptedAnswer: { '@type': 'Answer', text: item.answer }
+        }))
+      });
     }
   } else if (pageId.startsWith('content-')) {
     const page = contentPages.find(item => item.id === pageId.replace('content-', ''));
@@ -1683,6 +1706,40 @@ function applyPageMetadata(pageId) {
   setStructuredData(schema);
 }
 
+function renderHelpToolDirectory() {
+  const groups = [
+    ['pdf', 'PDF Tools'],
+    ['image', 'Image Tools'],
+    ['convert', 'Converters'],
+    ['utility', 'Developer Tools & Generators'],
+    ['calculator', 'Calculators'],
+    ['zip', 'Archive & ZIP Tools']
+  ];
+  const workflowFor = tool => {
+    if (tool.category === 'calculator') return 'Enter the labelled values, review any units or assumptions, then calculate and check the result.';
+    if (tool.category === 'utility') return 'Enter the requested text or options, run or review the live result, then copy or download it when that action is available.';
+    if (tool.category === 'zip') return 'Choose the archive or source files, review the entry list and options, then create or extract the requested output.';
+    return 'Choose the supported source file, adjust the settings shown for this task, run the named action, then inspect and download the result.';
+  };
+  return `<section class="help-tool-directory" id="tool-guide" aria-labelledby="tool-guide-title">
+    <div class="help-tool-directory__heading">
+      <span class="section-kicker">${toolsList.length} focused routes</span>
+      <h2 id="tool-guide-title">GXA Toolbox tool guide</h2>
+      <p>Every item below opens its own task-focused workspace. Use the short workflow as a starting point, then read the supported formats and limitations on that tool page.</p>
+    </div>
+    ${groups.map(([category, title]) => {
+      const tools = toolsList.filter(tool => tool.category === category);
+      return `<details class="help-tool-group">
+        <summary id="help-${category}-title"><span>${title}</span><small>${tools.length} tools</small></summary>
+        <div class="help-tool-grid">${tools.map(tool => `<article class="help-tool-card">
+          <h4><a href="/${tool.id}/" onclick="handleRouteLink(event, 'tool-${tool.id}')">${escapeHTML(tool.name)}<i data-lucide="arrow-up-right" aria-hidden="true"></i></a></h4>
+          <p>${escapeHTML(tool.desc)} ${escapeHTML(workflowFor(tool))}</p>
+        </article>`).join('')}</div>
+      </details>`;
+    }).join('')}
+  </section>`;
+}
+
 function renderContentPage(container, contentId) {
   const page = contentPages.find(item => item.id === contentId);
   if (!page) {
@@ -1692,7 +1749,7 @@ function renderContentPage(container, contentId) {
 
   const tableOfContents = page.sections.map(section => `
     <a href="#${escapeHTML(section.id)}">${escapeHTML(section.title)}</a>
-  `).join('');
+  `).join('') + (page.toolDirectory ? '<a href="#tool-guide">Tool guide</a>' : '');
   const sections = page.sections.map(section => `
     <section class="content-section" id="${escapeHTML(section.id)}">
       <h2>${escapeHTML(section.title)}</h2>
@@ -1709,6 +1766,7 @@ function renderContentPage(container, contentId) {
       </div>
     </section>
   ` : '';
+  const toolDirectory = page.toolDirectory ? renderHelpToolDirectory() : '';
 
   container.innerHTML = `
     <article class="content-page">
@@ -1728,6 +1786,7 @@ function renderContentPage(container, contentId) {
         </aside>
         <div class="content-page-body">
           ${sections}
+          ${toolDirectory}
           ${related}
           <section class="content-cta">
             <div><span class="section-kicker">Contact</span><h2>${escapeHTML(page.cta.title)}</h2><p>${escapeHTML(page.cta.text)}</p></div>
@@ -2699,6 +2758,7 @@ function getToolPanelMeta(toolId, category, needsFiles) {
 function getDirectResultDownloadLabel(toolId) {
   const labels = {
     'compress-image': 'Download Compressed Image',
+    'compress-pdf': 'Download Compressed PDF',
     'resize-image': 'Download Resized Image',
     'watermark-pdf': 'Download Watermarked PDF',
     'webp-to-jpg': 'Download Converted Image',
@@ -2718,12 +2778,70 @@ function renderToolAdPlacementPlaceholder() {
   `;
 }
 
+function getToolResultType(toolId, category) {
+  if (category === 'calculator') return 'numeric-summary';
+  if (['password-generator', 'hash-tool', 'uuid-generator', 'lorem-ipsum', 'case-converter', 'word-counter'].includes(toolId)) return 'copyable-text';
+  if (['pdf-metadata', 'exif-viewer', 'color-extractor', 'user-agent'].includes(toolId)) return 'metadata';
+  if (['ocr-pdf', 'image-ocr', 'pdf-to-text', 'pdf-to-html', 'pdf-to-markdown'].includes(toolId)) return 'extracted-text';
+  if (category === 'zip') return 'archive-list';
+  if (category === 'image' || ['webp-to-jpg', 'svg-to-png', 'png-to-svg', 'gif-maker', 'gif-to-png'].includes(toolId)) return 'image-preview';
+  if (category === 'pdf' || toolId.includes('pdf')) return 'document-preview';
+  return 'file-or-text';
+}
+
+function renderToolPreworkspaceIntro(toolId) {
+  const content = window.GXA_TOOL_CONTENT?.[toolId];
+  const tool = toolsList.find(item => item.id === toolId);
+  if (!content || !tool) return '';
+  return `<section class="tool-preworkspace-intro" aria-labelledby="${toolId}-overview-title">
+    <h2 id="${toolId}-overview-title" class="sr-only">${escapeHTML(tool.name)} overview</h2>
+    <p>${escapeHTML(content.about[0])}</p>
+  </section>`;
+}
+
+function renderToolContentSections(toolId) {
+  const content = window.GXA_TOOL_CONTENT?.[toolId];
+  if (!content) return '';
+  const cards = (items, className) => items?.length ? `<div class="${className}">${items.map(item => `<article><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.description)}</p></article>`).join('')}</div>` : '';
+  const list = items => items?.length ? `<ul>${items.map(item => `<li>${escapeHTML(item)}</li>`).join('')}</ul>` : '';
+  const section = (id, title, body) => body ? `<section class="tool-info-section" id="${id}"><h2>${title}</h2>${body}</section>` : '';
+  const toolName = toolsList.find(tool => tool.id === toolId)?.name || 'Tool';
+  return `<article class="tool-content-guide" aria-label="${escapeHTML(toolName)} guide">
+    ${section(`${toolId}-about`, 'About This Tool', content.about?.map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join(''))}
+    ${section(`${toolId}-features`, 'What You Can Do', cards(content.features, 'tool-info-card-grid'))}
+    ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.description)}</p></div></li>`).join('')}</ol>` : '')}
+    ${section(`${toolId}-uses`, 'Practical Use Cases', cards(content.useCases, 'tool-info-card-grid'))}
+    ${section(`${toolId}-privacy`, 'Privacy and File Processing', content.privacy ? `<div class="tool-info-note"><strong>${escapeHTML(content.privacy.processingMode)}</strong><p>${escapeHTML(content.privacy.description)}</p></div>` : '')}
+    ${section(`${toolId}-formats`, 'Supported Inputs and Outputs', content.supportedFormats ? `<div class="tool-format-grid"><div><h3>Input</h3>${list(content.supportedFormats.input)}</div><div><h3>Output</h3>${list(content.supportedFormats.output)}</div></div>` : '')}
+    ${section(`${toolId}-method`, content.formula ? 'Formula / Method' : 'How It Works', content.formula || content.howItWorks ? `<div class="tool-info-note"><p>${escapeHTML(content.formula || content.howItWorks)}</p></div>` : '')}
+    ${section(`${toolId}-inputs`, 'Input Explanation', cards(content.inputExplanation, 'tool-info-card-grid'))}
+    ${section(`${toolId}-result`, 'Understanding the Result', content.resultExplanation ? `<div class="tool-info-note"><p>${escapeHTML(content.resultExplanation)}</p></div>` : '')}
+    ${section(`${toolId}-assumptions`, 'Assumptions', list(content.assumptions))}
+    ${section(`${toolId}-quality`, 'Quality and Fidelity', content.quality ? `<div class="tool-info-note"><p>${escapeHTML(content.quality)}</p></div>` : '')}
+    ${section(`${toolId}-limitations`, 'Limitations and Important Notes', list(content.limitations))}
+    ${section(`${toolId}-examples`, 'Worked Example', content.examples?.map(example => `<div class="tool-example"><p>${escapeHTML(example)}</p></div>`).join(''))}
+    ${section(`${toolId}-tips`, 'Helpful Tips', list(content.tips))}
+  </article>`;
+}
+
 function renderToolPage(container, toolId) {
   const tool = toolsList.find(t => t.id === toolId);
   if (!tool) return;
   if (lastAnalyticsToolOpen !== toolId) {
     recordToolAnalytics('tool_open', { status: 'opened' });
     lastAnalyticsToolOpen = toolId;
+  }
+  if (toolId === 'edit-pdf') {
+    renderEditPdfPage(container, tool);
+    return;
+  }
+  if (toolId === 'image-converter') {
+    renderImageConverterPage(container, tool);
+    return;
+  }
+  if (toolId === 'gps-map-camera') {
+    renderGpsMapCameraPage(container, tool);
+    return;
   }
 
   // Premium tool gating check
@@ -2793,7 +2911,7 @@ function renderToolPage(container, toolId) {
         <label class="checkbox-label">
           <input type="checkbox" id="opt-reverse" onchange="appState.activeToolOptions.reverse = this.checked">
           <div class="custom-checkbox"></div>
-          Reverse page order
+          Reverse file order before merging
         </label>
       </div>
     `;
@@ -2933,7 +3051,11 @@ function renderToolPage(container, toolId) {
           <span>Password Length</span>
           <span id="slider-pw-len">16</span>
         </div>
-        <input type="range" class="custom-range-slider" min="6" max="64" value="16" oninput="setPwLength(this.value)">
+        <input id="password-length" type="range" class="custom-range-slider" min="8" max="64" value="16" oninput="setPwLength(this.value)" aria-describedby="password-length-hint">
+        <small id="password-length-hint">Choose 8–64 characters. Longer passwords are substantially harder to guess.</small>
+        <div class="password-length-presets" role="group" aria-label="Password length presets">
+          ${[8, 16, 32, 64].map(length => `<button type="button" class="preset-btn${length === 16 ? ' active' : ''}" onclick="setPwLength(${length}, this)">${length}</button>`).join('')}
+        </div>
       </div>
       <div class="checkbox-group">
         <label class="checkbox-label">
@@ -3184,11 +3306,21 @@ function renderToolPage(container, toolId) {
   } else if (toolId === 'compress-pdf') {
     accepts = '.pdf';
     multiple = false;
+    uploadLimitLabel = 'Maximum file size: 25 MB for local PDF compression';
     optionsHTML = `
-      <div class="processing-disclosure">
-        Lossless structural optimization only. Images are not downsampled and no reduction percentage is promised. If the generated file is not smaller, no misleading result is offered.
+      <div class="form-group">
+        <label class="form-label">Compression level</label>
+        <div class="preset-grid compression-preset-grid" role="group" aria-label="PDF compression level">
+          <button type="button" class="preset-btn" onclick="setOptPdfCompression('low', this)">Low<span>Best quality</span></button>
+          <button type="button" class="preset-btn active" onclick="setOptPdfCompression('balanced', this)">Balanced<span>Recommended</span></button>
+          <button type="button" class="preset-btn" onclick="setOptPdfCompression('high', this)">High<span>Smallest file</span></button>
+        </div>
+      </div>
+      <div class="processing-disclosure" id="pdf-compression-disclosure">
+        Balanced compression preserves PDF structure while recompressing eligible raster images at good quality. Digital signatures will no longer validate after any rewrite.
       </div>
     `;
+    appState.activeToolOptions.compression = 'balanced';
   } else if (toolId === 'rotate-pdf') {
     accepts = '.pdf';
     multiple = false;
@@ -3349,10 +3481,10 @@ function renderToolPage(container, toolId) {
       <p class="processing-disclosure">Workbook cells are rendered as readable PDF tables. Excel print layouts, macros, charts, and formula recalculation are not reproduced.</p>
     `;
   } else if (toolId === 'ppt-to-pdf') {
-    accepts = '.txt,.ppt,.pptx';
+    accepts = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation';
     multiple = false;
     optionsHTML = `
-      <p class="processing-disclosure">Presentation layout conversion is unavailable in this deployment. Your source file is not processed.</p>
+      <p class="processing-disclosure">PPTX only, up to 25 MB and 30 slides. Slides are rendered locally in your browser. Basic text, solid shapes, images, colors, and backgrounds are supported; legacy PPT, custom fonts, charts, SmartArt, animations, media, gradients, themes, and master-slide effects may not match PowerPoint exactly.</p>
     `;
   } else if (toolId === 'pdf-to-text') {
     accepts = '.pdf';
@@ -4408,6 +4540,8 @@ function renderToolPage(container, toolId) {
   const dependencyBlocker = window.GxaWorkspace ? window.GxaWorkspace.getBlocker(toolId) : '';
   const needsFiles = routeNormallyNeedsFiles && !dependencyBlocker;
   const panelMeta = getToolPanelMeta(toolId, tool.category, needsFiles);
+  const workspaceFamily = window.GxaPhaseOneStudios?.familyForRoute(toolId) || tool.category;
+  const resultType = getToolResultType(toolId, tool.category);
   const processActionLabel = ({
     'merge-pdf': 'Merge PDFs', 'organize-pdf': 'Organize PDF', 'compress-image': 'Compress Image',
     'resize-image': 'Resize Image', 'crop-image': 'Crop Image', 'background-remover': 'Remove Background',
@@ -4444,6 +4578,7 @@ function renderToolPage(container, toolId) {
           </div>
           <p class="section-desc">${tool.desc}</p>
         </header>
+        ${renderToolPreworkspaceIntro(toolId)}
         <div class="dependency-service-state unavailable-tool-state" role="status" aria-labelledby="unavailable-tool-title">
           <span class="upload-icon-shell"><i data-lucide="clock-3"></i></span>
           <h2 id="unavailable-tool-title">Presentation renderer unavailable</h2>
@@ -4486,17 +4621,14 @@ function renderToolPage(container, toolId) {
             <span class="tool-page-icon cat-${tool.category}"><i data-lucide="${tool.icon}"></i></span>
             <div><span class="tool-category-label">${tool.category} tool</span><h1 class="tool-page-title">${tool.name}</h1></div>
           </div>
-          <div class="tool-heading-actions">
-            <button class="favorite-button tool-favorite ${appState.favorites.includes(tool.id) ? 'active' : ''}" aria-label="Toggle ${tool.name} favorite" onclick="toggleFavorite('${tool.id}'); this.classList.toggle('active')"><i data-lucide="star"></i><span>Favorite</span></button>
-            <div class="tool-badge processing-badge processing-${processingProfile.kind}"><i data-lucide="shield-check"></i> ${processingProfile.label}</div>
-          </div>
+          <div class="tool-heading-actions"><button class="favorite-button tool-favorite ${appState.favorites.includes(tool.id) ? 'active' : ''}" aria-label="Toggle ${tool.name} favorite" onclick="toggleFavorite('${tool.id}'); this.classList.toggle('active')"><i data-lucide="star"></i><span>Favorite</span></button></div>
         </div>
         <p class="section-desc" style="text-align:left;">${tool.desc}</p>
-        <p class="processing-disclosure">${processingProfile.detail}</p>
       </div>
+      ${renderToolPreworkspaceIntro(toolId)}
       
       <!-- Primary Tool Workspace Layout -->
-      <div class="tool-workspace premium-editor-workspace ${needsFiles ? '' : 'full'}" data-tool-id="${toolId}">
+      <div class="tool-workspace premium-editor-workspace ${needsFiles ? '' : 'full'} tool-family-${workspaceFamily}" data-tool-id="${toolId}" data-workspace-family="${workspaceFamily}" data-result-type="${resultType}">
         <div class="tool-interactive-area">
           <div id="premium-editor-toolbar" class="premium-editor-toolbar" role="toolbar" aria-label="${tool.name} editor commands"></div>
           ${needsFiles ? `
@@ -4533,7 +4665,7 @@ function renderToolPage(container, toolId) {
             </div>
           ` : `
             <!-- Generator Preview Box -->
-            <div class="barcode-preview-box" id="generator-preview-mount"></div>
+            <section class="barcode-preview-box" id="generator-preview-mount" aria-label="${tool.name} result" data-result-type="${resultType}"></section>
           `}
           
           <!-- State Display: Processing -->
@@ -4556,14 +4688,14 @@ function renderToolPage(container, toolId) {
           
           <!-- State Display: Done -->
           <div id="tool-complete-mount" class="hidden">
-            <div class="complete-card">
+            <div class="complete-card" data-result-type="${resultType}">
               <div class="complete-icon"><i data-lucide="check" style="width:36px; height:36px; stroke-width:3;"></i></div>
-              <h3 class="complete-title">${t('complete')}</h3>
+              <h3 class="complete-title" id="tool-result-title">${t('complete')}</h3>
               <p class="upload-subtitle" style="margin-bottom:20px;">Your processed output is ready. Review the real result and download it when ready.</p>
               <div class="premium-mobile-result-action">
                 <button class="btn btn-primary btn-lg" id="btn-mobile-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
               </div>
-              <div id="premium-result-preview" class="premium-result-preview" aria-live="polite"></div>
+              <div id="premium-result-preview" class="premium-result-preview" aria-live="polite" aria-labelledby="tool-result-title" data-result-type="${resultType}"></div>
               
               <!-- Image compression comparisons if applicable -->
               <div id="comparison-metric-mount" class="complete-comparison hidden"></div>
@@ -4571,8 +4703,7 @@ function renderToolPage(container, toolId) {
               <div id="premium-result-stats" class="premium-result-stats" aria-label="Output statistics"></div>
               <div class="premium-result-actions">
                 <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
-                <button class="btn btn-secondary btn-lg" id="btn-copy-result-link" onclick="copyPremiumResultLink()" disabled><i data-lucide="link"></i> Copy local link</button>
-                <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> Start Over</button>
+                <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> ${toolId === 'compress-pdf' ? 'Compress another PDF' : 'Start Over'}</button>
               </div>
             </div>
           </div>
@@ -4590,20 +4721,21 @@ function renderToolPage(container, toolId) {
                 <button type="button" class="btn btn-secondary" onclick="resetPremiumEditor()"><i data-lucide="rotate-ccw"></i> Reset</button>
               </div>
             ` : ''}
-            ${!needsFiles && !dependencyBlocker ? `
+            ${!needsFiles && !dependencyBlocker && !['password-generator', 'hash-tool'].includes(toolId) ? `
               <button class="btn btn-primary" id="btn-generator-download"><i data-lucide="download"></i> Download Output</button>
             ` : ''}
-            <div id="premium-live-stats" class="premium-live-stats" aria-live="polite"></div>
+            ${needsFiles ? '<div id="premium-live-stats" class="premium-live-stats" aria-live="polite"></div>' : ''}
             <div class="workspace-confidence-note"><i data-lucide="shield-check"></i><span><strong>${processingProfile.label}</strong>${processingProfile.detail}</span></div>
           </div>
         </div>
       </div>
 
-      <section class="premium-session-panel" aria-labelledby="premium-session-title">
+      ${needsFiles ? `<section class="premium-session-panel" aria-labelledby="premium-session-title">
         <div><span class="tool-category-label">This browser session</span><h3 id="premium-session-title">Recent results</h3></div>
         <div id="premium-session-history" class="premium-session-history"><span>No results created in this session yet.</span></div>
-      </section>
+      </section>` : ''}
 
+      ${renderToolContentSections(tool.id)}
       ${renderToolAdPlacementPlaceholder()}
 
       <!-- Related Tools section -->
@@ -4632,7 +4764,6 @@ function renderToolPage(container, toolId) {
     // Fire generator initialization
     if (toolId === 'password-generator') {
       generatePassword();
-      document.getElementById('btn-generator-download').addEventListener('click', downloadPasswordText);
     } else if (toolId === 'barcode-generator') {
       generateBarcodeSVG();
       document.getElementById('btn-generator-download').addEventListener('click', downloadBarcodeSVGFile);
@@ -4702,7 +4833,6 @@ function renderToolPage(container, toolId) {
       document.getElementById('opt-b64-raw').addEventListener('input', generateBase64TextLive);
     } else if (toolId === 'hash-tool') {
       generateHashTextLive();
-      document.getElementById('btn-generator-download').classList.add('hidden');
       document.getElementById('opt-hash-text').addEventListener('input', generateHashTextLive);
       document.getElementById('opt-hash-algo').addEventListener('change', generateHashTextLive);
     } else if (toolId === 'word-counter') {
@@ -4886,6 +5016,114 @@ function renderToolPage(container, toolId) {
   if (toolId === 'sign-pdf') initializePdfSignaturePad();
 }
 
+// Edit PDF uses the same route/content system with an in-memory visual workspace.
+async function renderEditPdfPage(container, tool) {
+  window.GxaPdfEditor?.dispose();
+  if (!document.getElementById('pdf-edit-styles')) {
+    const stylesheet = document.createElement('link');
+    stylesheet.id = 'pdf-edit-styles'; stylesheet.rel = 'stylesheet'; stylesheet.href = '/assets/pdf-edit.css';
+    document.head.appendChild(stylesheet);
+  }
+  const faqs = getFAQForTool(tool.id, tool.name);
+  container.innerHTML = `
+    <section class="container tool-container edit-pdf-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span>Edit PDF</span></nav>
+      <header class="tool-header"><h1 class="tool-page-title">Edit PDF</h1><p class="section-desc">${escapeHTML(tool.desc)}</p></header>
+      ${renderToolPreworkspaceIntro(tool.id)}
+      <div id="edit-pdf-mount"><p role="status">Loading PDF editor…</p></div>
+      ${renderToolContentSections(tool.id)}
+      ${renderToolAdPlacementPlaceholder()}
+      <section class="related-tools-section"><h2>Related Tools</h2><div class="tools-grid" id="related-tools-grid"></div></section>
+      <section class="faq-section"><h2 class="faq-title">Frequently Asked Questions</h2><div class="faq-list">${faqs.map(faq => `<details class="edit-pdf-faq"><summary>${escapeHTML(faq.q)}</summary><p>${escapeHTML(faq.a)}</p></details>`).join('')}</div></section>
+    </section>`;
+  window.GxaPhaseOneStudios?.decorate(tool.id);
+  renderRelatedTools(tool.id, tool.category);
+  const mount = container.querySelector('#edit-pdf-mount');
+  try {
+    await window.GxaWorkspace.loadScriptOnce('/assets/pdf-edit-core.js', 'GxaPdfEditCore');
+    await window.GxaWorkspace.loadScriptOnce('/assets/pdf-edit.js', 'GxaPdfEditor');
+    if (!mount.isConnected || appState.currentPage !== 'tool-edit-pdf') return;
+    window.GxaPdfEditor.mount(mount, {
+      onEvent: (event, status) => recordToolAnalytics(event, { status }),
+      onComplete: (size) => logHistory('edited-document.pdf', 'Edit PDF', (size / (1024 * 1024)).toFixed(2) + ' MB')
+    });
+  } catch (_) {
+    if (mount.isConnected) mount.innerHTML = '<p role="alert">The PDF editor could not load. Check your connection and reload this page.</p>';
+  }
+}
+
+// Image Converter is route-lazy so unrelated pages do not download its codecs or workspace styles.
+async function renderImageConverterPage(container, tool) {
+  window.GxaImageConverter?.dispose();
+  if (!document.getElementById('image-converter-styles')) {
+    const stylesheet = document.createElement('link');
+    stylesheet.id = 'image-converter-styles'; stylesheet.rel = 'stylesheet'; stylesheet.href = '/assets/image-converter.css';
+    document.head.appendChild(stylesheet);
+  }
+  const faqs = getFAQForTool(tool.id, tool.name);
+  container.innerHTML = `
+    <section class="container tool-container image-converter-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span>Image Converter</span></nav>
+      <header class="tool-header"><h1 class="tool-page-title">Universal Image Converter</h1><p class="section-desc">${escapeHTML(tool.desc)}</p></header>
+      ${renderToolPreworkspaceIntro(tool.id)}
+      <div id="image-converter-mount" aria-busy="true"><p role="status">Loading image converter…</p></div>
+      ${renderToolContentSections(tool.id)}
+      ${renderToolAdPlacementPlaceholder()}
+      <section class="related-tools-section"><h2>Related Tools</h2><div class="tools-grid" id="related-tools-grid"></div></section>
+      <section class="faq-section"><h2 class="faq-title">Frequently Asked Questions</h2><div class="faq-list">${faqs.map(faq => `<details><summary>${escapeHTML(faq.q)}</summary><p>${escapeHTML(faq.a)}</p></details>`).join('')}</div></section>
+    </section>`;
+  window.GxaPhaseOneStudios?.decorate(tool.id);
+  renderRelatedTools(tool.id, tool.category);
+  const mount = container.querySelector('#image-converter-mount');
+  try {
+    await window.GxaWorkspace.loadScriptOnce('/assets/image-converter-core.js', 'GxaImageConverterCore');
+    await window.GxaWorkspace.loadScriptOnce('/assets/image-converter.js', 'GxaImageConverter');
+    if (!mount.isConnected || appState.currentPage !== 'tool-image-converter') return;
+    window.GxaImageConverter.mount(mount, {
+      onEvent: (event, status) => recordToolAnalytics(event, { status }),
+      onComplete: size => logHistory('converted-image', 'Image Converter', `${(size / (1024 * 1024)).toFixed(2)} MB`)
+    });
+  } catch (_) {
+    if (mount.isConnected) mount.innerHTML = '<p role="alert">The image converter could not load. Check your connection and reload this page.</p>';
+  }
+}
+
+// GPS Map Camera is route-lazy so camera, map, and EXIF code never loads on unrelated pages.
+async function renderGpsMapCameraPage(container, tool) {
+  window.GxaGpsMapCamera?.dispose();
+  if (!document.getElementById('gps-map-camera-styles')) {
+    const stylesheet = document.createElement('link');
+    stylesheet.id = 'gps-map-camera-styles'; stylesheet.rel = 'stylesheet'; stylesheet.href = '/assets/gps-map-camera.css';
+    document.head.appendChild(stylesheet);
+  }
+  const faqs = getFAQForTool(tool.id, tool.name);
+  container.innerHTML = `
+    <section class="container tool-container gps-map-camera-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span>GPS Map Camera</span></nav>
+      <header class="tool-header"><h1 class="tool-page-title">GPS Map Camera – Geotag Photo</h1><p class="section-desc">${escapeHTML(tool.desc)}</p></header>
+      ${renderToolPreworkspaceIntro(tool.id)}
+      <div id="gps-map-camera-mount" aria-busy="true"><p role="status">Loading GPS photo workspace…</p></div>
+      ${renderToolContentSections(tool.id)}
+      ${renderToolAdPlacementPlaceholder()}
+      <section class="related-tools-section"><h2>Related Tools</h2><div class="tools-grid" id="related-tools-grid"></div></section>
+      <section class="faq-section"><h2 class="faq-title">Frequently Asked Questions</h2><div class="faq-list">${faqs.map(faq => `<details><summary>${escapeHTML(faq.q)}</summary><p>${escapeHTML(faq.a)}</p></details>`).join('')}</div></section>
+    </section>`;
+  window.GxaPhaseOneStudios?.decorate(tool.id);
+  renderRelatedTools(tool.id, tool.category);
+  const mount = container.querySelector('#gps-map-camera-mount');
+  try {
+    await window.GxaWorkspace.loadScriptOnce('/assets/gps-photo-core.js', 'GxaGpsPhotoCore');
+    await window.GxaWorkspace.loadScriptOnce('/assets/gps-map-camera.js', 'GxaGpsMapCamera');
+    if (!mount.isConnected || appState.currentPage !== 'tool-gps-map-camera') return;
+    window.GxaGpsMapCamera.mount(mount, {
+      onEvent: (event, status) => recordToolAnalytics(event, { status }),
+      onComplete: size => logHistory('geotagged-photo.jpg', 'GPS Map Camera', `${(size / (1024 * 1024)).toFixed(2)} MB`)
+    });
+  } catch (_) {
+    if (mount.isConnected) mount.innerHTML = '<p role="alert">The GPS photo workspace could not load. Check your connection and reload this page.</p>';
+  }
+}
+
 // --- FAQs lookup and generation ---
 function getFAQForTool(toolId, toolName) {
   const profile = window.GxaWorkspace
@@ -4900,6 +5138,7 @@ function getFAQForTool(toolId, toolName) {
     { q: `Where does ${toolName} process my files?`, a: privacyAnswer },
     { q: "Do I need to sign up to use tools?", a: "No, all standard operations can be performed completely free without creating an account or providing a credit card." }
   ];
+  const contentFaqs = window.GXA_TOOL_CONTENT?.[toolId]?.faqs?.map(item => ({ q: item.question, a: item.answer })) || [];
   
   const customFAQs = {
     'merge-pdf': [
@@ -4907,8 +5146,8 @@ function getFAQForTool(toolId, toolName) {
       { q: "Can I rearrange the files before merging?", a: "Yes, you can drag and drop the selected file cards in the upload queue to reorder them before clicking 'Process Files'." }
     ],
     'compress-pdf': [
-      { q: "Will compressing a PDF change its appearance?", a: "The current browser implementation reserializes the PDF structure. It does not promise image downsampling or a particular reduction percentage." },
-      { q: "What if the output is not smaller?", a: "Some PDFs are already optimized. The tool reports the actual before-and-after sizes and will not claim savings that did not occur." }
+      { q: "Will PDF compression invalidate a digital signature?", a: "Yes. Rewriting a signed PDF changes its bytes and normally invalidates existing digital signatures. Keep and verify the signed original." },
+      { q: "Can I compress an encrypted PDF?", a: "Not in this workflow. Unlock the PDF first with its password, then compress the unlocked copy." }
     ],
     'word-to-pdf': [
       { q: "How does Word to PDF work?", a: "DOCX paragraph text is extracted locally with Mammoth and paginated into a PDF. Complex Word layout, floating objects, and native pagination are not preserved." }
@@ -4924,6 +5163,9 @@ function getFAQForTool(toolId, toolName) {
     ]
   };
   
+  if (contentFaqs.length) {
+    return [...contentFaqs, ...(customFAQs[toolId] || []), ...generic];
+  }
   if (customFAQs[toolId]) {
     return [...customFAQs[toolId], ...generic];
   }
@@ -4995,12 +5237,11 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
           </div>
           <div class="tool-heading-actions">
             <button class="favorite-button tool-favorite ${appState.favorites.includes(tool.id) ? 'active' : ''}" aria-label="Toggle Crop Image favorite" onclick="toggleFavorite('crop-image'); this.classList.toggle('active')"><i data-lucide="star"></i><span>Favorite</span></button>
-            <div class="tool-badge processing-badge processing-${processingProfile.kind}"><i data-lucide="shield-check"></i> ${processingProfile.label}</div>
           </div>
         </div>
         <p class="section-desc" style="text-align:left;">Select an exact area, refine its size and position, then export a production-ready image.</p>
-        <p class="processing-disclosure">${processingProfile.detail}</p>
       </div>
+      ${renderToolPreworkspaceIntro(tool.id)}
 
       <div id="crop-editor-workspace" class="crop-editor-grid">
         <div class="crop-editor-main">
@@ -5150,6 +5391,7 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
         </div>
       </section>
 
+      ${renderToolContentSections(tool.id)}
       ${renderToolAdPlacementPlaceholder()}
 
       <div class="related-tools-section crop-support-section">
@@ -5159,10 +5401,10 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
     </section>
   `;
 
+  window.GxaPhaseOneStudios?.decorate(tool.id);
   lucide.createIcons();
   renderRelatedTools('crop-image', tool.category);
   setupCropImageEditor();
-  window.GxaPhaseOneStudios?.decorate('crop-image', processingProfile);
 }
 
 function setupCropImageEditor() {
@@ -5750,7 +5992,7 @@ async function createCropImageResult() {
     document.getElementById('crop-editor-status').textContent = 'Crop complete. Your source image was not changed.';
     logCropImageHistory(blob);
     lucide.createIcons();
-    document.getElementById('crop-result-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.GxaWorkspace.scrollToResult(document.getElementById('crop-result-panel'));
   } catch (error) {
     showCropEditorError(error.message || 'The cropped image could not be created.');
   } finally {
@@ -5958,6 +6200,7 @@ function renderBackgroundRemoverRoute(container, tool, processingProfile, faqHTM
     </section>
   `;
 
+  window.GxaPhaseOneStudios?.decorate(tool.id);
   lucide.createIcons();
   setupUploadZoneEvents();
   renderPremiumSessionHistory();
@@ -5967,7 +6210,9 @@ function renderRelatedTools(currentToolId, category) {
   const container = document.getElementById('related-tools-grid');
   if (!container) return;
   
-  let related = toolsList.filter(t => t.id !== currentToolId && t.category === category);
+  const configuredIds = window.GXA_TOOL_CONTENT?.[currentToolId]?.relatedTools || [];
+  let related = configuredIds.map(id => toolsList.find(tool => tool.id === id)).filter(Boolean);
+  if (!related.length) related = toolsList.filter(t => t.id !== currentToolId && t.category === category);
   if (related.length < 4) {
     related = related.concat(toolsList.filter(t => t.id !== currentToolId && t.category !== category));
   }
@@ -6080,35 +6325,13 @@ function initializePremiumToolEditor(toolId, needsFiles) {
 function renderPremiumEditorToolbar() {
   const toolbar = document.getElementById('premium-editor-toolbar');
   if (!toolbar) return;
-  const fileControls = premiumEditorState.needsFiles
-    ? [
-        '<button type="button" class="premium-command" onclick="document.getElementById(\'file-picker\')?.click()" aria-label="Add files"><i data-lucide="plus"></i><span>Add</span></button>',
-        '<span class="premium-toolbar-separator"></span>',
-        '<button type="button" class="premium-command" onclick="premiumPreviewAction(\'zoom-out\')" aria-label="Zoom preview out"><i data-lucide="zoom-out"></i></button>',
-        '<button type="button" class="premium-command" onclick="premiumPreviewAction(\'zoom-in\')" aria-label="Zoom preview in"><i data-lucide="zoom-in"></i></button>',
-        '<button type="button" class="premium-command" onclick="premiumPreviewAction(\'fit\')" aria-label="Fit preview"><i data-lucide="scan"></i><span>Fit</span></button>'
-      ].join('')
-    : [
-        '<button type="button" class="premium-command" onclick="copyPremiumPreview()" aria-label="Copy current result"><i data-lucide="copy"></i><span>Copy</span></button>',
-        '<button type="button" class="premium-command" onclick="sharePremiumPreview()" aria-label="Share current result"><i data-lucide="share-2"></i><span>Share</span></button>',
-        '<button type="button" class="premium-command" onclick="exportPremiumPreview(\'png\')" aria-label="Download result as image"><i data-lucide="image-down"></i><span>PNG</span></button>',
-        premiumEditorState.toolId.includes('calculator')
-          ? '<button type="button" class="premium-command" onclick="exportPremiumPreview(\'pdf\')" aria-label="Download calculation as PDF"><i data-lucide="file-down"></i><span>PDF</span></button>'
-          : ''
-      ].join('');
-  toolbar.innerHTML = [
-    '<div class="premium-toolbar-group">',
-      '<button id="premium-undo-button" type="button" class="premium-command" onclick="premiumUndo()" aria-label="Undo" title="Undo (Ctrl+Z)"><i data-lucide="undo-2"></i><span>Undo</span></button>',
-      '<button id="premium-redo-button" type="button" class="premium-command" onclick="premiumRedo()" aria-label="Redo" title="Redo (Ctrl+Y)"><i data-lucide="redo-2"></i><span>Redo</span></button>',
-      fileControls,
-    '</div>',
-    '<div class="premium-toolbar-group">',
-      '<button type="button" class="premium-command" onclick="showPremiumShortcutHelp()" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts"><i data-lucide="keyboard"></i></button>',
-      '<button type="button" class="premium-command" onclick="resetPremiumEditor()" aria-label="Reset editor"><i data-lucide="refresh-ccw"></i><span>Reset</span></button>',
-      '<button type="button" class="premium-command" onclick="togglePremiumFullscreen()" aria-label="Toggle focused editor view"><i data-lucide="maximize"></i></button>',
-    '</div>'
-  ].join('');
-  lucide.createIcons();
+  // Shared mega-editor commands obscured the primary task and duplicated the
+  // upload, preview, result, and calculator controls. Tool-specific actions now
+  // live next to the input or output they affect.
+  toolbar.innerHTML = '';
+  toolbar.hidden = true;
+  toolbar.removeAttribute('role');
+  toolbar.removeAttribute('aria-label');
 }
 
 function createPremiumEditorSnapshot() {
@@ -6306,7 +6529,7 @@ function showPremiumShortcutHelp() {
 }
 
 function handlePremiumEditorKeydown(event) {
-  if (!appState.currentPage.startsWith('tool-') || appState.currentPage === 'tool-crop-image') return;
+  if (!appState.currentPage.startsWith('tool-') || ['tool-crop-image', 'tool-edit-pdf', 'tool-image-converter', 'tool-gps-map-camera'].includes(appState.currentPage)) return;
   const modifier = event.ctrlKey || event.metaKey;
   if (modifier && event.key.toLowerCase() === 'z') {
     event.preventDefault();
@@ -6583,7 +6806,11 @@ function handleFileSelection(files) {
     ? window.GxaWorkspace.validateFiles(files, {
         accept: picker.accept || '*',
         multiple: isMultiple,
-        maxSize: appState.currentPage === 'tool-image-ocr' ? 20 * 1024 * 1024 : undefined
+        maxSize: appState.currentPage === 'tool-image-ocr'
+          ? 20 * 1024 * 1024
+          : appState.currentPage === 'tool-compress-pdf'
+            ? 25 * 1024 * 1024
+            : undefined
       })
     : { accepted: Array.from(files), errors: [] };
   validation.errors.forEach((message) => showToast(message, 'error'));
@@ -6982,7 +7209,7 @@ async function runFileProcessingPipeline() {
       status: 'completed',
       durationBucket: durationBucket(premiumEditorState.startedAt)
     });
-    window.requestAnimationFrame(() => completeMount.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    window.GxaWorkspace.scrollToResult(completeMount);
   } catch (err) {
     processingMount.classList.add('hidden');
     queueMount.classList.remove('hidden');
@@ -7039,8 +7266,10 @@ async function renderPremiumToolResult(blob, filename, url, explicitSize) {
   if (!preview || !stats) return;
   const extension = (filename.split('.').pop() || '').toLowerCase();
   const type = (blob?.type || '').toLowerCase();
+  const toolId = premiumEditorState.toolId || appState.currentPage.replace('tool-', '');
   preview.innerHTML = '';
   if (type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(extension)) {
+    preview.dataset.resultType = 'image-preview';
     const original = appState.activeFiles.find(file => file.type.startsWith('image/'));
     const compare = document.createElement('div');
     compare.className = 'premium-output-compare';
@@ -7066,10 +7295,11 @@ async function renderPremiumToolResult(blob, filename, url, explicitSize) {
     compare.appendChild(after);
     preview.appendChild(compare);
   } else if (type === 'application/pdf' || extension === 'pdf') {
+    preview.dataset.resultType = 'document-preview';
     const original = appState.activeFiles.find(file => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
     const compare = document.createElement('div');
     compare.className = 'premium-output-compare pdf';
-    if (original) {
+    if (original && toolId !== 'merge-pdf') {
       const originalUrl = URL.createObjectURL(original);
       premiumEditorState.auxiliaryUrls.push(originalUrl);
       const before = document.createElement('figure');
@@ -7086,22 +7316,25 @@ async function renderPremiumToolResult(blob, filename, url, explicitSize) {
     frame.src = url;
     frame.title = 'Processed PDF preview for ' + filename;
     const afterLabel = document.createElement('figcaption');
-    afterLabel.textContent = original ? 'After' : 'Output preview';
+    afterLabel.textContent = original && toolId !== 'merge-pdf' ? 'After' : toolId === 'merge-pdf' ? 'Merged PDF preview' : 'Output preview';
     after.append(frame, afterLabel);
     compare.appendChild(after);
     preview.appendChild(compare);
   } else if (type.startsWith('audio/')) {
+    preview.dataset.resultType = 'audio-player';
     const audio = document.createElement('audio');
     audio.controls = true;
     audio.src = url;
     preview.appendChild(audio);
   } else if (blob && (type.startsWith('text/') || ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'csv', 'sql'].includes(extension))) {
+    preview.dataset.resultType = 'text-preview';
     const textPreview = document.createElement('pre');
     textPreview.className = 'premium-result-text';
     textPreview.textContent = (await blob.text()).slice(0, 120000);
     preview.appendChild(textPreview);
   } else {
-    preview.innerHTML = '<div class="premium-result-file"><i data-lucide="file-check-2"></i><strong>' + escapeHTML(filename) + '</strong><span>Output file generated successfully</span></div>';
+    preview.dataset.resultType = 'download-card';
+    preview.innerHTML = '<div class="premium-result-file"><i data-lucide="file-check-2"></i><strong>' + escapeHTML(filename) + '</strong><span>Output file ready to download</span></div>';
   }
   const originalSize = appState.activeFiles.reduce((sum, file) => sum + file.size, 0);
   const outputSize = blob?.size || explicitSize || 0;
@@ -7422,8 +7655,16 @@ async function executeToolAlgorithm() {
     const originalFile = appState.activeFiles[0];
     const compressedBlob = await runPDFCompress(originalFile, appState.activeToolOptions.compression);
     const savings = originalFile.size - compressedBlob.size;
+    const percentage = originalFile.size ? (savings / originalFile.size) * 100 : 0;
+    const mode = appState.activeToolOptions.compression || 'balanced';
     metricMount.classList.remove('hidden');
-    metricMount.textContent = `Original: ${window.GxaWorkspace.formatBytes(originalFile.size)} • Output: ${window.GxaWorkspace.formatBytes(compressedBlob.size)} • Saved: ${window.GxaWorkspace.formatBytes(savings)}`;
+    metricMount.innerHTML = `
+      <section class="pdf-compression-summary" aria-label="PDF compression results">
+        <div><span>Original</span><strong>${window.GxaWorkspace.formatBytes(originalFile.size)}</strong></div>
+        <div><span>Compressed</span><strong>${window.GxaWorkspace.formatBytes(compressedBlob.size)}</strong></div>
+        <div><span>Saved</span><strong>${window.GxaWorkspace.formatBytes(savings)} (${percentage.toFixed(1)}%)</strong></div>
+        <p>${mode === 'low' ? 'Lossless structural compression' : `${mode === 'high' ? 'High' : 'Balanced'} image recompression`} produced this measured result.</p>
+      </section>`;
     const outputName = 'compressed_' + originalFile.name;
     registerToolResult(downloadBtn, compressedBlob, outputName);
     logHistory(outputName, 'Compress PDF', (compressedBlob.size / (1024*1024)).toFixed(2) + ' MB');
@@ -7480,12 +7721,13 @@ async function executeToolAlgorithm() {
     showToast('Excel table rendered as PDF!', 'success');
   } else if (toolId === 'ppt-to-pdf') {
     const originalFile = appState.activeFiles[0];
-    const theme = document.getElementById('opt-ppt-theme')?.value || 'dark';
-    const pptBlob = await runPPTToPDF(originalFile, theme);
+    const pptResult = await runPPTToPDF(originalFile);
+    const pptBlob = pptResult.blob;
     const outputName = originalFile.name.split('.')[0] + '_presentation.pdf';
     registerToolResult(downloadBtn, pptBlob, outputName);
     logHistory(outputName, 'PPT to PDF', (pptBlob.size / (1024*1024)).toFixed(2) + ' MB');
-    showToast('Presentation slides rendered as PDF!', 'success');
+    showToast(`${pptResult.slideCount} presentation slide${pptResult.slideCount === 1 ? '' : 's'} rendered as PDF!`, 'success');
+    if (pptResult.warnings.length) showToast('Converted with basic-rendering limitations. Review the PDF before sharing.', 'info');
   } else if (toolId === 'pdf-to-text') {
     const originalFile = appState.activeFiles[0];
     const textBlob = await runPDFToText(originalFile);
@@ -8226,52 +8468,64 @@ function setCropRatio(ratio, btn) {
 }
 
 // --- ALGORITHM: PASSWORD GENERATOR ---
-function setPwLength(val) {
-  appState.activeToolOptions.length = val;
-  document.getElementById('slider-pw-len').innerText = val;
+function setPwLength(val, button) {
+  const length = Math.max(8, Math.min(64, Number.parseInt(val, 10) || 16));
+  appState.activeToolOptions.length = length;
+  const slider = document.getElementById('password-length');
+  const output = document.getElementById('slider-pw-len');
+  if (slider) slider.value = String(length);
+  if (output) output.innerText = String(length);
+  document.querySelectorAll('.password-length-presets .preset-btn').forEach(item => item.classList.toggle('active', item === button || Number(item.textContent) === length));
   generatePassword();
 }
 
+function secureRandomIndex(length) {
+  const limit = 256 - (256 % length);
+  let randomByte = 256;
+  while (randomByte >= limit) randomByte = crypto.getRandomValues(new Uint8Array(1))[0];
+  return randomByte % length;
+}
+
 function generatePassword() {
-  const len = appState.activeToolOptions.length || 16;
-  const hasUpper = document.getElementById('pw-upper').checked;
-  const hasLower = document.getElementById('pw-lower').checked;
-  const hasNums = document.getElementById('pw-nums').checked;
-  const hasSyms = document.getElementById('pw-syms').checked;
-  
-  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const lower = 'abcdefghijklmnopqrstuvwxyz';
-  const nums = '0123456789';
-  const syms = '!@#$%^&*()_+~`|}{[]:;?><,./-=';
-  
-  let pool = '';
-  if (hasUpper) pool += upper;
-  if (hasLower) pool += lower;
-  if (hasNums) pool += nums;
-  if (hasSyms) pool += syms;
-  
-  if (pool === '') pool = lower; // Fallback
-  
-  let pw = '';
-  for (let i = 0; i < len; i++) {
-    const unbiasedLimit = 256 - (256 % pool.length);
-    let randomByte = 256;
-    while (randomByte >= unbiasedLimit) randomByte = crypto.getRandomValues(new Uint8Array(1))[0];
-    const idx = randomByte % pool.length;
-    pw += pool.charAt(idx);
+  const len = Math.max(8, Math.min(64, Number(appState.activeToolOptions.length) || 16));
+  const controls = [
+    [document.getElementById('pw-upper'), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'],
+    [document.getElementById('pw-lower'), 'abcdefghijklmnopqrstuvwxyz'],
+    [document.getElementById('pw-nums'), '0123456789'],
+    [document.getElementById('pw-syms'), '!@#$%^&*()_+~`|}{[]:;?><,./-=']
+  ];
+  if (!controls.some(([control]) => control?.checked) && controls[1][0]) controls[1][0].checked = true;
+
+  const selectedSets = controls.filter(([control]) => control?.checked).map(([, characters]) => characters);
+  const pool = selectedSets.join('');
+  const password = selectedSets.map(characters => characters[secureRandomIndex(characters.length)]);
+  while (password.length < len) password.push(pool[secureRandomIndex(pool.length)]);
+  for (let index = password.length - 1; index > 0; index -= 1) {
+    const swapIndex = secureRandomIndex(index + 1);
+    [password[index], password[swapIndex]] = [password[swapIndex], password[index]];
   }
+  const pw = password.join('');
+  const entropy = Math.round(len * Math.log2(pool.length));
+  const strength = entropy < 60 ? ['Fair', 'strength-fair'] : entropy < 100 ? ['Strong', 'strength-strong'] : ['Very strong', 'strength-strong'];
   
   // Render output
   const preview = document.getElementById('generator-preview-mount');
   if (preview) {
     preview.innerHTML = `
       <div style="width:100%;">
-        <div class="password-box" id="generated-password-display">
-          <span>${pw}</span>
-          <button class="btn btn-ghost btn-sm" onclick="copyPasswordToClipboard('${pw}')"><i data-lucide="copy" style="width:16px;"></i></button>
+        <div class="generated-output-card" role="status" aria-live="polite">
+          <span class="generated-output-label">Generated password</span>
+          <div class="password-box" id="generated-password-display">
+            <output id="generated-password-value" aria-label="Generated password">${escapeHTML(pw)}</output>
+            <div class="password-result-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="copy-password-button" onclick="copyPasswordToClipboard()" aria-label="Copy generated password"><i data-lucide="copy"></i><span>Copy</span></button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="generatePassword()" aria-label="Generate another password"><i data-lucide="refresh-cw"></i><span>Regenerate</span></button>
+            </div>
+          </div>
+          <div class="password-strength-summary"><span>Strength: <strong>${strength[0]}</strong></span><span>${entropy} bits estimated entropy</span></div>
         </div>
-        <div class="pw-strength-bar">
-          <div class="pw-strength-fill ${len < 10 ? 'strength-weak' : len < 15 ? 'strength-fair' : 'strength-strong'}" style="width: ${Math.min((len / 32) * 100, 100)}%;"></div>
+        <div class="pw-strength-bar" role="meter" aria-label="Password strength" aria-valuemin="0" aria-valuemax="128" aria-valuenow="${Math.min(entropy, 128)}">
+          <div class="pw-strength-fill ${strength[1]}" style="width: ${Math.min((entropy / 128) * 100, 100)}%;"></div>
         </div>
       </div>
     `;
@@ -8279,16 +8533,27 @@ function generatePassword() {
   }
 }
 
-function copyPasswordToClipboard(pw) {
-  navigator.clipboard.writeText(pw);
-  showToast('Password copied to clipboard!', 'success');
-  logHistory('generated_password.txt', 'Password Generator', '0.0 KB');
+async function copyPasswordToClipboard() {
+  const pw = document.getElementById('generated-password-value')?.textContent || '';
+  if (!pw) return;
+  try {
+    await navigator.clipboard.writeText(pw);
+    const buttonLabel = document.querySelector('#copy-password-button span');
+    if (buttonLabel) {
+      buttonLabel.textContent = 'Copied';
+      window.setTimeout(() => { buttonLabel.textContent = 'Copy'; }, 1400);
+    }
+    showToast('Password copied to clipboard!', 'success');
+    logHistory('generated_password.txt', 'Password Generator', '0.0 KB');
+  } catch (error) {
+    showToast('Clipboard access was denied. Select the full password and copy it manually.', 'error');
+  }
 }
 
 function downloadPasswordText() {
-  const display = document.getElementById('generated-password-display');
+  const display = document.getElementById('generated-password-value');
   if (!display) return;
-  const text = display.innerText;
+  const text = display.textContent;
   const blob = new Blob([text], { type: 'text/plain' });
   saveBlob(blob, 'generated_password.txt');
 }
@@ -8547,14 +8812,14 @@ async function runPDFUnlock(password) {
 
 async function runQpdfOperation(operation, file, password) {
   const maximumQpdfBytes = 25 * 1024 * 1024;
-  if (!file || file.size > maximumQpdfBytes) throw new Error('Protect and Unlock PDF support files up to 25 MB in this browser to prevent WebAssembly memory exhaustion.');
+  if (!file || file.size > maximumQpdfBytes) throw new Error('This local PDF operation supports files up to 25 MB in this browser to prevent WebAssembly memory exhaustion.');
   const worker = new Worker('/assets/qpdf-worker.js');
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const bytes = await file.arrayBuffer();
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       worker.terminate();
-      reject(new Error('The local PDF security engine timed out. Try a smaller file.'));
+      reject(new Error('The local PDF engine timed out. Try a smaller file.'));
     }, 90_000);
     worker.addEventListener('message', event => {
       if (event.data?.id !== id) return;
@@ -8955,6 +9220,14 @@ function setOptPdfCompression(lvl, btn) {
   const btns = btn.parentElement.querySelectorAll('.preset-btn');
   btns.forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  const disclosure = document.getElementById('pdf-compression-disclosure');
+  if (disclosure) {
+    disclosure.textContent = lvl === 'low'
+      ? 'Low compression is lossless: it compresses streams and PDF structure without intentionally changing image quality. Some already optimized files may not become smaller.'
+      : lvl === 'high'
+        ? 'High compression preserves PDF structure but uses stronger JPEG recompression for eligible raster images. Image quality may visibly decrease. Digital signatures will no longer validate.'
+        : 'Balanced compression preserves PDF structure while recompressing eligible raster images at good quality. Digital signatures will no longer validate after any rewrite.';
+  }
 }
 function clampWatermarkNumber(value, minimum, maximum, fallback) {
   const parsed = Number(value);
@@ -9446,12 +9719,16 @@ function createJsonTreeNode(value, label, depth) {
 
 // --- ALGORITHM: COMPRESS PDF ---
 async function runPDFCompress(file, compression) {
-  const arrayBuffer = await file.arrayBuffer();
-  const doc = await PDFLib.PDFDocument.load(arrayBuffer);
-  // pdf-lib re-save stream compress optimization
-  const pdfBytes = await doc.save({ useObjectStreams: true });
-  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-  if (blob.size >= file.size) throw new Error('This PDF is already optimized; reserializing it did not reduce the file size.');
+  if (!file || file.size === 0) throw new Error('Choose a non-empty PDF file to compress.');
+  if (file.type && file.type !== 'application/pdf') throw new Error('The selected file does not have the PDF MIME type.');
+  const headerBytes = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  const header = String.fromCharCode(...headerBytes);
+  if (header !== '%PDF-') throw new Error('The selected file does not contain a valid PDF header.');
+  const mode = ['low', 'balanced', 'high'].includes(compression) ? compression : 'balanced';
+  const blob = await runQpdfOperation(`compress:${mode}`, file, '');
+  if (blob.size >= file.size) {
+    throw new Error('This PDF is already efficiently compressed, so a smaller file could not be created without more aggressive quality reduction.');
+  }
   return blob;
 }
 
@@ -9690,8 +9967,9 @@ async function runExcelToPDF(file, fontName) {
 }
 
 // --- ALGORITHM: PPT TO PDF ---
-async function runPPTToPDF(file, theme) {
-  throw new Error(window.GxaWorkspace.getBlocker('ppt-to-pdf'));
+async function runPPTToPDF(file) {
+  await window.GxaWorkspace.loadScriptOnce('/assets/pptx-to-pdf.js', 'GxaPptxToPdf');
+  return window.GxaPptxToPdf.convert(file);
 }
 
 // --- ALGORITHM: PDF TO TEXT ---
@@ -10438,13 +10716,13 @@ function importFileForHashing(fileInput) {
     const preview = document.getElementById('generator-preview-mount');
     if (preview) {
       preview.innerHTML = `
-        <div style="width:100%; text-align:left;">
-          <h5 style="font-weight:700; margin-bottom:8px;">File Hash (${algo})</h5>
-          <p style="margin-bottom:6px; font-size:12px; color:var(--color-text-secondary);">File: <strong>${file.name}</strong> (${(file.size/1024).toFixed(1)} KB)</p>
-          <div style="font-family:var(--font-mono); padding:10px; border:1px solid var(--color-border); border-radius:4px; background:var(--color-bg); word-break:break-all; font-size:12px; font-weight:bold; margin-top:8px;">
+        <div class="generated-output-card" role="status" aria-live="polite">
+          <h5 style="font-weight:700; margin:0;">File Hash (${algo})</h5>
+          <p style="margin-bottom:6px; font-size:12px; color:var(--color-text-secondary);">File: <strong>${escapeHTML(file.name)}</strong> (${(file.size/1024).toFixed(1)} KB)</p>
+          <output id="generated-hash-value" class="generated-output-value" aria-label="${algo} file hash">
             ${hash}
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${hash}')" style="margin-top:10px;"><i data-lucide="copy" style="width:12px;"></i> Copy Hash</button>
+          </output>
+          <div class="generated-output-actions"><button type="button" class="btn btn-primary btn-sm" onclick="copyGeneratedHash()"><i data-lucide="copy"></i> Copy complete hash</button></div>
         </div>
       `;
       lucide.createIcons();
@@ -10481,15 +10759,26 @@ async function generateHashTextLive() {
   }
   
   preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Live Hash Output (${algo})</h5>
-      <div style="font-family:var(--font-mono); padding:10px; border:1px solid var(--color-border); border-radius:4px; background:var(--color-bg); word-break:break-all; font-size:12px; font-weight:bold;">
+    <div class="generated-output-card" role="status" aria-live="polite">
+      <h5 style="font-weight:700; margin:0;">Live Hash Output (${algo})</h5>
+      <output id="generated-hash-value" class="generated-output-value" aria-label="${algo} text hash">
         ${hash}
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${hash}')" style="margin-top:10px;"><i data-lucide="copy" style="width:12px;"></i> Copy Hash</button>
+      </output>
+      <div class="generated-output-actions"><button type="button" class="btn btn-primary btn-sm" onclick="copyGeneratedHash()" ${hash === '-' ? 'disabled' : ''}><i data-lucide="copy"></i> Copy complete hash</button></div>
     </div>
   `;
   lucide.createIcons();
+}
+
+async function copyGeneratedHash() {
+  const value = document.getElementById('generated-hash-value')?.textContent?.trim() || '';
+  if (!value || value === '-') return;
+  try {
+    await navigator.clipboard.writeText(value);
+    showToast('Complete hash copied to clipboard.', 'success');
+  } catch (error) {
+    showToast('Clipboard access was denied. Select the hash and copy it manually.', 'error');
+  }
 }
 
 // --- Live Word Counter ---
