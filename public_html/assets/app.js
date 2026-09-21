@@ -950,7 +950,7 @@ function renderCommandResults(query = '') {
   results.innerHTML = visible.length ? visible.map((tool, index) => {
     const profile = window.GxaWorkspace.getProcessingProfile(tool.id);
     return `<button type="button" class="command-result ${index === commandActiveIndex ? 'active' : ''}" role="option" aria-selected="${index === commandActiveIndex}" data-tool-id="${tool.id}" onclick="openToolFromCommand('${tool.id}')">
-      <span class="command-result-icon cat-${tool.category}"><i data-lucide="${tool.icon}"></i></span>
+      <span class="command-result-icon cat-${tool.category}">${window.GxaToolCards.icon(tool)}</span>
       <span class="command-result-copy"><strong>${tool.name}</strong><small>${tool.category} · ${profile.label}</small></span>
       <i data-lucide="arrow-up-right" class="command-result-arrow"></i>
     </button>`;
@@ -1006,9 +1006,18 @@ function toggleFavorite(toolId) {
   const isFavorite = appState.favorites.includes(toolId);
   appState.favorites = isFavorite ? appState.favorites.filter(id => id !== toolId) : [toolId, ...appState.favorites];
   localStorage.setItem(STORAGE_KEYS.favorites, JSON.stringify(appState.favorites));
-  const activeTab = document.querySelector('.filter-tab.active');
-  const category = activeTab?.dataset.category || 'all';
-  renderToolsGrid(category, document.getElementById('tool-search')?.value || '');
+  const tool = toolsList.find(item => item.id === toolId);
+  document.querySelectorAll('[data-favorite-tool="' + toolId + '"]').forEach(button => {
+    button.classList.toggle('active', !isFavorite);
+    button.setAttribute('aria-pressed', String(!isFavorite));
+    button.setAttribute('aria-label', (isFavorite ? 'Add ' : 'Remove ') + tool.name + (isFavorite ? ' to' : ' from') + ' favorites');
+    button.title = isFavorite ? 'Save to favorites' : 'Remove from favorites';
+  });
+  // Preserve focus and scroll when saving. Only a filtered Favorites list needs rebuilding.
+  if (document.querySelector('.filter-tab.active')?.dataset.category === 'saved') {
+    renderToolsGrid('saved', document.getElementById('tool-search')?.value || '');
+    document.querySelector('#tools-grid-container .favorite-button, #tools-grid-container .tools-empty-state button')?.focus({ preventScroll: true });
+  }
   showToast(isFavorite ? 'Removed from favorites.' : 'Added to favorites.', 'info');
 }
 
@@ -1507,6 +1516,8 @@ function renderPage() {
   const content = document.getElementById('main-content');
   if (!content) return;
   
+  toolBrowseObserver?.disconnect();
+  toolBrowseObserver = null;
   const pageId = appState.currentPage;
   if (!pageId.startsWith('tool-')) lastAnalyticsToolOpen = '';
   document.body.classList.toggle('background-remover-dedicated-active', pageId === 'tool-background-remover');
@@ -2385,6 +2396,47 @@ async function submitContact(event) {
 }
 
 // --- RENDER PAGE: HOMEPAGE ---
+const toolBrowseState = { category: 'all', query: '' };
+let toolBrowseObserver = null;
+
+function createToolCard(tool) {
+  return window.GxaToolCards.create(tool, appState.favorites.includes(tool.id),
+    event => handleRouteLink(event, 'tool-' + tool.id), () => toggleFavorite(tool.id));
+}
+
+function initializeToolBrowsing() {
+  const section = document.getElementById('tools-grid-anchor');
+  const dock = section?.querySelector('.tool-filter-bar');
+  const header = document.getElementById('navbar');
+  if (!section || !dock) return;
+  const measure = () => {
+    section.style.setProperty('--browse-header-height', (header?.getBoundingClientRect().height || 72) + 'px');
+    section.style.setProperty('--tool-dock-height', dock.getBoundingClientRect().height + 'px');
+  };
+  measure();
+  const activeTab = section.querySelector('.filter-tab.active');
+  if (activeTab) {
+    const row = activeTab.parentElement;
+    row.scrollLeft = activeTab.offsetLeft - row.offsetLeft - (row.clientWidth - activeTab.offsetWidth) / 2;
+  }
+  if ('ResizeObserver' in window) {
+    toolBrowseObserver = new ResizeObserver(measure);
+    toolBrowseObserver.observe(dock);
+    if (header) toolBrowseObserver.observe(header);
+  }
+}
+
+function returnToToolResults(smooth = false) {
+  const behavior = smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'instant';
+  document.getElementById('tools-grid-container')?.scrollIntoView({ block: 'start', behavior });
+}
+
+function toolResultsAboveDock() {
+  const grid = document.getElementById('tools-grid-container');
+  const dock = document.querySelector('.tool-filter-bar');
+  return grid && dock && grid.getBoundingClientRect().top < dock.getBoundingClientRect().bottom;
+}
+
 function renderHome(container) {
   const recentTools = appState.recentTools
     .map(id => toolsList.find(tool => tool.id === id))
@@ -2409,7 +2461,7 @@ function renderHome(container) {
       <div class="personal-tools-grid">
         ${personalTools.map(tool => `
           <a href="/${tool.id}/" class="personal-tool-card" onclick="handleRouteLink(event, 'tool-${tool.id}')">
-            <span class="personal-tool-icon cat-${tool.category}"><i data-lucide="${tool.icon}"></i></span>
+            <span class="personal-tool-icon cat-${tool.category}">${window.GxaToolCards.icon(tool)}</span>
             <span><strong>${tool.name}</strong><small>${tool.category}</small></span>
             <i data-lucide="arrow-up-right"></i>
           </a>`).join('')}
@@ -2464,19 +2516,21 @@ function renderHome(container) {
 
     <section class="container tools-directory" id="tools-grid-anchor">
       <div class="section-heading-row">
-        <div><span class="section-kicker">Everything you need</span><h2 class="section-title">Explore the toolbox</h2><p class="section-desc">Choose a focused utility and see exactly where its processing happens.</p></div>
+        <div><span class="section-kicker">Small tasks. Great tools.</span><h2 class="section-title">Find your next go-to tool.</h2><p class="section-desc">Browse by task, find what you need, and save your everyday favorites.</p></div>
         <span class="directory-count">${toolsList.length} tools</span>
       </div>
       <div class="tool-filter-bar">
-        <div class="filter-tabs" role="tablist" aria-label="Tool categories">
-          ${[['all','All tools'],['pdf','PDF'],['image','Image'],['convert','Convert'],['zip','ZIP'],['utility','Developer'],['calculator','Calculators']].map(([id,label], index) => `<button class="filter-tab ${index === 0 ? 'active' : ''}" data-category="${id}" onclick="filterTools('${id}', this)">${label}</button>`).join('')}
+        <div class="filter-tabs" role="group" aria-label="Filter tools by category">
+          ${[['all','All tools'],['pdf','PDF'],['image','Image'],['convert','Convert'],['zip','ZIP'],['utility','Developer'],['calculator','Calculators'],['saved','Favorites']].map(([id,label]) => `<button type="button" class="filter-tab ${toolBrowseState.category === id ? 'active' : ''}" data-category="${id}" aria-pressed="${toolBrowseState.category === id}" aria-controls="tools-grid-container" onclick="filterTools('${id}', this)">${label}</button>`).join('')}
         </div>
         <div class="search-wrapper">
           <i data-lucide="search" class="search-icon" aria-hidden="true"></i>
-          <input type="search" id="tool-search" class="search-input" aria-label="Filter ${toolsList.length} tools" placeholder="Filter ${toolsList.length} tools" oninput="searchTools(this.value)" onkeydown="if(event.key==='Enter') recordRecentSearch(this.value)">
+          <input type="search" id="tool-search" class="search-input" aria-label="Filter ${toolsList.length} tools" placeholder="Filter ${toolsList.length} tools" value="${escapeHTML(toolBrowseState.query)}" oninput="searchTools(this.value)" onkeydown="if(event.key==='Enter') recordRecentSearch(this.value)">
         </div>
       </div>
+      <div class="tool-results-meta"><span id="tool-results-count" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="text-button" id="clear-tool-filters" onclick="clearToolFilters()" hidden>Clear filters</button></div>
       <div class="tools-grid" id="tools-grid-container"></div>
+      <div class="tool-directory-end"><span id="tool-results-end"></span><button type="button" class="text-button" onclick="returnToToolResults(true); document.getElementById('tool-search').focus({preventScroll:true})">Back to filters ↑</button></div>
     </section>
 
     <section class="features-section">
@@ -2514,7 +2568,8 @@ function renderHome(container) {
   `;
   
   // Render grid list
-  renderToolsGrid('all');
+  renderToolsGrid(toolBrowseState.category, toolBrowseState.query);
+  initializeToolBrowsing();
   lucide.createIcons();
   startStatsCounters();
 }
@@ -2522,68 +2577,60 @@ function renderHome(container) {
 function renderToolsGrid(categoryFilter = 'all', searchQuery = '') {
   const grid = document.getElementById('tools-grid-container');
   if (!grid) return;
-  
-  grid.innerHTML = '';
-  
+  toolBrowseState.category = categoryFilter;
+  toolBrowseState.query = searchQuery;
   const filtered = toolsList.filter(tool => {
-    const matchesCategory = categoryFilter === 'all' || tool.category === categoryFilter;
-    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          tool.desc.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || tool.category === categoryFilter ||
+      (categoryFilter === 'saved' && appState.favorites.includes(tool.id));
+    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.desc.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
-  
-  if (filtered.length === 0) {
-    grid.innerHTML = `<div class="tools-empty-state"><i data-lucide="search-x"></i><h3>No matching tools</h3><p>Try a shorter search or choose another category.</p><button class="btn btn-ghost" onclick="document.getElementById('tool-search').value=''; filterTools('all', document.querySelector('.filter-tab[data-category=all]'))">Clear filters</button></div>`;
-    lucide.createIcons();
+  const count = document.getElementById('tool-results-count');
+  if (count) count.textContent = filtered.length + ' of ' + toolsList.length + ' tools' +
+    (categoryFilter === 'saved' ? ' · Your favorites' : '') +
+    (searchQuery ? ' matching “' + searchQuery + '”' : '');
+  const clear = document.getElementById('clear-tool-filters');
+  if (clear) clear.hidden = categoryFilter === 'all' && !searchQuery;
+  const end = document.getElementById('tool-results-end');
+  if (end) end.textContent = filtered.length ? 'All ' + filtered.length + ' tools in view. Find your next favorite.' : '';
+  if (!filtered.length) {
+    const saved = categoryFilter === 'saved' && !searchQuery;
+    grid.innerHTML = `<div class="tools-empty-state"><h3>${saved ? 'Your favorites start here' : 'No matching tools'}</h3><p>${saved ? 'Tap the star on a tool to keep it close for next time.' : 'Try a shorter search or choose another category.'}</p><button type="button" class="btn btn-ghost" onclick="clearToolFilters()">${saved ? 'Explore all tools' : 'Clear filters'}</button></div>`;
     return;
   }
-  
-  filtered.forEach(tool => {
-    const card = document.createElement('a');
-    card.className = `tool-card cat-${tool.category}`;
-    card.href = `/${tool.id}/`;
-    card.setAttribute('aria-label', `Open ${tool.name}`);
-    const isFavorite = appState.favorites.includes(tool.id);
-    
-    // Fallback icon resolver
-    let iconHTML = `<i data-lucide="${tool.icon}"></i>`;
-    if (tool.icon === 'qr-code') iconHTML = `<i data-lucide="qr-code"></i>`;
-    
-    card.innerHTML = `
-      <div class="tool-card-top"><div class="tool-card-icon">${iconHTML}</div><button class="favorite-button ${isFavorite ? 'active' : ''}" aria-label="${isFavorite ? 'Remove' : 'Add'} ${tool.name} ${isFavorite ? 'from' : 'to'} favorites" onclick="event.preventDefault(); event.stopPropagation(); toggleFavorite('${tool.id}', this)"><i data-lucide="star"></i></button></div>
-      <div class="tool-card-category">${tool.category}</div>
-      <h3 class="tool-card-title">${tool.name}</h3>
-      <p class="tool-card-desc">${tool.desc}</p>
-      <div class="tool-card-footer"><i data-lucide="arrow-up-right" class="tool-card-arrow"></i></div>
-    `;
+  const fragment = document.createDocumentFragment();
+  filtered.forEach(tool => fragment.appendChild(createToolCard(tool)));
+  grid.replaceChildren(fragment);
+}
 
-    card.addEventListener('click', (e) => {
-      if (!shouldHandleNavigationEvent(e)) return;
-      e.preventDefault();
-      navigate(`tool-${tool.id}`);
-    });
-    
-    grid.appendChild(card);
-  });
-  
-  lucide.createIcons();
+function clearToolFilters() {
+  const input = document.getElementById('tool-search');
+  if (input) input.value = '';
+  filterTools('all', document.querySelector('.filter-tab[data-category="all"]'));
+  input?.focus({ preventScroll: true });
 }
 
 function filterTools(category, btn) {
-  // Toggle tab classes
-  const tabs = document.querySelectorAll('.filter-tab');
-  tabs.forEach(tab => tab.classList.remove('active'));
-  btn.classList.add('active');
-  
-  const searchInput = document.getElementById('tool-search');
-  renderToolsGrid(category, searchInput ? searchInput.value : '');
+  const reposition = toolResultsAboveDock();
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    const selected = tab === btn;
+    tab.classList.toggle('active', selected);
+    tab.setAttribute('aria-pressed', String(selected));
+  });
+  if (btn) {
+    const row = btn.parentElement;
+    row.scrollTo({ left: btn.offsetLeft - row.offsetLeft - (row.clientWidth - btn.offsetWidth) / 2, behavior: 'instant' });
+  }
+  renderToolsGrid(category, document.getElementById('tool-search')?.value || '');
+  if (reposition) returnToToolResults();
 }
 
 function searchTools(query) {
-  // Find active category tab
-  const activeTab = document.querySelector('.filter-tab.active');
-  const cat = activeTab ? activeTab.dataset.category : 'all';
+  const reposition = toolResultsAboveDock();
+  const cat = document.querySelector('.filter-tab.active')?.dataset.category || 'all';
   renderToolsGrid(cat, query);
+  if (reposition) returnToToolResults();
 }
 
 function startStatsCounters() {
@@ -6220,24 +6267,7 @@ function renderRelatedTools(currentToolId, category) {
   // Shuffle/select first 4 unique items
   related = Array.from(new Set(related)).slice(0, 4);
   
-  container.innerHTML = '';
-  related.forEach(tool => {
-    const card = document.createElement('a');
-    card.className = `tool-card cat-${tool.category}`;
-    card.href = `/${tool.id}/`;
-    card.style.position = 'relative';
-    card.innerHTML = `
-      <div class="tool-card-icon"><i data-lucide="${tool.icon}"></i></div>
-      <h3 class="tool-card-title">${tool.name}</h3>
-      <p class="tool-card-desc">${tool.desc}</p>
-    `;
-    card.addEventListener('click', (e) => {
-      if (!shouldHandleNavigationEvent(e)) return;
-      e.preventDefault();
-      navigate(`tool-${tool.id}`);
-    });
-    container.appendChild(card);
-  });
+  container.replaceChildren(...related.map(createToolCard));
   lucide.createIcons();
 }
 

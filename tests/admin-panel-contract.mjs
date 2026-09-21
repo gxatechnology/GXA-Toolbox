@@ -47,7 +47,7 @@ normalAuth.setDatabaseClientForTests({
     if (statement.includes('COUNT(*)::INTEGER AS total_accounts')) {
       return [{ total_accounts: 4, signups_today: 1, signups_7d: 2, active_users: 3 }];
     }
-    if (statement.startsWith('SELECT occurred_at::DATE AS date')) {
+    if (statement.startsWith("SELECT (occurred_at AT TIME ZONE 'UTC')::DATE AS date")) {
       return [{ date: '2026-08-14', starts: 6, completions: 5, downloads: 4, failures: 1 }];
     }
     if (statement.includes("COUNT(*) FILTER (WHERE event_type = 'tool_open')") && !statement.includes('GROUP BY tool_id')) {
@@ -56,14 +56,16 @@ normalAuth.setDatabaseClientForTests({
     if (statement.includes('GROUP BY tool_id')) {
       return [{ tool_id: 'crop-image', tool_name: 'Crop Image', category: 'image', opens: 8, starts: 6, successful_jobs: 5, failed_jobs: 1, downloads: 4 }];
     }
-    if (statement.startsWith('SELECT full_name AS name')) {
+    if (statement.startsWith('SELECT full_name AS name, email, created_at')) {
       return [{ name: 'Normal User', email: 'normal@example.test', created_at: '2026-08-14T00:00:00.000Z' }];
     }
-    if (statement.startsWith('SELECT identity_user_id AS id')) {
+    if (statement.startsWith('SELECT full_name AS name, email, provider')) {
       return [{ id: 'identity-user-1', name: 'Normal User', email: 'normal@example.test', provider: 'email', is_premium: false, created_at: '2026-08-14T00:00:00.000Z', last_login_at: '2026-08-14T01:00:00.000Z', status: 'active' }];
     }
     if (statement.startsWith('SELECT event_type, category')) return [];
     if (statement.startsWith('SELECT source, category')) return [];
+    if (statement.startsWith('SELECT tool_id, event_type, occurred_at')) return [];
+    if (statement.startsWith('SELECT status, COUNT(*)')) return [{status:'new',count:1}];
     if (statement.startsWith('SELECT id, full_name AS name')) {
       return [{ id: 9, name: 'Support User', email: 'support@example.test', message: 'A persisted support request.', status: 'new', created_at: '2026-08-14T03:00:00.000Z' }];
     }

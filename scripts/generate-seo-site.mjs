@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { generateAdminSnapshot } from './generate-admin-snapshot.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -520,6 +521,7 @@ async function main() {
   );
   await cp(join(projectRoot, 'robots.txt'), join(distRoot, 'robots.txt'));
   await writeFile(join(distRoot, '404.html'), notFoundHtml(), 'utf8');
+  await generateAdminSnapshot();
   await writeFile(join(projectRoot, 'docs', 'SEO_ROUTE_AUDIT.md'), routeAuditMarkdown(tools, blockedIds, contentPages), 'utf8');
   await writeFile(join(projectRoot, 'docs', 'TOOL_CONTENT_INVENTORY.md'), toolContentInventoryMarkdown(tools, toolContent), 'utf8');
 

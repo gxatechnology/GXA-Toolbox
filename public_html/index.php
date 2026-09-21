@@ -65,6 +65,7 @@ try {
 
   <!-- Custom Stylesheets (Routed to Assets) -->
   <link rel="stylesheet" href="/assets/style.css?v=background-remover-react-20260808">
+  <link rel="stylesheet" href="/assets/tool-cards.css?v=20260922">
 
   <!-- Core Utility Libraries (CDN) -->
   <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -117,6 +118,8 @@ try {
   <script defer src="/assets/tool-workspace.js"></script>
 
   <!-- Core App Controller Script (Routed to Assets) -->
+  <script defer src="/assets/tool-icons.js?v=20260922"></script>
+  <script defer src="/assets/tool-cards.js?v=20260922"></script>
   <script defer src="/assets/app.js?v=background-remover-react-20260808"></script>
 </body>
 </html>

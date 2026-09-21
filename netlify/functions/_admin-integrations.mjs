@@ -4,11 +4,21 @@ import { ADSENSE_PUBLISHER_ID } from '../../config/adsense-config.mjs';
 
 const GA4_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
 const SEARCH_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
-const RANGE_DAYS = Object.freeze({ today: 1, '7d': 7, '28d': 28, '30d': 30, '3m': 90 });
+const RANGE_DAYS = Object.freeze({ today: 1, '7d': 7, '28d': 28, '30d': 30, '3m': 90, '90d': 90 });
 const REQUEST_TIMEOUT_MS = 10_000;
 const REPORT_CACHE_TTL_MS = 120_000;
 const reportCache = new Map();
-const number = value => Number(value) || 0;
+const pendingReports = new Map();
+const recentDiagnostics = new Map();
+async function reportingDiagnostic(source, error) {
+  const category = error instanceof GoogleIntegrationError ? error.state : 'api_error';
+  if (['configuration_required','authentication_required','permission_required'].includes(category)) return;
+  const key = `${source}:${category}`;
+  if ((recentDiagnostics.get(key) || 0) > Date.now()) return;
+  recentDiagnostics.set(key, Date.now()+15*60_000);
+  await recordSystemEvent(source, category);
+}
+const number = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
 const text = value => String(value || '').trim();
 const configured = (env, names) => names.every(name => Boolean(text(env[name])));
 const serviceAccountConfigured = env => Boolean(text(env.GOOGLE_SERVICE_ACCOUNT_JSON))
@@ -28,14 +38,14 @@ export function getGoogleIntegrationStates(env = process.env) {
     integration('ga4', 'Google Analytics 4', ['GA4_PROPERTY_ID', 'GOOGLE_SERVICE_ACCOUNT_JSON'], env, configured(env, ['GA4_PROPERTY_ID']) && serviceAccountConfigured(env)),
     integration('search-console', 'Google Search Console', ['SEARCH_CONSOLE_SITE_URL', 'GOOGLE_SERVICE_ACCOUNT_JSON'], env, configured(env, ['SEARCH_CONSOLE_SITE_URL']) && serviceAccountConfigured(env)),
     integration('adsense-reporting', 'Google AdSense Reporting', ['ADSENSE_ACCOUNT_ID', 'GOOGLE_ADSENSE_OAUTH_CLIENT_ID', 'GOOGLE_ADSENSE_OAUTH_CLIENT_SECRET', 'GOOGLE_ADSENSE_REFRESH_TOKEN'], env),
-    { id: 'gtm', name: 'Google Tag Manager', installed: true, status: 'installed_unverified', label: 'Installed · Reporting Unverified', containerId: 'GTM-TBQN2SJ4' },
-    { id: 'adsense-site-code', name: 'Google AdSense Site Code', installed: true, status: 'installed_unverified', label: 'Installed · Approval External', publisherId: ADSENSE_PUBLISHER_ID },
+    { id: 'gtm', name: 'Google Tag Manager', installed: true, status: 'installed_unverified', label: 'Container configured in build', detail: 'Static installation only; live firing is not inferred. GA4 reporting is a separate connection.', containerId: 'GTM-TBQN2SJ4' },
+    { id: 'adsense-site-code', name: 'Google AdSense Site Code', installed: true, status: 'installed_unverified', label: 'Site code installed · Approval external', detail: 'Site/account approval is not queried by this dashboard. Reporting authorization is independent.', publisherId: ADSENSE_PUBLISHER_ID },
     { id: 'netlify-identity', name: 'Netlify Identity', installed: true, status: 'installed_unverified', label: 'Installed · Provider Status External' }
   ];
 }
 
 export function getAdminDateRange(range, now = new Date()) {
-  const days = RANGE_DAYS[range] || 30;
+  const days = Object.hasOwn(RANGE_DAYS, range) ? RANGE_DAYS[range] : 30;
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - (days - 1));
@@ -48,10 +58,10 @@ async function googleJson(url, options, fetchImpl) {
   try {
     response = await fetchImpl(url, { ...options, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   } catch {
-    throw new GoogleIntegrationError('Google reporting could not be reached.');
+    throw new GoogleIntegrationError('Google reporting could not be reached.', 'api_unavailable');
   }
   if (!response.ok) {
-    const state = response.status === 401 || response.status === 403 ? 'permission_required' : 'api_error';
+    const state = response.status === 401 ? 'authentication_required' : response.status === 403 ? 'permission_required' : response.status >= 500 ? 'api_unavailable' : 'api_error';
     throw new GoogleIntegrationError('Google reporting rejected the request.', state, response.status);
   }
   try {
@@ -63,7 +73,7 @@ async function googleJson(url, options, fetchImpl) {
 
 function reportFailure(error, fallback) {
   const status = error instanceof GoogleIntegrationError ? error.state : 'api_error';
-  const labels = { configuration_required: 'Configuration Required', permission_required: 'Permission Required', api_error: 'Error' };
+  const labels = { configuration_required: 'Reporting not connected', authentication_required: 'Authentication required', permission_required: 'Permission denied', api_unavailable: 'API unavailable', api_error: 'Request failed' };
   return { status, label: labels[status] || fallback, dataState: null, metrics: null, rows: [], trend: [], groups: {} };
 }
 
@@ -72,7 +82,7 @@ function metricValues(report, expectedNames = []) {
   const values = report.totals?.[0]?.metricValues || report.rows?.[0]?.metricValues || [];
   return Object.fromEntries([...new Set([...expectedNames, ...headers])].map(name => {
     const index = headers.indexOf(name);
-    return [name, index >= 0 ? number(values[index]?.value) : 0];
+    return [name, index >= 0 ? number(values[index]?.value) : null];
   }));
 }
 
@@ -81,7 +91,8 @@ function connectedReport(payload, hasData) {
     status: 'connected',
     label: hasData ? 'Connected' : 'Connected · No Data',
     dataState: hasData ? 'available' : 'no_data',
-    ...payload
+    ...payload,
+    metrics: hasData ? payload.metrics : null
   };
 }
 
@@ -104,7 +115,7 @@ async function loadGa4(range, options) {
     const dates = getAdminDateRange(range, options.now);
     const request = body => googleJson(endpoint, {
       method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateRanges: [{ startDate: dates.start, endDate: dates.end }], limit: '25', ...body })
+      body: JSON.stringify({ dateRanges: [{ startDate: dates.start, endDate: dates.end }], limit: body.dimensions?.[0]?.name === 'date' ? '366' : '25', ...body })
     }, options.fetchImpl);
     const metricNames = ['activeUsers', 'newUsers', 'sessions', 'screenPageViews', 'engagedSessions', 'engagementRate'];
     const metrics = metricNames.map(name => ({ name }));
@@ -117,7 +128,7 @@ async function loadGa4(range, options) {
       request({ dimensions: [{ name: 'pagePath' }], metrics: [{ name: 'screenPageViews' }], orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }] })
     ]);
     const mappedMetrics = metricValues(summary, metricNames);
-    const hasData = Object.values(mappedMetrics).some(value => value !== 0)
+    const hasData = Boolean((summary.rows?.length || summary.totals?.length) && Object.values(mappedMetrics).some(value => value !== null))
       || [trend, sources, countries, devices, pages].some(report => report.rows?.length);
     return connectedReport({
       metrics: mappedMetrics,
@@ -127,7 +138,7 @@ async function loadGa4(range, options) {
       dateRange: dates
     }, hasData);
   } catch (error) {
-    await recordSystemEvent('ga4_api', error?.state || 'api_error');
+    await reportingDiagnostic('ga4_api', error);
     return reportFailure(error, 'Google Analytics not connected.');
   }
 }
@@ -135,7 +146,7 @@ async function loadGa4(range, options) {
 async function searchQuery(siteUrl, accessToken, dates, body, fetchImpl) {
   return googleJson(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
     method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ startDate: dates.start, endDate: dates.end, rowLimit: 25, ...body })
+    body: JSON.stringify({ startDate: dates.start, endDate: dates.end, rowLimit: body.dimensions?.[0] === 'date' ? 366 : 25, ...body })
   }, fetchImpl);
 }
 
@@ -166,7 +177,7 @@ async function loadSearchConsole(range, options) {
       note: hasData ? null : 'No finalized Search Console data is available for this date range yet.'
     }, hasData);
   } catch (error) {
-    await recordSystemEvent('search_console_api', error?.state || 'api_error');
+    await reportingDiagnostic('search_console_api', error);
     return reportFailure(error, 'Google Search Console not connected.');
   }
 }
@@ -192,9 +203,9 @@ async function loadAdsense(range, options) {
     const report = await googleJson(url, { headers: { Authorization: `Bearer ${accessToken}` } }, options.fetchImpl);
     const metrics = adsenseCells(report, report.totals?.cells || []);
     const rows = (report.rows || []).map(row => adsenseCells(report, row.cells));
-    return connectedReport({ metrics, rows, trend: rows, groups: {}, currencyCode: report.headers?.find(item => item.currencyCode)?.currencyCode || null, dateRange: dates }, rows.length > 0 || Object.values(metrics).some(value => number(value) !== 0));
+    return connectedReport({ metrics, rows, trend: rows, groups: {}, currencyCode: report.headers?.find(item => item.currencyCode)?.currencyCode || null, dateRange: dates }, rows.length > 0 || Boolean(report.totals?.cells?.length && Object.values(metrics).some(value => number(value) !== null)));
   } catch (error) {
-    await recordSystemEvent('adsense_api', error?.state || 'api_error');
+    await reportingDiagnostic('adsense_api', error);
     return reportFailure(error, 'AdSense Reporting Not Connected');
   }
 }
@@ -204,6 +215,8 @@ function reconcileIntegrations(states, reports) {
   const details = {
     connected: 'Authenticated reporting request completed successfully.',
     configuration_required: 'Required server-side environment variables are missing.',
+    authentication_required: 'Reporting authorization must be renewed.',
+    api_unavailable: 'Reporting service is temporarily unavailable.',
     permission_required: 'Configured Google identity does not have the required reporting permission.',
     api_error: 'The reporting service could not complete the request.'
   };
@@ -228,6 +241,7 @@ async function loadUncachedAdminIntegrations(range, options) {
     ? result.value
     : reportFailure(result.reason, 'Reporting Error'));
   const reports = { ga4, searchConsole, adsense };
+  for (const report of Object.values(reports)) report.refreshedAt = new Date().toISOString();
   return { reports, integrations: reconcileIntegrations(getGoogleIntegrationStates(runtime.env), reports) };
 }
 
@@ -236,14 +250,23 @@ export async function loadAdminIntegrations(range, options = {}) {
   const useProductionCache = options.cache !== false && !options.env && !options.fetchImpl && !options.now;
   if (!useProductionCache) return loadUncachedAdminIntegrations(rangeKey, options);
 
-  const cached = reportCache.get(rangeKey);
+  const dates = getAdminDateRange(rangeKey);
+  const cacheKey = `${rangeKey}:${dates.start}:${dates.end}`;
+  const cached = reportCache.get(cacheKey);
   if (cached?.expiresAt > Date.now()) return cached.value;
-  const value = await loadUncachedAdminIntegrations(rangeKey, options);
-  reportCache.set(rangeKey, { value, expiresAt: Date.now() + REPORT_CACHE_TTL_MS });
-  return value;
+  if (pendingReports.has(cacheKey)) return pendingReports.get(cacheKey);
+  const pending = loadUncachedAdminIntegrations(rangeKey, options).then(value => {
+    for (const [key, entry] of reportCache) if (entry.expiresAt <= Date.now()) reportCache.delete(key);
+    reportCache.set(cacheKey, { value, expiresAt: Date.now() + REPORT_CACHE_TTL_MS });
+    return value;
+  }).finally(()=>pendingReports.delete(cacheKey));
+  pendingReports.set(cacheKey,pending);
+  return pending;
 }
 
 export function resetAdminIntegrationCacheForTests() {
   if (process.env.NODE_ENV === 'production') throw new Error('Admin integration cache test adapter is unavailable in production.');
   reportCache.clear();
+  pendingReports.clear();
+  recentDiagnostics.clear();
 }

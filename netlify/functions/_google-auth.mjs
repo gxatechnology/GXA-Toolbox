@@ -20,7 +20,7 @@ function required(env, names) {
 }
 
 function classifyStatus(status) {
-  return status === 401 || status === 403 ? 'permission_required' : 'api_error';
+  return status === 401 ? 'authentication_required' : status === 403 ? 'permission_required' : status >= 500 ? 'api_unavailable' : 'api_error';
 }
 
 function normalizeServiceAccountCredentials(credentials) {
@@ -71,9 +71,13 @@ async function tokenRequest(body, fetchImpl) {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     });
   } catch {
-    throw new GoogleIntegrationError('Google authorization could not be reached.');
+    throw new GoogleIntegrationError('Google authorization could not be reached.', 'api_unavailable');
   }
-  if (!response.ok) throw new GoogleIntegrationError('Google authorization rejected the configured credentials.', classifyStatus(response.status), response.status);
+  if (!response.ok) {
+    const body = await response.json().catch(()=>({}));
+    const state = ['invalid_grant','invalid_client'].includes(body.error) ? 'authentication_required' : classifyStatus(response.status);
+    throw new GoogleIntegrationError('Google authorization rejected the configured credentials.', state, response.status);
+  }
   const payload = await response.json();
   if (!payload?.access_token) throw new GoogleIntegrationError('Google authorization returned no access token.');
   return payload;

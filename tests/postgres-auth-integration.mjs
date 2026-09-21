@@ -8,6 +8,9 @@ import historyHandler from '../netlify/functions/auth-history.mjs';
 import saveJobHandler from '../netlify/functions/auth-save-job.mjs';
 import sessionHandler from '../netlify/functions/auth-session.mjs';
 import contactHandler from '../netlify/functions/contact-support.mjs';
+import toolEventHandler from '../netlify/functions/tool-event.mjs';
+import { loadInternalData } from '../netlify/functions/admin-data.mjs';
+import { loadToolRegistry } from '../scripts/tool-registry.mjs';
 
 if (process.env.RUN_POSTGRES_INTEGRATION !== 'true') {
   console.log('PostgreSQL auth integration skipped.');
@@ -123,7 +126,32 @@ async function runPostgresAuthIntegration() {
       status: 'new'
     });
 
-    console.log('PostgreSQL Identity-profile, history, and Contact Support integration passed against an isolated Netlify development database.');
+    const registry = await loadToolRegistry();
+    const representativeIds = ['merge-pdf','crop-image','calculator','json-tool','barcode-generator','image-converter','gps-map-camera'];
+    for (const id of representativeIds) {
+      const tool=registry.find(item=>item.id===id);
+      for(const event_type of ['tool_open','tool_start','tool_complete','tool_download','tool_fail']) {
+        const response=await toolEventHandler(request('/.netlify/functions/tool-event',{event_type,tool_id:tool.id,tool_name:tool.name,tool_category:tool.category,status:'test'}));
+        assert.equal(response.status,202);
+      }
+    }
+    const from=new Date(); from.setUTCHours(0,0,0,0);
+    const until=new Date(from); until.setUTCDate(until.getUTCDate()+1);
+    const admin=await loadInternalData(database.sql,from.toISOString(),until.toISOString());
+    assert.equal(admin.toolAnalytics.rows.length,registry.length);
+    for (const id of representativeIds) {
+      const row=admin.toolAnalytics.rows.find(item=>item.tool_id===id);
+      for(const key of ['opens','starts','successful_jobs','failed_jobs','downloads']) assert.equal(row[key],1);
+      assert.equal(row.conversion_rate,100);
+      assert.ok(row.last_activity);
+    }
+    assert.equal(admin.recentActivity.length,35);
+    assert.equal(admin.users.summary.total_accounts,1);
+    assert.equal(admin.support.summary.find(row=>row.status==='new').count,1);
+    assert.equal(admin.support.rows[0].id,contact.reference_id);
+    assert.equal(admin.system.error_count,0);
+    assert.equal((await loadInternalData(database.sql,'2000-01-01T00:00:00Z','2000-01-02T00:00:00Z')).overview.internal.tool_opens,0);
+    console.log('PostgreSQL Identity-profile, history, Contact Support, and admin analytics integration passed against an isolated Netlify development database.');
   } finally {
     await database?.pool.end();
     await localDatabase.stop();

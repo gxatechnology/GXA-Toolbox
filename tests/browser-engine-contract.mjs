@@ -26,9 +26,10 @@ const decisionPattern = /\*\*(FULLY WORKING — BROWSER|FULLY WORKING — WASM|F
 matrixRows.forEach(row => assert.equal([...row.matchAll(decisionPattern)].length, 1, `Matrix row must have exactly one final decision: ${row}`));
 
 const renderTools = app.slice(app.indexOf('function renderToolsGrid'), app.indexOf('function filterTools'));
-assert(!renderTools.includes('getProcessingProfile'), 'All Tools cards must not query processing profiles.');
-assert(!renderTools.includes('tool-badge'), 'All Tools cards must not render processing badges.');
-assert(renderTools.includes('tool-card-arrow'), 'The card open arrow must remain.');
+const cardPresentation = await readFile(join(root, 'public_html', 'assets', 'tool-cards.js'), 'utf8');
+assert(!(renderTools + cardPresentation).includes('getProcessingProfile'), 'All Tools cards must not query processing profiles.');
+assert(!(renderTools + cardPresentation).includes('tool-badge'), 'All Tools cards must not render processing badges.');
+assert(cardPresentation.includes('tool-card-launch') && cardPresentation.includes('<svg viewBox="0 0 24 24"'), 'The card open arrow must remain in the shared card component.');
 
 const blockerSource = workspace.slice(workspace.indexOf('const blockers'), workspace.indexOf('const serverTools'));
 const blockers = [...blockerSource.matchAll(/^\s*'([^']+)':\s*'[^']+'/gm)].map(match => match[1]);

@@ -56,6 +56,7 @@ async function fetchMock(url, options = {}) {
     const body = JSON.parse(options.body);
     assert.deepEqual(body.dateRanges, [{ startDate: '2026-08-10', endDate: '2026-08-16' }]);
     const dimension = body.dimensions?.[0]?.name;
+    assert.equal(body.limit,dimension==='date'?'366':'25','Daily trends must not truncate 90-day ranges to 25 rows.');
     if (!dimension) return json({ metricHeaders: ['activeUsers', 'newUsers', 'sessions', 'screenPageViews', 'engagedSessions', 'engagementRate'].map(name => ({ name })), totals: [{ metricValues: ['12', '5', '18', '42', '14', '0.777'].map(value => ({ value })) }] });
     const metricName = body.metrics[0].name;
     const metricNames = body.metrics.map(item => ({ name: item.name }));
@@ -68,6 +69,7 @@ async function fetchMock(url, options = {}) {
     assert.equal(body.startDate, '2026-08-10');
     assert.equal(body.endDate, '2026-08-16');
     const key = body.dimensions?.[0];
+    assert.equal(body.rowLimit,key==='date'?366:25);
     return json({ rows: [{ ...(key ? { keys: [key === 'date' ? '2026-08-16' : `sample-${key}`] } : {}), clicks: 9, impressions: 90, ctr: 0.1, position: 4.2 }] });
   }
   if (href.includes('adsense.googleapis.com')) {
@@ -112,6 +114,8 @@ assert.deepEqual(getAdminDateRange('7d', new Date('2026-08-16T00:01:00.000Z')), 
 assert.deepEqual(getAdminDateRange('28d', new Date('2026-08-16T00:01:00.000Z')), { key: '28d', days: 28, start: '2026-07-20', end: '2026-08-16' });
 assert.deepEqual(getAdminDateRange('30d', new Date('2026-08-16T00:01:00.000Z')), { key: '30d', days: 30, start: '2026-07-18', end: '2026-08-16' });
 assert.deepEqual(getAdminDateRange('3m', new Date('2026-08-16T00:01:00.000Z')), { key: '3m', days: 90, start: '2026-05-19', end: '2026-08-16' });
+assert.equal(getAdminDateRange('constructor').key,'30d');
+assert.equal(getAdminDateRange('__proto__').days,30);
 
 const parsedCredentials = getGoogleServiceAccountCredentials({ env });
 assert.equal(parsedCredentials.client_email, serviceAccount.client_email);
@@ -164,25 +168,26 @@ for (const report of [noData.reports.ga4, noData.reports.searchConsole]) {
   assert.equal(report.dataState, 'no_data');
   assert.equal(report.label, 'Connected · No Data');
 }
-assert.deepEqual(noData.reports.ga4.metrics, { activeUsers: 0, newUsers: 0, sessions: 0, screenPageViews: 0, engagedSessions: 0, engagementRate: 0 });
-assert.deepEqual(noData.reports.searchConsole.metrics, { clicks: 0, impressions: 0, ctr: 0, position: 0 });
+assert.equal(noData.reports.ga4.metrics, null, 'Absent API records must not become verified zeroes.');
+assert.equal(noData.reports.searchConsole.metrics, null);
 
 recordedSystemEvents.length = 0;
 resetGoogleTokenCacheForTests();
 const permission = await loadAdminIntegrations('30d', { env, fetchImpl: async url => String(url).includes('oauth2.googleapis.com') ? json({ error: 'forbidden' }, 403) : json({}, 500) });
 for (const report of Object.values(permission.reports)) assert.equal(report.status, 'permission_required');
-assert.deepEqual(recordedSystemEvents.map(item => item.source).sort(), ['adsense_api', 'ga4_api', 'search_console_api']);
-assert.ok(recordedSystemEvents.every(item => item.category === 'permission_required' && item.severity === 'error'));
+assert.deepEqual(recordedSystemEvents, [], 'Expected authorization states must not pollute operational errors.');
 
 recordedSystemEvents.length = 0;
 resetGoogleTokenCacheForTests();
+resetAdminIntegrationCacheForTests();
 const apiError = await loadAdminIntegrations('30d', {
   env: { ...serviceAccountOnly, GA4_PROPERTY_ID: env.GA4_PROPERTY_ID, SEARCH_CONSOLE_SITE_URL: env.SEARCH_CONSOLE_SITE_URL },
   fetchImpl: async url => String(url).includes('oauth2.googleapis.com') ? json({ access_token: 'api-error-token', expires_in: 3600 }) : json({ error: 'unavailable' }, 503)
 });
-assert.equal(apiError.reports.ga4.status, 'api_error');
-assert.equal(apiError.reports.searchConsole.status, 'api_error');
-assert.ok(recordedSystemEvents.every(item => item.category === 'api_error'));
+assert.equal(apiError.reports.ga4.status, 'api_unavailable');
+assert.equal(apiError.reports.searchConsole.status, 'api_unavailable');
+assert.equal(recordedSystemEvents.length, 2);
+assert.ok(recordedSystemEvents.every(item => item.category === 'api_unavailable'));
 
 resetGoogleTokenCacheForTests();
 const partial = await loadAdminIntegrations('7d', {
@@ -200,9 +205,21 @@ const partial = await loadAdminIntegrations('7d', {
     throw new Error(`Unexpected partial-result request: ${href}`);
   }
 });
-assert.equal(partial.reports.ga4.status, 'api_error');
+assert.equal(partial.reports.ga4.status, 'api_unavailable');
 assert.equal(partial.reports.searchConsole.status, 'connected');
 assert.equal(partial.reports.searchConsole.metrics.clicks, 3);
+assert.equal(recordedSystemEvents.length,2,'Warm-instance repeated operational diagnostics must be deduplicated.');
+
+for(const [status,expected] of [[401,'authentication_required'],[403,'permission_required'],[400,'api_error'],[503,'api_unavailable']]) {
+  resetGoogleTokenCacheForTests();
+  const rejected=await loadAdminIntegrations('90d',{env,fetchImpl:async url=>String(url).includes('oauth2.googleapis.com')?json({access_token:'local-token',expires_in:3600}):json({error:'secret-details-not-returned'},status)});
+  for(const report of Object.values(rejected.reports)){assert.equal(report.status,expected);assert.equal(report.metrics,null);assert.doesNotMatch(JSON.stringify(report),/secret-details|local-token/);}
+}
+resetGoogleTokenCacheForTests();
+const zero=await loadAdminIntegrations('today',{env:{...serviceAccountOnly,GA4_PROPERTY_ID:env.GA4_PROPERTY_ID},fetchImpl:async(url,options)=>String(url).includes('oauth2.googleapis.com')?json({access_token:'local-zero-token',expires_in:3600}):JSON.parse(options.body).dimensions?json({}):json({metricHeaders:[{name:'activeUsers'}],totals:[{metricValues:[{value:'0'}]}]})});
+assert.equal(zero.reports.ga4.dataState,'available');
+assert.equal(zero.reports.ga4.metrics.activeUsers,0,'An explicitly returned zero is a real zero.');
+assert.equal(zero.reports.ga4.metrics.sessions,null,'A missing metric is not a zero.');
 
 const moduleSource = await (await import('node:fs/promises')).readFile(new URL('../netlify/functions/_admin-integrations.mjs', import.meta.url), 'utf8');
 const googleAuthSource = await (await import('node:fs/promises')).readFile(new URL('../netlify/functions/_google-auth.mjs', import.meta.url), 'utf8');

@@ -17,18 +17,19 @@
     support: 'Support Messages',
     system: 'System'
   });
-  const state = { section: 'overview', range: '30d', data: null };
+  const state = { section: 'overview', range: '30d', data: null, busy: false, requestId:0, filters: { search:'', category:'', activity:'all', sort:'opens', page:1 }, supportStatus:'' };
   const byId = id => document.getElementById(id);
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
   })[character]);
-  const formatNumber = value => Number(value).toLocaleString('en-IN');
-  const formatPercent = value => `${(Number(value || 0) * 100).toFixed(1)}%`;
-  const formatDecimal = value => Number(value || 0).toFixed(2);
-  const formatMoney = (value, currency = 'USD') => new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0));
-  const formatDate = value => value ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Not available';
+  const numeric = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+  const formatNumber = value => numeric(value) ? Number(value).toLocaleString('en-IN') : 'Not available';
+  const formatPercent = value => numeric(value) ? `${(Number(value) * 100).toFixed(1)}%` : 'Not available';
+  const formatDecimal = value => numeric(value) ? Number(value).toFixed(2) : 'Not available';
+  const formatMoney = (value, currency) => !numeric(value) ? 'Not available' : currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value)) : `${formatDecimal(value)} (currency not reported)`;
+  const formatDate = value => { const text=String(value || '').replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3'); const date=new Date(text); return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('en-IN', { dateStyle:'medium', timeStyle:'short' }).format(date) : 'Not available'; };
   const unavailable = label => `<span class="metric-unavailable">${escapeHtml(label || 'Not Connected')}</span>`;
-  const reportMetric = (report, key, formatter = formatNumber) => report.metrics ? formatter(report.metrics[key]) : unavailable(report.label);
+  const reportMetric = (report, key, formatter = formatNumber) => report.dataState === 'no_data' ? unavailable('No data') : numeric(report.metrics?.[key]) ? formatter(report.metrics[key]) : unavailable(report.metrics ? 'Metric not available' : report.label);
 
   async function api(url, options = {}) {
     const response = await fetch(url, {
@@ -47,6 +48,11 @@
   }
 
   function showLogin(message = '') {
+    state.requestId++;
+    state.data = null;
+    setBusy(false);
+    closeDrawer();
+    byId('dashboard-content').replaceChildren();
     byId('admin-app').hidden = true;
     byId('admin-login').hidden = false;
     byId('login-loading').hidden = true;
@@ -63,6 +69,9 @@
   }
 
   function setBusy(busy, message = '') {
+    state.busy = busy;
+    byId('refresh-data').textContent = busy ? 'Refreshing…' : 'Refresh data';
+    byId('dashboard-content').setAttribute('aria-busy', String(busy));
     byId('refresh-data').disabled = busy;
     byId('date-range').disabled = busy;
     byId('dashboard-status').hidden = !busy && !message;
@@ -83,12 +92,12 @@
 
   function table(headers, rows) {
     if (!rows.length) return empty('No Data Available', 'No verified records exist for this period.');
-    return `<div class="table-wrap"><table><thead><tr>${headers.map(item => `<th scope="col">${escapeHtml(item.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map(item => `<td>${item.render ? item.render(row) : escapeHtml(row[item.key] ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    return `<div class="table-wrap" role="region" aria-label="Scrollable data table" tabindex="0"><table><thead><tr>${headers.map(item => `<th scope="col">${escapeHtml(item.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map(item => `<td>${item.render ? item.render(row) : escapeHtml(row[item.key] ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
   function integrationCards() {
     return `<div class="integration-grid">${state.data.integrations.map(item => {
-      const className = item.status === 'connected' ? 'connected' : ['error', 'api_error', 'connection_error', 'permission_required'].includes(item.status) ? 'error' : '';
+      const className = item.status === 'connected' ? 'connected' : ['error', 'api_error', 'api_unavailable', 'connection_error'].includes(item.status) ? 'error' : '';
       const detail = item.detail || (item.status === 'configuration_required' ? 'Server-side configuration is required.' : 'Installed code does not confirm reporting access.');
       return `<article class="integration-card"><h4>${escapeHtml(item.name)}</h4><span class="status-chip ${className}">${escapeHtml(item.label)}</span><p>${escapeHtml(detail)}</p></article>`;
     }).join('')}</div>`;
@@ -102,10 +111,12 @@
     const cards = [
       kpi(state.range === 'today' ? 'Users Today' : 'Active Users', reportMetric(ga, 'activeUsers'), 'GA4', 'Selected date range'),
       kpi('Page Views', reportMetric(ga, 'screenPageViews'), 'GA4', 'No client-side estimate is substituted'),
-      kpi('Tool Runs', internal ? formatNumber(internal.tool_runs) : unavailable('Database unavailable'), 'GXA Analytics', 'Selected date range'),
+      kpi('Tool Opens', internal ? formatNumber(internal.tool_opens) : unavailable('Database unavailable'), 'GXA Analytics'),
+      kpi('Successful Jobs', internal ? formatNumber(internal.successful_jobs) : unavailable('Database unavailable'), 'GXA Analytics'),
+      kpi('Tool Starts', internal ? formatNumber(internal.tool_runs) : unavailable('Database unavailable'), 'GXA Analytics', 'Selected date range'),
       kpi('Downloads', internal ? formatNumber(internal.downloads) : unavailable('Database unavailable'), 'GXA Analytics', 'Recorded result downloads'),
       kpi('Search Clicks', reportMetric(search, 'clicks'), 'Search Console', 'Selected date range'),
-      kpi('AdSense Earnings', ads.metrics ? formatMoney(ads.metrics.ESTIMATED_EARNINGS, ads.currencyCode || 'USD') : unavailable(ads.label), 'Google AdSense', 'Selected date range'),
+      kpi('AdSense Earnings', reportMetric(ads, 'ESTIMATED_EARNINGS', value=>formatMoney(value, ads.currencyCode)), 'Google AdSense', 'Selected date range'),
       kpi('Errors', internal ? formatNumber(internal.errors) : unavailable('Database unavailable'), 'GXA Analytics', 'Sanitized processing failures')
     ].join('');
     const top = table([
@@ -121,9 +132,13 @@
       { label: 'Date', key: 'date' }, { label: 'Active Users', render: row => formatNumber(row.activeUsers) }, { label: 'Views', render: row => formatNumber(row.screenPageViews) }
     ], ga.trend || []);
     const revenueTrend = table([
-      { label: 'Date', key: 'DATE' }, { label: 'Earnings', render: row => formatMoney(row.ESTIMATED_EARNINGS, ads.currencyCode || 'USD') }, { label: 'Views', render: row => formatNumber(row.PAGE_VIEWS) }
+      { label: 'Date', key: 'DATE' }, { label: 'Earnings', render: row => formatMoney(row.ESTIMATED_EARNINGS, ads.currencyCode) }, { label: 'Views', render: row => formatNumber(row.PAGE_VIEWS) }
     ], ads.trend || []);
-    return `<div class="section-stack"><div class="kpi-grid">${cards}</div>${panel('Integration Status', 'Installed code and authenticated reporting connections are shown separately.', integrationCards())}<div class="panel-grid">${panel('Top Performing Tools', 'Real first-party events for the selected period.', top)}${panel('Recent Signups', 'Normal GXA Toolbox accounts only.', signups)}</div><div class="panel-grid">${panel('Traffic Trend', 'Google Analytics authoritative reporting.', trafficTrend)}${panel('Revenue Trend', 'Google AdSense authoritative reporting.', revenueTrend)}</div></div>`;
+    const supportCount=state.data.support?.summary?.filter(row=>row.status!=='resolved').reduce((sum,row)=>sum+row.count,0);
+    const alerts=state.data.integrations.filter(item=>['error','api_error','api_unavailable','authentication_required','permission_required','configuration_required'].includes(item.status)).map(item=>({tool_name:item.name, reason:item.label}));
+    if (supportCount) alerts.push({tool_name:'Support messages awaiting response',reason:String(supportCount)});
+    for (const row of state.data.toolAnalytics.attention || []) alerts.push({tool_name:row.tool_name,reason:'Review completion / failure rates'});
+    return `<div class="section-stack"><div class="kpi-grid">${cards}</div>${panel('Needs Attention', 'Configuration notices are separate from operational failures. Tool alerts require at least 20 starts.', table([{label:'Area',key:'tool_name'},{label:'Review',key:'reason'}],alerts))}${panel('Product Snapshot', 'Generated from the current public registry; sitemap URLs are not indexed pages.', `<p>${formatNumber(state.data.internalSeo.registeredTools)} registered tools · ${formatNumber(state.data.internalSeo.sitemapUrls)} sitemap URLs</p>`)}${panel('Integration Status', 'Installed code and authenticated reporting connections are shown separately.', integrationCards())}<div class="panel-grid">${panel('Top Performing Tools', 'Real first-party events for the selected period.', top)}${panel('Recent Signups', 'Normal GXA Toolbox accounts only.', signups)}</div><div class="panel-grid">${panel('Traffic Trend', 'Google Analytics authoritative reporting.', trafficTrend)}${panel('Revenue Trend', 'Google AdSense authoritative reporting.', revenueTrend)}</div></div>`;
   }
 
   function analytics() {
@@ -141,19 +156,27 @@
     return `<div class="section-stack"><p class="section-intro">GA4 reports are requested server-side. GTM installation alone is not treated as a reporting connection.</p>${status}<div class="kpi-grid">${metricCards}</div><div class="panel-grid">${panel('Visitors', 'Google Analytics Data API', trend)}${panel('Traffic Sources', 'Google Analytics Data API', sources)}${panel('Countries', 'Google Analytics Data API', countries)}${panel('Devices', 'Google Analytics Data API', devices)}${panel('Top Pages / Tools', 'Google Analytics Data API', pages)}</div></div>`;
   }
 
+  const toolColumns = [
+    {label:'Tool',key:'tool_name'}, {label:'Category',key:'category'},
+    ...[['Opens','opens'],['Starts','starts'],['Successful','successful_jobs'],['Failed','failed_jobs'],['Downloads','downloads']].map(([label,key])=>({label,render:row=>formatNumber(row[key])})),
+    ...[['Completion','conversion_rate'],['Failure rate','failure_rate'],['Download rate','download_rate']].map(([label,key])=>({label,render:row=>numeric(row[key]) ? row[key]+'%' : 'Not applicable'})),
+    {label:'Last Activity',render:row=>formatDate(row.last_activity)}
+  ];
+  function toolResults() {
+    const f=state.filters;
+    const rows=state.data.toolAnalytics.rows.filter(row=>(!f.search || (row.tool_name+' '+row.tool_id).toLowerCase().includes(f.search.toLowerCase())) && (!f.category || row.category===f.category) && (f.activity==='all' || f.activity==='attention' && row.attention || f.activity==='zero' && state.data.toolAnalytics.available && ['opens','starts','successful_jobs','failed_jobs','downloads'].every(key=>row[key]===0)));
+    rows.sort((a,b)=>(b[f.sort] || 0)-(a[f.sort] || 0) || a.tool_name.localeCompare(b.tool_name));
+    const pages=Math.max(1,Math.ceil(rows.length/25)); f.page=Math.min(f.page,pages);
+    return '<p role="status">'+rows.length+' matching / '+state.data.toolAnalytics.rows.length+' current tools</p>'+table(toolColumns,rows.slice((f.page-1)*25,f.page*25))+'<div class="table-pager"><button class="secondary-button" data-page="-1" '+(f.page===1?'disabled':'')+'>Previous</button><span>Page '+f.page+' of '+pages+'</span><button class="secondary-button" data-page="1" '+(f.page===pages?'disabled':'')+'>Next</button></div>';
+  }
   function tools() {
-    const rows = state.data.toolAnalytics.rows;
-    const databaseConnected = state.data.integrations.some(item => item.id === 'gxa-database' && item.status === 'connected');
-    const summary = rows.reduce((out, row) => ({ opens: out.opens + row.opens, starts: out.starts + row.starts, complete: out.complete + row.successful_jobs, fail: out.fail + row.failed_jobs, downloads: out.downloads + row.downloads }), { opens: 0, starts: 0, complete: 0, fail: 0, downloads: 0 });
-    const headers = [
-      { label: 'Rank', render: row => String(row.rank) }, { label: 'Tool', key: 'tool_name' }, { label: 'Category', key: 'category' },
-      { label: 'Opens', render: row => formatNumber(row.opens) }, { label: 'Runs', render: row => formatNumber(row.starts) },
-      { label: 'Successful', render: row => formatNumber(row.successful_jobs) }, { label: 'Failed', render: row => formatNumber(row.failed_jobs) },
-      { label: 'Downloads', render: row => formatNumber(row.downloads) }, { label: 'Conversion', render: row => row.conversion_rate === null ? 'Not available' : `${row.conversion_rate}%` }
-    ];
-    const metric = value => databaseConnected ? formatNumber(value) : unavailable('Database unavailable');
-    const trend = table([{ label: 'Date', render: row => formatDate(row.date) }, { label: 'Starts', render: row => formatNumber(row.starts) }, { label: 'Successful', render: row => formatNumber(row.completions) }, { label: 'Downloads', render: row => formatNumber(row.downloads) }, { label: 'Failed', render: row => formatNumber(row.failures) }], state.data.overview.trend || []);
-    return `<div class="section-stack"><div class="kpi-grid">${kpi('Tool Opens', metric(summary.opens), 'GXA Analytics')}${kpi('Tool Starts', metric(summary.starts), 'GXA Analytics')}${kpi('Successful Jobs', metric(summary.complete), 'GXA Analytics')}${kpi('Failed Jobs', metric(summary.fail), 'GXA Analytics')}${kpi('Downloads', metric(summary.downloads), 'GXA Analytics')}</div><p class="definition"><strong>Conversion rate:</strong> ${escapeHtml(state.data.toolAnalytics.formula)}. A page view is never counted as a conversion.</p>${panel('Tool Activity Trend', 'First-party events grouped by date for the selected range.', trend)}${panel('Most Used Tools', 'Privacy-minimized first-party events. No file names, contents, OCR text, or stack traces are collected.', table(headers, rows.map((row, index) => ({ ...row, rank: index + 1 }))))}</div>`;
+    const analytics=state.data.toolAnalytics;
+    const summary=analytics.rows.reduce((sum,row)=>{for(const key of ['opens','starts','successful_jobs','failed_jobs','downloads']) sum[key]=(sum[key]||0)+(row[key]||0);return sum;},{});
+    const cards=[['Tool Opens','opens'],['Tool Starts','starts'],['Successful Jobs','successful_jobs'],['Failed Jobs','failed_jobs'],['Downloads','downloads']].map(([label,key])=>kpi(label,analytics.available?formatNumber(summary[key]):unavailable('Database unavailable'),'GXA Analytics')).join('');
+    const categories=[...new Set(analytics.rows.map(row=>row.category))];
+    const f=state.filters;
+    const controls='<div class="tool-filters"><label>Search tools<input id="tool-search" type="search" value="'+escapeHtml(f.search)+'" placeholder="Name or tool ID"></label><label>Category<select id="tool-category"><option value="">All categories</option>'+categories.map(c=>'<option '+(f.category===c?'selected':'')+' value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>').join('')+'</select></label><label>Activity<select id="tool-activity">'+[['all','All tools'],['zero','Zero activity'],['attention','Needs attention']].map(([v,l])=>'<option value="'+v+'" '+(f.activity===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label><label>Sort by<select id="tool-sort">'+[['opens','Opens'],['starts','Starts'],['successful_jobs','Completions'],['failed_jobs','Failures'],['downloads','Downloads']].map(([v,l])=>'<option value="'+v+'" '+(f.sort===v?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>';
+    return '<div class="section-stack"><div class="kpi-grid">'+cards+'</div><p class="definition"><strong>Completion rate:</strong> '+escapeHtml(analytics.formula)+'. A page view is never a conversion. Failure rate = failures / starts; download rate = downloads / completions. Zero denominators are not applicable. Repeated downloads and cross-range events can produce ratios above 100%.</p>'+panel('Current Tool Activity','Includes tools with no recorded activity. '+analytics.threshold,controls+'<div id="tool-results">'+toolResults()+'</div>')+panel('Category Activity','Current canonical categories; selected period.',table([{label:'Category',key:'category'},...toolColumns.slice(2,7)],analytics.categories||[]))+panel('Tool Activity Trend','Daily recorded events; selected UTC period.',table([{label:'Date',key:'date'},...['starts','completions','downloads','failures'].map(key=>({label:key,render:row=>formatNumber(row[key])}))],state.data.overview.trend))+panel('Recent Activity','Latest 50 privacy-minimized events in the selected period.',table([{label:'Tool',key:'tool_name'},{label:'Event',key:'event_type'},{label:'Category',key:'category'},{label:'Occurred at',render:row=>formatDate(row.occurred_at)}],state.data.recentActivity||[]))+panel('Historical / Unregistered IDs','Not counted as current tools. No events have been deleted.',table([{label:'Historical ID',key:'tool_id'},...toolColumns.slice(2)],analytics.historical||[]))+'</div>';
   }
 
   function seo() {
@@ -164,15 +187,17 @@
     const trend = table([{ label: 'Date', key: 'date' }, { label: 'Clicks', render: row => formatNumber(row.clicks) }, { label: 'Impressions', render: row => formatNumber(row.impressions) }, { label: 'CTR', render: row => formatPercent(row.ctr) }, { label: 'Position', render: row => formatDecimal(row.position) }], search.trend || []);
     const status = search.dataState === 'no_data' ? empty('No Finalized Search Data Available', search.note || 'Search Console may not yet have finalized data for this date range.') : '';
     const indexedCount = empty('Indexed Page Count Unavailable', 'Indexed page count is not available through this reporting connection. Sitemap and generated-page totals are technical build counts only.');
-    return `<div class="section-stack"><p class="section-intro">Google Search Console performance data and the GXA technical SEO build audit are separate sources.</p>${status}<div class="kpi-grid">${kpi('Google Clicks', reportMetric(search, 'clicks'), 'Search Console')}${kpi('Search Impressions', reportMetric(search, 'impressions'), 'Search Console')}${kpi('Average CTR', reportMetric(search, 'ctr', formatPercent), 'Search Console')}${kpi('Average Position', reportMetric(search, 'position', formatDecimal), 'Search Console')}</div>${panel('Search Performance Trend', 'Google Search Console API; recent data can be delayed.', trend)}<div class="panel-grid">${panel('Top Queries', 'Google Search Console API', queries)}${panel('Top Ranking Tools', 'Google Search Console API', pages)}</div>${panel('Google Indexing Status', 'No sitemap count is presented as an indexed-page count.', indexedCount)}${panel('GXA Technical SEO Audit', 'Contract-tested build facts, not Search Console performance or indexing metrics.', `<div class="kpi-grid">${kpi('Registered Tools', formatNumber(health.registeredTools), 'Build Audit')}${kpi('Indexable Tool Pages', formatNumber(health.indexableToolPages), 'Build Audit')}${kpi('Sitemap URLs', formatNumber(health.sitemapUrls), 'Build Audit')}${kpi('Noindex Pages', formatNumber(health.noindexPages), 'Build Audit')}${kpi('Canonical Issues', formatNumber(health.canonicalIssues), 'Build Audit')}${kpi('Broken Internal Links', formatNumber(health.brokenInternalLinks), 'Build Audit')}</div>`)}</div>`;
+    return `<div class="section-stack"><p class="section-intro">Google Search Console performance data and the GXA technical SEO build audit are separate sources.</p>${status}<div class="kpi-grid">${kpi('Google Clicks', reportMetric(search, 'clicks'), 'Search Console')}${kpi('Search Impressions', reportMetric(search, 'impressions'), 'Search Console')}${kpi('Average CTR', reportMetric(search, 'ctr', formatPercent), 'Search Console')}${kpi('Average Position', reportMetric(search, 'position', formatDecimal), 'Search Console')}</div>${panel('Search Performance Trend', 'Google Search Console API; recent data can be delayed.', trend)}<div class="panel-grid">${panel('Top Queries', 'Google Search Console API', queries)}${panel('Top Ranking Tools', 'Google Search Console API', pages)}</div>${panel('Google Indexing Status', 'No sitemap count is presented as an indexed-page count.', indexedCount)}${panel('GXA Technical SEO Audit', 'Contract-tested build facts, not Search Console performance or indexing metrics.', `<div class="kpi-grid">${kpi('Registered Tools', formatNumber(health.registeredTools), 'Build Audit')}${kpi('Indexable Tool Pages', formatNumber(health.indexableToolPages), 'Build Audit')}${kpi('Sitemap URLs', formatNumber(health.sitemapUrls), 'Build Audit')}${kpi('Noindex Pages', formatNumber(health.noindexPages), 'Build Audit')}${kpi('Canonical Issues', formatNumber(health.canonicalIssues), 'Build Audit')}${[['Missing Titles','missingTitles'],['Missing Descriptions','missingDescriptions'],['Missing H1','missingH1'],['Missing / Invalid Structured Data','missingStructuredData']].map(([label,key])=>kpi(label,formatNumber(health[key]),'Build Audit')).join('')}${kpi('Broken Internal Links', formatNumber(health.brokenInternalLinks), 'Build Audit')}</div>`)}</div>`;
   }
 
   function adsense() {
+    const publisherLabel = 'Publisher: __GXA_ADSENSE_PUBLISHER_ID__';
     const ads = state.data.reports.adsense;
-    const money = key => ads.metrics ? formatMoney(ads.metrics[key], ads.currencyCode || 'USD') : unavailable(ads.label);
-    const trend = table([{ label: 'Date', key: 'DATE' }, { label: 'Earnings', render: row => formatMoney(row.ESTIMATED_EARNINGS, ads.currencyCode || 'USD') }, { label: 'Page Views', render: row => formatNumber(row.PAGE_VIEWS) }, { label: 'Clicks', render: row => formatNumber(row.CLICKS) }], ads.trend || []);
+    const money = key => reportMetric(ads, key, value=>formatMoney(value,ads.currencyCode));
+    const trend = table([{ label: 'Date', key: 'DATE' }, { label: 'Earnings', render: row => formatMoney(row.ESTIMATED_EARNINGS, ads.currencyCode) }, { label: 'Page Views', render: row => formatNumber(row.PAGE_VIEWS) }, { label: 'Clicks', render: row => formatNumber(row.CLICKS) }], ads.trend || []);
+    if (ads.status !== 'connected') return `<div class="section-stack">${panel('AdSense Reporting', publisherLabel, empty(ads.label, 'Site code installation, site/account approval, and reporting authorization are independent. Reporting requires server-side OAuth and account permission; no earnings are estimated.'))}${integrationCards()}</div>`;
     const status = ads.status === 'connected' ? `<div class="status-message">Authenticated AdSense reporting is connected.</div>` : empty(ads.label, 'Server-side OAuth configuration and account permission are required. No earnings are estimated locally.');
-    return `<div class="section-stack"><p class="section-intro">The existing AdSense site code and publisher identity are preserved. Reporting access is a separate server-side integration.</p><div class="kpi-grid">${kpi('Estimated Earnings', money('ESTIMATED_EARNINGS'), 'AdSense API')}${kpi('Page Views', reportMetric(ads, 'PAGE_VIEWS'), 'AdSense API')}${kpi('Ad Impressions', reportMetric(ads, 'IMPRESSIONS'), 'AdSense API')}${kpi('Clicks', reportMetric(ads, 'CLICKS'), 'AdSense API')}${kpi('Page RPM', money('PAGE_VIEWS_RPM'), 'AdSense API')}${kpi('CPC', money('COST_PER_CLICK'), 'AdSense API')}</div>${panel('AdSense Reporting Status', 'Publisher: __GXA_ADSENSE_PUBLISHER_ID__', status)}${panel('Revenue Trend', 'Selected dashboard date range.', trend)}</div>`;
+    return `<div class="section-stack"><p class="section-intro">The existing AdSense site code and publisher identity are preserved. Reporting access is a separate server-side integration.</p><div class="kpi-grid">${kpi('Estimated Earnings', money('ESTIMATED_EARNINGS'), 'AdSense API')}${kpi('Page Views', reportMetric(ads, 'PAGE_VIEWS'), 'AdSense API')}${kpi('Ad Impressions', reportMetric(ads, 'IMPRESSIONS'), 'AdSense API')}${kpi('Clicks', reportMetric(ads, 'CLICKS'), 'AdSense API')}${kpi('Page RPM', money('PAGE_VIEWS_RPM'), 'AdSense API')}${kpi('CPC', money('COST_PER_CLICK'), 'AdSense API')}</div>${panel('AdSense Reporting Status', publisherLabel, status)}${panel('Revenue Trend', 'Selected dashboard date range.', trend)}</div>`;
   }
 
   function users() {
@@ -185,18 +210,18 @@
       { label: 'Last Login', render: row => formatDate(row.last_login_at) },
       { label: 'Status', render: row => `<span class="status-chip ${row.status === 'active' ? 'connected' : 'error'}">${escapeHtml(row.status || 'Unknown')}</span>` }
     ], state.data.users.rows);
-    return `<div class="section-stack"><p class="section-intro">Normal GXA Toolbox users only. Administrator credentials are never stored in this account database.</p><div class="kpi-grid">${kpi('Total Accounts', value('total_accounts'), 'GXA Database')}${kpi('New Signups Today', value('signups_today'), 'GXA Database')}${kpi('New Signups 7 Days', value('signups_7d'), 'GXA Database')}${kpi('Active Users', value('active_users'), 'GXA Database', 'Based on recorded last login')}</div>${panel('Accounts', 'Password hashes, session tokens, and authentication secrets are never returned.', rows)}</div>`;
+    return `<div class="section-stack"><p class="section-intro">Normal GXA Toolbox users only. Administrator credentials are never stored in this account database.</p><div class="kpi-grid">${kpi('Total Accounts', value('total_accounts'), 'GXA Database')}${kpi('Registrations in period', value('signups_period'), 'GXA Database')}${kpi('Accounts signing in', value('active_users'), 'GXA Database', 'Based on recorded last login')}</div>${panel('Accounts', 'Latest 100 accounts registered in the selected period. Total accounts is lifetime; these are not anonymous visitors.', rows)}</div>`;
   }
 
   function support() {
     const rows = table([
       { label: 'Name', key: 'name' },
       { label: 'Email', key: 'email' },
-      { label: 'Message', render: row => `<span class="support-message-preview" title="${escapeHtml(row.message)}">${escapeHtml(row.message)}</span>` },
+      { label: 'Message', render: row => `<span class="support-message-preview">${escapeHtml(String(row.message || '').slice(0,160))}</span><details class="support-message-details"><summary>Read full message</summary><p>${escapeHtml(row.message)}</p></details>` },
       { label: 'Submitted', render: row => formatDate(row.created_at) },
       { label: 'Status', render: row => `<span class="status-chip ${row.status === 'resolved' ? 'connected' : ''}">${escapeHtml(String(row.status || 'new').replace(/_/g, ' '))}</span>` }
-    ], state.data.support?.rows || []);
-    return `<div class="section-stack"><p class="section-intro">Genuine Contact Support submissions are available only through this authenticated administration service.</p>${panel('Support Messages', 'No example tickets are generated. The newest persisted submissions appear first.', rows)}</div>`;
+    ], (state.data.support?.rows || []).filter(row=>!state.supportStatus || row.status===state.supportStatus));
+    return `<div class="section-stack"><p class="section-intro">Genuine Contact Support submissions are available only through this authenticated administration service.</p>${panel('Support Messages', 'Latest 100 submissions in the selected period. Status is read-only; unread/read tracking is not implemented.', `<label>Status <select id="support-filter">${[['','All statuses'],['new','New'],['in_progress','In progress'],['resolved','Resolved']].map(([v,l])=>`<option value="${v}" ${state.supportStatus===v?'selected':''}>${l}</option>`).join('')}</select></label>${rows}`)}</div>`;
   }
 
   function system() {
@@ -206,32 +231,38 @@
       { label: 'Event', key: 'event_type' }, { label: 'Category', key: 'category' }, { label: 'Count', render: row => formatNumber(row.count) }
     ], state.data.system.auth_failures);
     const errors = table([
-      { label: 'Source', key: 'source' }, { label: 'Category', key: 'category' }, { label: 'Severity', key: 'severity' }, { label: 'Time', render: row => formatDate(row.occurred_at) }
+      { label: 'Source', key: 'source' }, { label: 'Category', key: 'category' }, { label: 'Severity', key: 'severity' }, { label:'Occurrences', render:row=>formatNumber(row.count) }, { label: 'Last occurred', render: row => formatDate(row.occurred_at) }
     ], state.data.system.errors);
-    return `<div class="section-stack"><div class="kpi-grid">${kpi('Database Status', escapeHtml(database.label), 'GXA Database', database.detail)}${kpi('Function Errors', databaseConnected ? formatNumber(state.data.system.errors.length) : unavailable('Database unavailable'), 'Sanitized Events')}${kpi('Auth Failures', databaseConnected ? formatNumber(state.data.system.auth_failures.reduce((sum, row) => sum + row.count, 0)) : unavailable('Database unavailable'), 'GXA Authentication')}${kpi('Tool Processing Errors', state.data.overview.internal ? formatNumber(state.data.overview.internal.errors) : unavailable('Database unavailable'), 'GXA Analytics')}</div><div class="panel-grid">${panel('Authentication Failures', 'Only safe categories and counts are retained.', authRows)}${panel('Function & System Errors', 'No stack traces, credentials, environment values, or private paths are returned.', errors)}</div></div>`;
+    return `<div class="section-stack"><div class="kpi-grid">${kpi('Database Status', escapeHtml(database.label), 'GXA Database', database.detail)}${kpi('Function Errors', databaseConnected ? formatNumber(state.data.system.error_count) : unavailable('Database unavailable'), 'Sanitized Events')}${kpi('Auth Failures', databaseConnected ? formatNumber(state.data.system.auth_failures.reduce((sum, row) => sum + row.count, 0)) : unavailable('Database unavailable'), 'GXA Authentication')}${kpi('Tool Processing Errors', state.data.overview.internal ? formatNumber(state.data.overview.internal.errors) : unavailable('Database unavailable'), 'GXA Analytics')}</div><div class="panel-grid">${panel('Authentication Failures', 'Only safe categories and counts are retained.', authRows)}${panel('Function & System Errors', 'No stack traces, credentials, environment values, or private paths are returned.', errors)}</div></div>`;
   }
 
   function renderSection() {
     const renderers = { overview, analytics, tools, seo, adsense, users, support, system };
     byId('section-title').textContent = titles[state.section];
-    byId('dashboard-content').innerHTML = renderers[state.section]();
+    byId('dashboard-content').innerHTML = renderers[state.section]()+panel('Data Freshness','Refreshed timestamps describe API fetches, not when events occurred. Reports may be cached for two minutes. GA4 does not reconstruct traffic before activation; Search Console has reporting delays.',table([{label:'Source',key:'source'},{label:'Fetched at',render:row=>formatDate(row.refreshedAt)},{label:'State',key:'label'}],[{source:'GXA Analytics',refreshedAt:state.data.generated_at,label:state.data.toolAnalytics.available?'Database query completed':'Database unavailable'},...Object.entries(state.data.reports).map(([source,report])=>({source,...report}))]));
     document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.section === state.section));
   }
 
   async function loadData() {
+    if (state.busy) return;
+    const requestId=++state.requestId;
     setBusy(true);
     try {
-      state.data = await api(`${endpoints.data}?range=${encodeURIComponent(state.range)}`);
+      const data = await api(`${endpoints.data}?range=${encodeURIComponent(state.range)}`);
+      if(requestId!==state.requestId) return;
+      state.data=data;
       showApp();
       byId('dashboard-content').hidden = false;
-      byId('data-timestamp').textContent = `Updated ${formatDate(state.data.generated_at)}`;
+      byId('data-timestamp').textContent = `Data refreshed at ${formatDate(state.data.generated_at)} · Events: ${state.data.dateRange?.start || ''}–${state.data.dateRange?.end || ''} (UTC range)`;
       renderSection();
       setBusy(false);
     } catch (error) {
+      if(requestId!==state.requestId) return;
       if (error.status === 401) return showLogin('Your administrator session has expired. Sign in again.');
       showApp();
-      byId('dashboard-content').hidden = true;
-      setBusy(false, error.message);
+      byId('dashboard-content').hidden = !state.data;
+      if (state.data) { state.range=state.data.range; byId('date-range').value=state.range; }
+      setBusy(false, state.data ? 'Refresh failed. Previous data is still displayed with its original range and timestamp.' : error.message);
     }
   }
 
@@ -240,10 +271,14 @@
     byId('drawer-backdrop').hidden = true;
     byId('open-drawer').setAttribute('aria-expanded', 'false');
     document.body.style.overflow = '';
+    document.querySelector('.app-column').inert = false;
+    byId('admin-sidebar').inert = window.innerWidth <= 900;
   }
 
   function openDrawer() {
+    byId('admin-sidebar').inert = false;
     byId('admin-sidebar').classList.add('open');
+    document.querySelector('.app-column').inert = true;
     byId('drawer-backdrop').hidden = false;
     byId('open-drawer').setAttribute('aria-expanded', 'true');
     document.body.style.overflow = 'hidden';
@@ -274,14 +309,31 @@
     closeDrawer();
     byId('admin-main').focus();
   });
+  byId('dashboard-content').addEventListener('input',event=>{
+    const keys={'tool-search':'search','tool-category':'category','tool-activity':'activity','tool-sort':'sort'};
+    if (keys[event.target.id]) {state.filters[keys[event.target.id]]=event.target.value;state.filters.page=1;byId('tool-results').innerHTML=toolResults();}
+  });
+  byId('dashboard-content').addEventListener('change',event=>{if(event.target.id==='support-filter'){state.supportStatus=event.target.value;renderSection();byId('support-filter').focus();}});
+  byId('dashboard-content').addEventListener('click',event=>{const b=event.target.closest('[data-page]');if(b){state.filters.page+=Number(b.dataset.page);byId('tool-results').innerHTML=toolResults();byId('tool-results').querySelector('[data-page]:not(:disabled)')?.focus();}});
   byId('date-range').addEventListener('change', event => { state.range = event.target.value; loadData(); });
   byId('refresh-data').addEventListener('click', loadData);
   byId('open-drawer').addEventListener('click', openDrawer);
-  byId('close-drawer').addEventListener('click', closeDrawer);
-  byId('drawer-backdrop').addEventListener('click', closeDrawer);
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeDrawer(); });
+  byId('close-drawer').addEventListener('click', () => { closeDrawer(); byId('open-drawer').focus(); });
+  byId('drawer-backdrop').addEventListener('click', () => { closeDrawer(); byId('open-drawer').focus(); });
+  document.addEventListener('keydown', event => {
+    if (!byId('admin-sidebar').classList.contains('open')) return;
+    if (event.key === 'Escape') { closeDrawer(); byId('open-drawer').focus(); }
+    if (event.key === 'Tab') {
+      const buttons=[...byId('admin-sidebar').querySelectorAll('button:not(:disabled)')].filter(button=>button.getClientRects().length);
+      const first=buttons[0], last=buttons.at(-1);
+      if (event.shiftKey && document.activeElement===first) {event.preventDefault();last.focus();}
+      if (!event.shiftKey && document.activeElement===last) {event.preventDefault();first.focus();}
+    }
+  });
+  window.addEventListener('resize', closeDrawer);
+  closeDrawer();
   byId('admin-logout').addEventListener('click', async () => {
-    try { await api(endpoints.logout, { method: 'POST' }); } catch { /* Cookie is still cleared whenever the endpoint is reachable. */ }
+    try { await api(endpoints.logout, { method: 'POST' }); } catch { setBusy(false, 'Logout failed. Your session may still be active; retry logout.'); return; }
     state.data = null;
     showLogin();
   });

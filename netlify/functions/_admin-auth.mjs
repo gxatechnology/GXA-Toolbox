@@ -54,8 +54,27 @@ export async function readAdminJson(request) {
     error.status = 415;
     throw error;
   }
+  const reader = request.body?.getReader();
+  const chunks = [];
+  let bytes = 0;
+  if (reader) {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytes += value.byteLength;
+        if (bytes > MAX_ADMIN_BODY_BYTES) {
+          await reader.cancel();
+          const error = new Error('Request body is too large.');
+          error.status = 413;
+          throw error;
+        }
+        chunks.push(value);
+      }
+    } finally { reader.releaseLock(); }
+  }
   try {
-    const body = await request.json();
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid payload.');
     return body;
   } catch {
@@ -83,7 +102,9 @@ export function createAdminSessionToken(now = Date.now()) {
 
 export function verifyAdminSessionToken(token, now = Date.now()) {
   if (!token || !token.includes('.')) return null;
-  const [payload, suppliedSignature] = token.split('.');
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [payload, suppliedSignature] = parts;
   if (!payload || !suppliedSignature) return null;
   let expectedSignature;
   try {
@@ -97,7 +118,7 @@ export function verifyAdminSessionToken(token, now = Date.now()) {
   if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) return null;
   try {
     const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (session.sub !== 'gxa-administrator' || session.exp <= Math.floor(now / 1000)) return null;
+    if (session.sub !== 'gxa-administrator' || !Number.isFinite(session.exp) || session.exp <= Math.floor(now / 1000)) return null;
     return session;
   } catch {
     return null;
@@ -111,7 +132,9 @@ export function readAdminSession(request) {
     .map(part => part.trim())
     .find(part => part.startsWith(`${ADMIN_SESSION_COOKIE}=`))
     ?.slice(ADMIN_SESSION_COOKIE.length + 1);
-  return verifyAdminSessionToken(value ? decodeURIComponent(value) : '');
+  let decoded;
+  try { decoded = value ? decodeURIComponent(value) : ''; } catch { return null; }
+  return verifyAdminSessionToken(decoded);
 }
 
 export function requireAdminSession(request) {
@@ -149,7 +172,8 @@ export function clearAdminSessionCookie(request) {
 }
 
 export function adminErrorResponse(error) {
-  if (error?.status) return jsonResponse({ success: false, message: error.message }, error.status);
+  const safeMessages = { 400:'Invalid JSON request.', 401:'Administrator authentication required.', 403:'Cross-origin request rejected.', 413:'Request body is too large.', 415:'Expected a JSON request.' };
+  if (safeMessages[error?.status]) return jsonResponse({ success: false, message: safeMessages[error.status] }, error.status);
   if (error instanceof AdminConfigurationError) {
     console.error('Admin configuration error:', error.message);
     return jsonResponse({ success: false, message: 'Administrator access is not configured for this deployment.' }, 503);
