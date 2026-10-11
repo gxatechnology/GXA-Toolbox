@@ -282,11 +282,11 @@ function fetchHistoryFromDB() {
 const translations = {
   en: {
     tagline: "Your Complete Digital Toolbox",
-    description: "Access powerful browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations — all in one place.",
+    description: "Work with PDFs, edit images, convert files, create QR codes, and calculate everyday numbers.",
     heroTitle: "Your Complete Digital Toolbox",
     explore: "Explore Tools",
     signup: "Sign up for free",
-    trustNote: "No credit card required &nbsp; • &nbsp; Clear processing disclosures on every file tool",
+    trustNote: "Choose a tool to get started",
     whyChoose: "Get started with GXA Toolbox",
     toolsHeaderDesc: "Choose from file, developer, archive, and calculation tools. Each file tool states where processing occurs.",
     all: "All Tools",
@@ -502,7 +502,7 @@ const extraTools = [
   { id: 'excel-to-pdf', name: 'Excel to PDF', category: 'convert', desc: 'Convert spreadsheets and CSV data into tables in PDF.', icon: 'file-spreadsheet' },
   { id: 'ppt-to-pdf', name: 'PPT to PDF', category: 'convert', desc: 'Convert supported PPTX slides with text, shapes, images, and solid backgrounds to PDF.', icon: 'presentation' },
   { id: 'pdf-to-text', name: 'PDF to Text', category: 'convert', desc: 'Extract and download all plain text characters from PDF.', icon: 'file-text' },
-  { id: 'html-to-pdf', name: 'HTML to PDF', category: 'convert', desc: 'Render HTML structures directly to a PDF template.', icon: 'code' },
+  { id: 'html-to-pdf', name: 'HTML to PDF', category: 'convert', desc: 'Reflow supported HTML text into a multi-page PDF. CSS layouts and embedded media are not rendered.', icon: 'code' },
   { id: 'pdf-to-html', name: 'PDF to HTML', category: 'convert', desc: 'Convert document structure and text content to HTML.', icon: 'globe' },
   { id: 'markdown-to-pdf', name: 'Markdown to PDF', category: 'convert', desc: 'Render Markdown text files to formatted PDF pages.', icon: 'file-edit' },
   { id: 'pdf-to-markdown', name: 'PDF to Markdown', category: 'convert', desc: 'Parse PDF structure to clean, readable Markdown layout.', icon: 'text' },
@@ -521,16 +521,16 @@ const extraTools = [
   { id: 'word-counter', name: 'Word Counter', category: 'utility', desc: 'Detailed counts of characters, words, lines, reading time.', icon: 'hash' },
   { id: 'lorem-ipsum', name: 'Lorem Ipsum Generator', category: 'utility', desc: 'Generate classic dummy Latin texts for mockups.', icon: 'languages' },
   { id: 'diff-checker', name: 'Diff Checker', category: 'utility', desc: 'Compare two text blocks and highlight differences.', icon: 'columns-2' },
-  { id: 'sql-formatter', name: 'SQL Formatter', category: 'utility', desc: 'Format SQL queries for standard databases.', icon: 'database' },
+  { id: 'sql-formatter', name: 'SQL Formatter', category: 'utility', desc: 'Apply basic keyword spacing to SQL text; not dialect validation.', icon: 'database' },
   { id: 'xml-to-json', name: 'XML to JSON Converter', category: 'utility', desc: 'Translate XML trees into readable JSON structures.', icon: 'arrow-left-right' },
   { id: 'uuid-generator', name: 'UUID Generator', category: 'utility', desc: 'Generate multiple random v4 UUID strings.', icon: 'cpu' },
-  { id: 'user-agent', name: 'User Agent Parser', category: 'utility', desc: 'Detect and display details of your active browser details.', icon: 'monitor' },
+  { id: 'user-agent', name: 'Browser Information', category: 'utility', desc: 'Display the current browser user-agent, platform and vendor; no arbitrary user-agent parsing.', icon: 'monitor' },
   { id: 'regex-tester', name: 'Regex Tester', category: 'utility', desc: 'Test and debug regular expressions interactively.', icon: 'search' },
   { id: 'markdown-editor', name: 'Markdown Editor', category: 'utility', desc: 'Live Markdown writer with comparative layout screen.', icon: 'pen-tool' },
-  { id: 'css-beautifier', name: 'CSS Formatter', category: 'utility', desc: 'Prettify stylesheet scripts or minify files.', icon: 'palette' },
-  { id: 'js-beautifier', name: 'JS Formatter', category: 'utility', desc: 'Beautify or minify JS scripts client-side.', icon: 'curly-braces' },
-  { id: 'html-beautifier', name: 'HTML Formatter', category: 'utility', desc: 'Prettify HTML tags layout structures.', icon: 'code-2' },
-  { id: 'cron-generator', name: 'Cron Expression Helper', category: 'utility', desc: 'Build or parse cron schedules with human copy.', icon: 'clock' },
+  { id: 'css-beautifier', name: 'CSS Formatter', category: 'utility', desc: 'Add basic whitespace to CSS text; not a validator or parser-aware minifier.', icon: 'palette' },
+  { id: 'js-beautifier', name: 'JS Formatter', category: 'utility', desc: 'Add basic line breaks to JavaScript text; review strings and comments before using the output.', icon: 'curly-braces' },
+  { id: 'html-beautifier', name: 'HTML Formatter', category: 'utility', desc: 'Separate adjacent HTML tags as text; does not validate, repair, or render the document.', icon: 'code-2' },
+  { id: 'cron-generator', name: 'Cron Expression Helper', category: 'utility', desc: 'Explain a supported five-field cron expression; confirm scheduler and timezone semantics.', icon: 'clock' },
   { id: 'color-converter', name: 'Color Converter', category: 'utility', desc: 'Translate HEX, RGB, HSL, and CMYK structures.', icon: 'paint-bucket' },
   { id: 'exif-viewer', name: 'EXIF Metadata Viewer', category: 'utility', desc: 'Extract hidden camera and GPS EXIF info from images.', icon: 'camera' },
   { id: 'timestamp-converter', name: 'Epoch Converter', category: 'utility', desc: 'Convert Epoch timestamps to human dates and back.', icon: 'calendar' },
@@ -642,7 +642,8 @@ async function initApp() {
 function normalizeRoutePath(pathname = window.location.pathname) {
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length === 0 || (segments.length === 1 && ['index.html', 'index.php'].includes(segments[0].toLowerCase()))) return '';
-  return segments.length === 1 ? segments[0].toLowerCase() : null;
+  const normalized = segments.join('/').toLowerCase();
+  return segments.length === 1 || contentPages.some(page => page.id === normalized) ? normalized : null;
 }
 
 function pageIdFromLocation() {
@@ -789,11 +790,12 @@ function showToast(message, type = 'info') {
   toast.innerHTML = `
     <div class="toast-content">
       <i data-lucide="${iconName}"></i>
-      <span class="toast-message">${message}</span>
+      <span class="toast-message"></span>
     </div>
     <button class="toast-close" onclick="this.parentElement.remove()"><i data-lucide="x"></i></button>
   `;
   
+  toast.querySelector('.toast-message').textContent = String(message);
   container.appendChild(toast);
   lucide.createIcons();
   
@@ -1308,7 +1310,7 @@ function renderNavbar() {
           <div id="nav-calculator-menu" class="mega-menu" aria-labelledby="nav-calculator-trigger">${renderHeaderToolMenu('calculator')}</div>
         </li>
         <li class="nav-item">
-          <a href="/dashboard/" class="nav-link${navState('dashboard')}" onclick="handleRouteLink(event, 'dashboard')"${currentPageAttribute('dashboard')}><i data-lucide="layout-dashboard"></i><span>${t('dashboard')}</span></a>
+          ${appState.user ? `<a href="/dashboard/" class="nav-link${navState('dashboard')}" onclick="handleRouteLink(event, 'dashboard')"${currentPageAttribute('dashboard')}><i data-lucide="layout-dashboard"></i><span>${t('dashboard')}</span></a>` : `<button type="button" class="nav-link" onclick="navigateToToolCategory('convert')"><i data-lucide="repeat-2"></i><span>Convert</span></button>`}
         </li>
         <li class="mobile-tool-category-links" aria-label="More tool categories">
           <button type="button" onclick="navigateToToolCategory('convert')"><i data-lucide="repeat-2"></i><span>Converters</span></button>
@@ -1414,6 +1416,8 @@ function renderFooter() {
           <div class="footer-col-title">Products</div>
           <ul class="footer-links">
             <li><a href="/help/" class="footer-link" onclick="handleRouteLink(event, 'content-help')">Help Center</a></li>
+            <li><a href="/guides/" class="footer-link" onclick="handleRouteLink(event, 'content-guides')">Practical guides</a></li>
+            <li><a href="/editorial-standards/" class="footer-link" onclick="handleRouteLink(event, 'content-editorial-standards')">Editorial standards</a></li>
             <li><a href="/merge-pdf/" class="footer-link" onclick="handleRouteLink(event, 'tool-merge-pdf')">Merge PDF</a></li>
             <li><a href="/compress-image/" class="footer-link" onclick="handleRouteLink(event, 'tool-compress-image')">Compress Image</a></li>
             <li><a href="/color-extractor/" class="footer-link" onclick="handleRouteLink(event, 'tool-color-extractor')">Color Extractor</a></li>
@@ -1474,6 +1478,16 @@ function navigate(pageId, { replace = false, scroll = true } = {}) {
   
   disposeRouteEditors(appState.currentPage, pageId);
   const nextPath = pathForPage(pageId);
+  // Third-party scripts cannot be unloaded reliably after execution. Crossing
+  // routes after an Adsterra request starts a clean document, never a remount.
+  if (window.GxaAdNetwork?.hasRequested() && window.location.pathname !== nextPath) {
+    window.location[replace ? 'replace' : 'assign'](nextPath);
+    return;
+  }
+  if (window.GxaToolQuality.forPage(pageId, toolsList).adsEligible !== window.GxaToolQuality.forPage(appState.currentPage, toolsList).adsEligible) {
+    window.location[replace ? 'replace' : 'assign'](nextPath);
+    return;
+  }
   if (pageId === NOT_FOUND_PAGE) {
     history.replaceState({ pageId }, '', nextPath);
     appState.currentPage = pageId;
@@ -1519,6 +1533,8 @@ function renderPage() {
   toolBrowseObserver?.disconnect();
   toolBrowseObserver = null;
   const pageId = appState.currentPage;
+  const adDocument = Boolean(document.querySelector('script[src*="pagead2.googlesyndication.com"]')) || Boolean(window.GxaAdNetwork?.hasRequested());
+  if (adDocument && !window.GxaToolQuality.forPage(pageId, toolsList).adsEligible) { window.location.reload(); return; }
   if (!pageId.startsWith('tool-')) lastAnalyticsToolOpen = '';
   document.body.classList.toggle('background-remover-dedicated-active', pageId === 'tool-background-remover');
   document.body.classList.toggle('content-page-active', pageId.startsWith('content-'));
@@ -1615,8 +1631,9 @@ function applyPageMetadata(pageId) {
       title = tool.id === 'image-ocr' ? 'Image OCR - Extract Text from Images | GXA Toolbox' : `${tool.name} | GXA Toolbox`;
       description = tool.id === 'image-ocr'
         ? 'Extract text from JPG, JPEG, PNG, and WEBP images using browser-based OCR with GXA Toolbox.'
-        : `${tool.desc} Use it with GXA Toolbox.`;
+        : tool.desc;
       path = `/${tool.id}/`;
+      robots = window.GxaToolQuality.forTool(tool.id).indexable ? 'index, follow' : 'noindex, follow';
       schema = {
         '@context': 'https://schema.org',
         '@graph': [
@@ -1734,7 +1751,7 @@ function renderHelpToolDirectory() {
   };
   return `<section class="help-tool-directory" id="tool-guide" aria-labelledby="tool-guide-title">
     <div class="help-tool-directory__heading">
-      <span class="section-kicker">${toolsList.length} focused routes</span>
+      <span class="section-kicker">Tool guide</span>
       <h2 id="tool-guide-title">GXA Toolbox tool guide</h2>
       <p>Every item below opens its own task-focused workspace. Use the short workflow as a starting point, then read the supported formats and limitations on that tool page.</p>
     </div>
@@ -1766,6 +1783,7 @@ function renderContentPage(container, contentId) {
       <h2>${escapeHTML(section.title)}</h2>
       ${(section.paragraphs || []).map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join('')}
       ${section.bullets?.length ? `<ul>${section.bullets.map(item => `<li>${escapeHTML(item)}</li>`).join('')}</ul>` : ''}
+      ${section.links?.length ? `<div class="content-related-links">${section.links.map(link => `<a href="${escapeHTML(link.href)}">${escapeHTML(link.label)}</a>`).join('')}</div>` : ''}
       ${section.note ? `<div class="content-note"><i data-lucide="info"></i><p>${escapeHTML(section.note)}</p></div>` : ''}
     </section>
   `).join('');
@@ -1788,6 +1806,7 @@ function renderContentPage(container, contentId) {
           <h1>${escapeHTML(page.name)}</h1>
           <p>${escapeHTML(page.intro)}</p>
           ${page.updated ? `<p class="content-page-updated">Last updated: ${escapeHTML(page.updated)}</p>` : ''}
+          ${page.draftDate ? `<p class="content-page-updated">Draft prepared: ${escapeHTML(page.draftDate)}. ${escapeHTML(page.attribution)} ${escapeHTML(page.editorialStatus)}</p>` : ''}
         </div>
       </header>
       <div class="container content-page-layout">
@@ -2440,11 +2459,11 @@ function toolResultsAboveDock() {
 function renderHome(container) {
   const recentTools = appState.recentTools
     .map(id => toolsList.find(tool => tool.id === id))
-    .filter(Boolean)
+    .filter(tool => tool && window.GxaToolQuality.forTool(tool.id).productionReady)
     .slice(0, 4);
   const favoriteTools = appState.favorites
     .map(id => toolsList.find(tool => tool.id === id))
-    .filter(Boolean)
+    .filter(tool => tool && window.GxaToolQuality.forTool(tool.id).productionReady)
     .slice(0, 4);
   const personalTools = favoriteTools.length ? favoriteTools : recentTools;
   const personalHeading = favoriteTools.length ? 'Your favorites' : 'Continue where you left off';
@@ -2472,26 +2491,26 @@ function renderHome(container) {
     <section class="hero-section premium-hero">
       <div class="container hero-grid">
         <div class="hero-content">
-          <div class="badge-trust"><span class="status-dot"></span> ${toolsList.length} focused tools. One polished workspace.</div>
+          <div class="badge-trust">Tools for your everyday tasks</div>
           <h1 class="hero-headline">Your Complete <span>Digital Toolbox</span></h1>
-          <p class="hero-subheadline">Access powerful browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations — all in one place.</p>
+          <p class="hero-subheadline">Work with PDFs, edit images, convert files, create QR codes, and calculate everyday numbers.</p>
           <div class="hero-actions">
             <button class="btn btn-primary btn-lg" onclick="document.getElementById('tools-grid-anchor').scrollIntoView({behavior:'smooth'})">Explore tools <i data-lucide="arrow-down"></i></button>
             <button class="btn btn-ghost btn-lg" onclick="showAuthModal()">Sign up for free</button>
           </div>
           <div class="hero-metrics" aria-label="Product overview">
-            <span><strong>${toolsList.length}</strong> tools</span>
-            <span><strong>${new Set(toolsList.map(tool => tool.category)).size}</strong> categories</span>
-            <span><i data-lucide="shield-check"></i> Clear processing details</span>
+            <span><strong>PDF, image & file tools</strong></span>
+            <span><strong>Everyday utilities</strong></span>
+            <span><i data-lucide="file-check"></i> Check your result before downloading</span>
           </div>
         </div>
         <div class="hero-product-window" aria-hidden="true">
-          <div class="product-window-bar"><span></span><span></span><span></span><small>gxa-toolbox.app</small></div>
+          <div class="product-window-bar"><span></span><span></span><span></span><small>gxatoolbox.in</small></div>
           <div class="product-window-body">
             <div class="product-side-rail"><i data-lucide="layout-grid"></i><i data-lucide="file-text"></i><i data-lucide="image"></i><i data-lucide="code-2"></i></div>
             <div class="product-canvas">
-              <div class="mini-toolbar"><span>Merge PDF</span><span class="mini-status">Local processing</span></div>
-              <div class="mini-dropzone"><i data-lucide="cloud-upload"></i><strong>Drop your files here</strong><small>PDF · up to 100 MB</small></div>
+              <div class="mini-toolbar"><span>Merge PDF</span><span class="mini-status">PDF files</span></div>
+              <div class="mini-dropzone"><i data-lucide="cloud-upload"></i><strong>Drop your files here</strong><small>PDF · choose a file</small></div>
               <div class="mini-file-row"><i data-lucide="file-text"></i><span><strong>annual-report.pdf</strong><small>4.2 MB · Ready</small></span><i data-lucide="check-circle-2"></i></div>
             </div>
           </div>
@@ -2533,6 +2552,11 @@ function renderHome(container) {
       <div class="tool-directory-end"><span id="tool-results-end"></span><button type="button" class="text-button" onclick="returnToToolResults(true); document.getElementById('tool-search').focus({preventScroll:true})">Back to filters ↑</button></div>
     </section>
 
+    <section class="container tool-content-guide" aria-label="Choose a workflow">
+      <section class="tool-info-section"><h2>Choose the output you actually need</h2><p>Assemble a PDF packet, prepare an image for an upload form, check structured data or compare a calculation. Start with the task, then read the chosen tool’s formats and limitations.</p><div class="content-related-links"><a href="/pdf-tools/">PDF tools</a><a href="/image-tools/">Image tools</a><a href="/file-converters/">File converters</a><a href="/developer-tools/">Developer tools</a><a href="/calculators/">Calculators</a></div></section>
+      <section class="tool-info-section"><h2>Plan a small workflow</h2><p>For a profile photo, crop to the required shape, resize proportionally and compare delivery quality. For a report packet, merge the documents in reading order and check the joins before considering compression.</p><div class="content-related-links"><a href="/guides/image-size/">Reduce image delivery size</a><a href="/guides/pdf-compression/">Choose PDF compression</a><a href="/guides/">Browse the guides</a></div></section>
+      <section class="tool-info-section"><h2>Know the processing boundary</h2><p>Many file operations run on your device. Dependencies, location services, account history and analytics have separate network boundaries. Read the active tool’s disclosure before using sensitive material.</p><div class="content-related-links"><a href="/guides/browser-processing/">How processing works</a><a href="/privacy-policy/">Privacy policy</a><a href="/editorial-standards/">Drafts and editorial review</a></div></section>
+    </section>
     <section class="features-section">
       <div class="container">
         <div class="section-header"><span class="section-kicker">Made for momentum</span><h2 class="section-title">A calmer way to get small tasks done</h2></div>
@@ -2547,8 +2571,8 @@ function renderHome(container) {
     <section class="stats-section">
       <div class="container">
         <div class="stats-grid">
-          <div class="stat-item"><div class="stat-number" id="stats-counter-1">${toolsList.length}</div><div class="stat-label">Available tools</div></div>
-          <div class="stat-item"><div class="stat-number">4</div><div class="stat-label">Clear processing modes</div></div>
+          <div class="stat-item"><div class="stat-number">Tools</div><div class="stat-label">For everyday tasks</div></div>
+          <div class="stat-item"><div class="stat-number">Help</div><div class="stat-label">Instructions with each tool</div></div>
           <div class="stat-item"><div class="stat-number" id="stats-counter-2">${new Set(toolsList.map(tool => tool.category)).size}</div><div class="stat-label">Focused categories</div></div>
           <div class="stat-item"><div class="stat-number">320px+</div><div class="stat-label">Responsive layouts</div></div>
         </div>
@@ -2816,9 +2840,10 @@ function getDirectResultDownloadLabel(toolId) {
   return labels[toolId] || 'Download Result';
 }
 
-function renderToolAdPlacementPlaceholder() {
+function renderToolAdPlacementPlaceholder(zone = 'ad-slot-content-1') {
+  if (!window.GxaToolQuality.forPage(appState.currentPage, toolsList).adsEligible) return '';
   return `
-    <aside class="tool-ad-placement" data-ad-placement="tool-content" data-ad-state="awaiting-ad-unit" aria-label="Advertisement" hidden>
+    <aside class="tool-ad-placement" data-ad-placement="tool-content" data-ad-zone="${zone}" data-ad-state="awaiting-ad-unit" aria-label="Advertisement" hidden>
       <span class="tool-ad-label">Advertisement</span>
       <div class="tool-ad-unit-mount" data-ad-unit-mount></div>
     </aside>
@@ -2854,9 +2879,9 @@ function renderToolContentSections(toolId) {
   const section = (id, title, body) => body ? `<section class="tool-info-section" id="${id}"><h2>${title}</h2>${body}</section>` : '';
   const toolName = toolsList.find(tool => tool.id === toolId)?.name || 'Tool';
   return `<article class="tool-content-guide" aria-label="${escapeHTML(toolName)} guide">
+    ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.description)}</p></div></li>`).join('')}</ol>` : '')}
     ${section(`${toolId}-about`, 'About This Tool', content.about?.map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join(''))}
     ${section(`${toolId}-features`, 'What You Can Do', cards(content.features, 'tool-info-card-grid'))}
-    ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.description)}</p></div></li>`).join('')}</ol>` : '')}
     ${section(`${toolId}-uses`, 'Practical Use Cases', cards(content.useCases, 'tool-info-card-grid'))}
     ${section(`${toolId}-privacy`, 'Privacy and File Processing', content.privacy ? `<div class="tool-info-note"><strong>${escapeHTML(content.privacy.processingMode)}</strong><p>${escapeHTML(content.privacy.description)}</p></div>` : '')}
     ${section(`${toolId}-formats`, 'Supported Inputs and Outputs', content.supportedFormats ? `<div class="tool-format-grid"><div><h3>Input</h3>${list(content.supportedFormats.input)}</div><div><h3>Output</h3>${list(content.supportedFormats.output)}</div></div>` : '')}
@@ -2868,6 +2893,7 @@ function renderToolContentSections(toolId) {
     ${section(`${toolId}-limitations`, 'Limitations and Important Notes', list(content.limitations))}
     ${section(`${toolId}-examples`, 'Worked Example', content.examples?.map(example => `<div class="tool-example"><p>${escapeHTML(example)}</p></div>`).join(''))}
     ${section(`${toolId}-tips`, 'Helpful Tips', list(content.tips))}
+    ${section(`${toolId}-guides`, 'Related Guides', `<div class="content-related-links">${(content.relatedGuides || []).map(link => `<a href="/${escapeHTML(link.id)}/">${escapeHTML(link.label)}</a>`).join('')}</div>`)}
   </article>`;
 }
 
@@ -2961,35 +2987,41 @@ function renderToolPage(container, toolId) {
           Reverse file order before merging
         </label>
       </div>
+      <p class="merge-pdf-help">After choosing files, expand Pages and rotation on each file. Leave its page selection blank to include every page. Flatten supported forms in Edit PDF first; XFA needs a compatible external editor. Merging does not preserve live form fields or digital signatures.</p>
     `;
   } else if (toolId === 'organize-pdf') {
     accepts = '.pdf';
+    uploadLimitLabel = 'Maximum file size: 25 MB';
     multiple = false; // Organize single PDF at a time
     optionsHTML = `
       <div class="form-group">
-        <label class="form-label">Page Selection</label>
-        <input type="text" id="opt-range" class="form-input-text" placeholder="e.g. 1-3, 5, 7-10">
+        <label class="form-label" for="opt-range">Output page order</label>
+        <input type="text" id="opt-range" class="form-input-text" placeholder="All pages, or e.g. 3, 1, 1, 5-7" maxlength="4000">
+        <p class="pdf-page-plan-help">Leave blank for all pages. Omit pages to remove them; repeat a number to duplicate it. Thumbnail selection keeps only selected pages.</p>
       </div>
       <div class="form-group">
-        <label class="form-label">Rotation Angle</label>
+        <label class="form-label">Clockwise rotation added to source pages</label>
         <div class="preset-grid">
           <button class="preset-btn active" onclick="setOptAngle(0, this)">0°</button>
           <button class="preset-btn" onclick="setOptAngle(90, this)">90°</button>
           <button class="preset-btn" onclick="setOptAngle(180, this)">180°</button>
           <button class="preset-btn" onclick="setOptAngle(270, this)">270°</button>
         </div>
+        <label class="form-label" for="opt-organize-rotate-pages">Rotate these source pages</label>
+        <input type="text" id="opt-organize-rotate-pages" class="form-input-text" placeholder="All retained pages, or e.g. 2, 4-6" maxlength="4000">
       </div>
       <div class="form-group">
-        <label class="form-label">Watermark Text</label>
-        <input type="text" id="opt-watermark" class="form-input-text" placeholder="Confidential">
+        <label class="form-label" for="opt-watermark">Watermark Text</label>
+        <input type="text" id="opt-watermark" class="form-input-text" placeholder="Confidential" maxlength="200">
       </div>
       <div class="form-group">
         <label class="form-label" for="opt-organize-blank-count">Insert blank pages</label>
         <input type="number" id="opt-organize-blank-count" class="form-input-text" min="0" max="50" value="0">
         <label class="form-label" for="opt-organize-blank-after" style="margin-top:8px;">Insert after output page</label>
         <input type="number" id="opt-organize-blank-after" class="form-input-text" min="0" value="0">
-        <p style="font-size:10px; color:var(--color-text-secondary); margin-top:4px;">Use 0 to insert at the beginning. Blank pages match the nearest output page size.</p>
+        <p class="pdf-page-plan-help">Use 0 to insert at the beginning. Blanks use the nearest page's unrotated media dimensions and receive no watermark.</p>
       </div>
+      <p class="pdf-page-plan-help">Source preview only; reopen the download to review the final layout. Up to 25 MB and 2,000 output pages. Live forms must be explicitly flattened in Edit PDF first; XFA needs a compatible external editor.</p>
     `;
   } else if (toolId === 'compress-image') {
     accepts = 'image/*';
@@ -3191,24 +3223,27 @@ function renderToolPage(container, toolId) {
     `;
   } else if (toolId === 'split-pdf') {
     accepts = '.pdf';
+    uploadLimitLabel = 'Maximum file size: 25 MB';
     multiple = false;
     optionsHTML = `
       <div class="form-group">
         <label class="form-label">Split Mode</label>
         <div class="preset-grid" style="grid-template-columns: 1fr;">
-          <button class="preset-btn active" onclick="setSplitMode('every', this)">Split every page</button>
-          <button class="preset-btn" onclick="setSplitMode('range', this)">Custom ranges</button>
-          <button class="preset-btn" onclick="setSplitMode('every-n', this)">Every N pages</button>
+          <button class="preset-btn active" data-split-mode="every" aria-pressed="true" onclick="setSplitMode('every', this)">Split every page</button>
+          <button class="preset-btn" data-split-mode="range" aria-pressed="false" onclick="setSplitMode('range', this)">Custom ranges</button>
+          <button class="preset-btn" data-split-mode="every-n" aria-pressed="false" onclick="setSplitMode('every-n', this)">Every N pages</button>
         </div>
       </div>
       <div class="form-group hidden" id="split-range-group">
-        <label class="form-label">Output groups (e.g. 1-2, 3-5)</label>
-        <input type="text" id="opt-split-range" class="form-input-text" placeholder="1-2, 3-5">
+        <label class="form-label" for="opt-split-range">Output groups (e.g. 1-2, 3-5)</label>
+        <input type="text" id="opt-split-range" class="form-input-text" placeholder="1-2, 3-5" maxlength="4000" aria-describedby="split-group-help">
+        <p id="split-group-help" class="pdf-page-plan-help">Commas separate output files. For a file containing several selections, separate files with semicolons: 3, 1, 1; 2-4 makes two PDFs. Check the output plan below the preview.</p>
       </div>
       <div class="form-group hidden" id="split-every-n-group">
-        <label class="form-label">Pages per output PDF</label>
+        <label class="form-label" for="opt-split-every-n">Pages per output PDF</label>
         <input type="number" id="opt-split-every-n" class="form-input-text" min="1" max="500" value="2">
       </div>
+      <p class="pdf-page-plan-help">Download one ZIP containing the split PDFs. Up to 25 MB, 500 files and 2,000 copied pages. Live forms must be explicitly flattened in Edit PDF first; XFA needs a compatible external editor. Splitting does not preserve document-level bookmarks or digital signatures.</p>
     `;
     appState.activeToolOptions.mode = 'every';
   } else if (toolId === 'protect-pdf') {
@@ -3544,8 +3579,10 @@ function renderToolPage(container, toolId) {
     multiple = false;
     optionsHTML = `
       <div class="form-group">
-        <label class="form-label">HTML Code Input (Optional)</label>
+        <label class="form-label" for="opt-html-raw">HTML Code Input (Optional)</label>
+        <p class="processing-disclosure">Text reflow only: headings, paragraphs, lists, tables (rows as text), bold and italic. CSS/page layouts, images, scripts, forms and embedded media are not rendered. Latin/Windows-1252 PDF fonts only; unsupported characters or elements stop export with an error. Up to 2 MB and 500 pages. Long text wraps onto additional pages.</p>
         <textarea id="opt-html-raw" class="form-input-text" style="height:120px; font-family:var(--font-mono); font-size:11px;" placeholder="&lt;h1&gt;Hello World&lt;/h1&gt;"></textarea>
+        <button type="button" class="btn btn-secondary" onclick="processEnteredHtml()">Convert entered HTML</button>
       </div>
     `;
   } else if (toolId === 'pdf-to-html') {
@@ -3648,10 +3685,12 @@ function renderToolPage(container, toolId) {
       </div>
       <div class="form-group">
         <label class="form-label">Or Import File</label>
-        <input type="file" class="form-input-text" style="padding:4px;" onchange="importFileContentToTextarea('opt-b64-raw', this, 'base64')">
+        <input type="file" id="opt-b64-file" class="form-input-text" style="padding:4px;" onchange="importBase64File(this)">
+        <p style="font-size:12px; color:var(--color-text-secondary);">Encode any file to Base64. Decoding supports UTF-8 text, not binary file export.</p>
       </div>
     `;
     appState.activeToolOptions.mode = 'encode';
+    appState.activeToolOptions.base64File = null;
   } else if (toolId === 'url-tool') {
     accepts = '';
     multiple = false;
@@ -4117,7 +4156,7 @@ function renderToolPage(container, toolId) {
       </div>
       <div class="form-group">
         <label class="form-label">Interest Rate (% P.A.)</label>
-        <input type="number" id="opt-emi-rate" class="form-input-text" placeholder="e.g. 8.5" min="0.01" step="0.1">
+        <input type="number" id="opt-emi-rate" class="form-input-text" placeholder="e.g. 8.5" min="0" step="0.1">
       </div>
       <div class="form-group">
         <label class="form-label">Tenure (Years)</label>
@@ -4134,11 +4173,11 @@ function renderToolPage(container, toolId) {
       </div>
       <div class="form-group">
         <label class="form-label">Interest Rate (% P.A.)</label>
-        <input type="number" id="opt-loan-rate" class="form-input-text" placeholder="e.g. 10" min="0.01" step="0.1">
+        <input type="number" id="opt-loan-rate" class="form-input-text" placeholder="e.g. 10" min="0" step="0.1">
       </div>
       <div class="form-group">
         <label class="form-label">Tenure (Months)</label>
-        <input type="number" id="opt-loan-months" class="form-input-text" placeholder="e.g. 12" min="1">
+        <input type="number" id="opt-loan-months" class="form-input-text" placeholder="e.g. 12" min="1" max="1200" step="1">
       </div>
       <div class="form-group">
         <label class="form-label">Interest Type</label>
@@ -4158,11 +4197,11 @@ function renderToolPage(container, toolId) {
       </div>
       <div class="form-group">
         <label class="form-label">Rate of Interest (% P.A.)</label>
-        <input type="number" id="opt-int-rate" class="form-input-text" placeholder="e.g. 6.5" min="0.01" step="0.1">
+        <input type="number" id="opt-int-rate" class="form-input-text" placeholder="e.g. 6.5" min="0" step="0.1">
       </div>
       <div class="form-group">
         <label class="form-label">Period (Years)</label>
-        <input type="number" id="opt-int-years" class="form-input-text" placeholder="e.g. 3" min="0.1" step="0.1">
+        <input type="number" id="opt-int-years" class="form-input-text" placeholder="e.g. 3" min="0" step="0.1">
       </div>
       <div class="form-group">
         <label class="form-label">Interest Type</label>
@@ -4210,7 +4249,7 @@ function renderToolPage(container, toolId) {
       </div>
       <div class="form-group">
         <label class="form-label">Expected Return Rate (% P.A.)</label>
-        <input type="number" id="opt-sip-rate" class="form-input-text" placeholder="e.g. 12" min="0.01" step="0.5">
+        <input type="number" id="opt-sip-rate" class="form-input-text" placeholder="e.g. 12" min="0" step="0.5">
       </div>
       <div class="form-group">
         <label class="form-label">Time Period (Years)</label>
@@ -4681,7 +4720,7 @@ function renderToolPage(container, toolId) {
           ${needsFiles ? `
             <!-- Drop Upload Zone Component -->
             <div id="tool-upload-mount">
-              <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-label="Select or drop files for ${tool.name}" onclick="document.getElementById('file-picker').click()">
+              <div class="upload-zone" id="drop-zone" role="group" aria-label="Select or drop files for ${tool.name}" onclick="document.getElementById('file-picker').click()">
                 <span class="upload-icon-shell"><i data-lucide="cloud-upload" class="upload-icon"></i></span>
                 <h3 class="upload-title">${t('uploadTitle')}</h3>
                 <p class="upload-subtitle">${t('uploadSubtitle')}</p>
@@ -4690,6 +4729,7 @@ function renderToolPage(container, toolId) {
                   <span class="format-chip subtle">${multiple ? 'Multiple files' : 'Single file'}</span>
                 </div>
                 <p class="upload-limit"><i data-lucide="info"></i> ${uploadLimitLabel} · Files are validated before processing</p>
+                <button type="button" class="btn btn-primary btn-lg" onclick="event.stopPropagation(); document.getElementById('file-picker').click()">${multiple ? 'Select files' : 'Select file'}</button>
                 <input type="file" id="file-picker" style="display:none;" accept="${accepts}" ${multiple ? 'multiple' : ''}>
               </div>
             </div>
@@ -4750,6 +4790,7 @@ function renderToolPage(container, toolId) {
               <div id="premium-result-stats" class="premium-result-stats" aria-label="Output statistics"></div>
               <div class="premium-result-actions">
                 <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
+                ${['split-pdf', 'organize-pdf'].includes(toolId) ? '<button type="button" class="btn btn-secondary btn-lg" onclick="resumePdfPageTool()">Adjust settings</button>' : ''}
                 <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> ${toolId === 'compress-pdf' ? 'Compress another PDF' : 'Start Over'}</button>
               </div>
             </div>
@@ -4772,11 +4813,12 @@ function renderToolPage(container, toolId) {
               <button class="btn btn-primary" id="btn-generator-download"><i data-lucide="download"></i> Download Output</button>
             ` : ''}
             ${needsFiles ? '<div id="premium-live-stats" class="premium-live-stats" aria-live="polite"></div>' : ''}
-            <div class="workspace-confidence-note"><i data-lucide="shield-check"></i><span><strong>${processingProfile.label}</strong>${processingProfile.detail}</span></div>
+            <div class="workspace-confidence-note"><i data-lucide="info"></i><span>Files stay on this device while the tool runs. Signed-in operations can save filenames and operation details to your account history. <a href="/privacy-policy/">Privacy details</a></span></div>
           </div>
         </div>
       </div>
 
+      ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${needsFiles ? `<section class="premium-session-panel" aria-labelledby="premium-session-title">
         <div><span class="tool-category-label">This browser session</span><h3 id="premium-session-title">Recent results</h3></div>
         <div id="premium-session-history" class="premium-session-history"><span>No results created in this session yet.</span></div>
@@ -4877,7 +4919,12 @@ function renderToolPage(container, toolId) {
     } else if (toolId === 'base64-tool') {
       generateBase64TextLive();
       document.getElementById('btn-generator-download').addEventListener('click', downloadBase64TextFile);
-      document.getElementById('opt-b64-raw').addEventListener('input', generateBase64TextLive);
+      document.getElementById('opt-b64-raw').addEventListener('input', () => {
+        appState.activeToolOptions.base64File = null;
+        const picker = document.getElementById('opt-b64-file');
+        if (picker) picker.value = '';
+        generateBase64TextLive();
+      });
     } else if (toolId === 'hash-tool') {
       generateHashTextLive();
       document.getElementById('opt-hash-text').addEventListener('input', generateHashTextLive);
@@ -5160,11 +5207,13 @@ async function renderGpsMapCameraPage(container, tool) {
   const mount = container.querySelector('#gps-map-camera-mount');
   try {
     await window.GxaWorkspace.loadScriptOnce('/assets/gps-photo-core.js', 'GxaGpsPhotoCore');
+    await window.GxaWorkspace.loadScriptOnce('/assets/gps-geo-model.js', 'GxaGeoModel');
+    await window.GxaWorkspace.loadScriptOnce('/assets/gps-export-renderer.js', 'GxaGpsExport');
     await window.GxaWorkspace.loadScriptOnce('/assets/gps-map-camera.js', 'GxaGpsMapCamera');
     if (!mount.isConnected || appState.currentPage !== 'tool-gps-map-camera') return;
     window.GxaGpsMapCamera.mount(mount, {
       onEvent: (event, status) => recordToolAnalytics(event, { status }),
-      onComplete: size => logHistory('geotagged-photo.jpg', 'GPS Map Camera', `${(size / (1024 * 1024)).toFixed(2)} MB`)
+      onComplete: (size, type) => logHistory(type === 'image/png' ? 'geotagged-photo.png' : 'geotagged-photo.jpg', 'GPS Map Camera', `${(size / (1024 * 1024)).toFixed(2)} MB`)
     });
   } catch (_) {
     if (mount.isConnected) mount.innerHTML = '<p role="alert">The GPS photo workspace could not load. Check your connection and reload this page.</p>';
@@ -5337,7 +5386,7 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
 
         <aside class="crop-options-panel" aria-label="Crop options">
           <div class="crop-panel-heading">
-            <div><span class="tool-category-label">Precision controls</span><h2>Crop Options</h2></div>
+            <div><h2>Crop settings</h2></div>
             <button type="button" class="crop-panel-icon-btn" onclick="cropEditorResetSelection()" title="Reset selection" aria-label="Reset crop selection"><i data-lucide="scan"></i></button>
           </div>
 
@@ -5347,6 +5396,7 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
             <div><span>Crop</span><strong id="crop-selection-dimensions">—</strong></div>
           </div>
 
+          <details class="crop-exact-settings"><summary>Exact position and size</summary>
           <fieldset class="crop-fieldset">
             <legend>Position and size <span>original pixels</span></legend>
             <div class="crop-number-grid">
@@ -5357,6 +5407,7 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
             </div>
             <p id="crop-field-error" class="crop-field-error" role="alert" aria-live="assertive"></p>
           </fieldset>
+          </details>
 
           <fieldset class="crop-fieldset">
             <legend>Aspect ratio</legend>
@@ -6265,7 +6316,7 @@ function renderRelatedTools(currentToolId, category) {
   }
   
   // Shuffle/select first 4 unique items
-  related = Array.from(new Set(related)).slice(0, 4);
+  related = Array.from(new Set(related)).filter(tool => window.GxaToolQuality.forTool(tool.id).productionReady).slice(0, 4);
   
   container.replaceChildren(...related.map(createToolCard));
   lucide.createIcons();
@@ -6411,6 +6462,10 @@ function applyPremiumEditorSnapshot(snapshot) {
     if (control.type === 'checkbox' || control.type === 'radio') control.checked = Boolean(saved.checked);
     else control.value = saved.value;
   });
+  if (premiumEditorState.toolId === 'split-pdf') {
+    const button = document.querySelector(`[data-split-mode="${['every', 'range', 'every-n'].includes(appState.activeToolOptions.mode) ? appState.activeToolOptions.mode : 'every'}"]`);
+    if (button) setSplitMode(button.dataset.splitMode, button);
+  }
   if (premiumEditorState.needsFiles) {
     renderFileQueue();
   } else {
@@ -6737,6 +6792,22 @@ function clearPremiumResult() {
   premiumEditorState.resultText = '';
 }
 
+function resumePdfPageTool() {
+  if (!['split-pdf', 'organize-pdf'].includes(premiumEditorState.toolId) || !appState.activeFiles.length) return;
+  clearPremiumResult();
+  premiumEditorState.auxiliaryUrls.forEach(url => URL.revokeObjectURL(url));
+  premiumEditorState.auxiliaryUrls = [];
+  document.getElementById('premium-result-preview')?.replaceChildren();
+  for (const id of ['btn-download-result', 'btn-mobile-download-result']) {
+    const button = document.getElementById(id);
+    if (button) { button.disabled = true; button.onclick = null; }
+  }
+  document.getElementById('tool-complete-mount')?.classList.add('hidden');
+  document.getElementById('tool-queue-mount')?.classList.remove('hidden');
+  window.GxaToolUx?.sync();
+  document.getElementById('btn-process-action')?.focus();
+}
+
 function disposePremiumToolEditor() {
   window.clearTimeout(premiumEditorState.historyTimer);
   window.clearTimeout(premiumEditorState.backgroundAutoTimer);
@@ -6807,6 +6878,7 @@ function setupUploadZoneEvents() {
   });
 
   dropZone.addEventListener('keydown', (event) => {
+    if (event.target !== dropZone) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       filePicker.click();
@@ -6838,7 +6910,7 @@ function handleFileSelection(files) {
         multiple: isMultiple,
         maxSize: appState.currentPage === 'tool-image-ocr'
           ? 20 * 1024 * 1024
-          : appState.currentPage === 'tool-compress-pdf'
+          : appState.currentPage === 'tool-compress-pdf' || ['tool-split-pdf', 'tool-organize-pdf'].includes(appState.currentPage)
             ? 25 * 1024 * 1024
             : undefined
       })
@@ -6897,6 +6969,13 @@ function renderBackgroundRemoverSelectedPreview(file) {
       </div>
     `;
   });
+}
+
+const mergePdfFileKeys = new WeakMap();
+let mergePdfFileSequence = 0;
+function mergePdfFileKey(file) {
+  if (!mergePdfFileKeys.has(file)) mergePdfFileKeys.set(file, String(++mergePdfFileSequence));
+  return mergePdfFileKeys.get(file);
 }
 
 function renderFileQueue() {
@@ -6979,6 +7058,29 @@ function renderFileQueue() {
       </div>
       <button class="file-card-remove" aria-label="Remove ${file.name.replace(/[&<>\"]/g, '')}" onclick="event.stopPropagation(); removeQueueIndex(${index})"><i data-lucide="x" style="width:16px;"></i></button>
     `;
+
+    if (appState.currentPage === 'tool-merge-pdf') {
+      const key = mergePdfFileKey(file);
+      const saved = appState.activeToolOptions.mergeFiles?.[key] || { range: '', rotation: 0 };
+      card.classList.add('file-card--merge');
+      const details = document.createElement('details'); details.className = 'merge-pdf-file-options';
+      details.innerHTML = `<summary>Pages and rotation</summary><div>
+        <label for="merge-range-${index}">Pages from ${safeFileName}<input id="merge-range-${index}" type="text" class="form-input-text" data-merge-option="range" placeholder="All pages, or 1-3, 5, 5" value="${escapeHTML(saved.range)}" aria-describedby="merge-help-${index}" maxlength="2000"></label>
+        <label for="merge-rotation-${index}">Rotate included pages<select id="merge-rotation-${index}" class="form-input-text" data-merge-option="rotation">${[0,90,180,270].map(angle => `<option value="${angle}"${angle === saved.rotation ? ' selected' : ''}>${angle}° clockwise</option>`).join('')}</select></label>
+        <p id="merge-help-${index}">Page numbers start at 1. Omit pages to remove them, repeat numbers to duplicate them. Rotation is added to the source page rotation; the source preview stays unchanged.</p>
+      </div>`;
+      details.addEventListener('click', event => event.stopPropagation());
+      details.addEventListener('pointerdown', event => event.stopPropagation());
+      details.addEventListener('dragstart', event => { event.stopPropagation(); event.preventDefault(); });
+      details.addEventListener('input', event => {
+        const control = event.target, option = control.dataset.mergeOption;
+        if (!option) return;
+        const all = appState.activeToolOptions.mergeFiles ||= {};
+        all[key] = { range: '', rotation: 0, ...all[key], [option]: option === 'rotation' ? Number(control.value) : control.value };
+      });
+      details.addEventListener('change', () => recordPremiumEditorState());
+      card.append(details);
+    }
     
     queueContainer.appendChild(card);
     
@@ -7034,6 +7136,10 @@ function clearSelectedFiles() {
 }
 
 function resetActiveTool() {
+  if (['tool-split-pdf', 'tool-organize-pdf'].includes(appState.currentPage)) {
+    resetPremiumEditor();
+    return;
+  }
   if (appState.currentPage === 'tool-crop-image') {
     resetCropImageTool();
     return;
@@ -7242,6 +7348,7 @@ async function runFileProcessingPipeline() {
     window.GxaWorkspace.scrollToResult(completeMount);
   } catch (err) {
     processingMount.classList.add('hidden');
+    window.GxaAdState?.fail();
     queueMount.classList.remove('hidden');
     completeMount.classList.add('hidden');
     cancelBtn?.classList.add('hidden');
@@ -7253,6 +7360,16 @@ async function runFileProcessingPipeline() {
     console.error('GXA tool processing failed', err);
     showToast(`Processing failed: ${err.message}`, 'error');
   }
+}
+
+async function processEnteredHtml() {
+  const input = document.getElementById('opt-html-raw');
+  if (!input?.value.trim()) { showToast('Enter HTML before converting.', 'error'); return; }
+  const file = new File([input.value], 'entered-html.html', { type: 'text/html' });
+  if (file.size > 2 * 1024 * 1024) { showToast('HTML input exceeds the 2 MB conversion limit.', 'error'); return; }
+  appState.activeFiles = [file];
+  renderFileQueue();
+  await runFileProcessingPipeline();
 }
 
 function registerToolResult(downloadButton, blob, filename) {
@@ -7404,8 +7521,10 @@ async function executeToolAlgorithm() {
   
   // Custom dispatcher matching active functions
   if (toolId === 'merge-pdf') {
-    const filename = document.getElementById('opt-filename').value || 'merged.pdf';
-    const mergedBlob = await runPDFMerge();
+    const requestedName = document.getElementById('opt-filename').value.trim() || 'merged.pdf';
+    const filename = /\.pdf$/i.test(requestedName) ? requestedName : `${requestedName}.pdf`;
+    const selections = appState.activeFiles.map(file => appState.activeToolOptions.mergeFiles?.[mergePdfFileKey(file)] || { range: '', rotation: 0 });
+    const mergedBlob = await runPDFMerge(selections);
     
     registerToolResult(downloadBtn, mergedBlob, filename);
     logHistory(filename, 'Merge PDF', (mergedBlob.size / (1024*1024)).toFixed(2) + ' MB');
@@ -7415,11 +7534,12 @@ async function executeToolAlgorithm() {
     const range = document.getElementById('opt-range').value || '';
     const angle = appState.activeToolOptions.angle || 0;
     const watermark = document.getElementById('opt-watermark').value || '';
-    const blankCount = Number.parseInt(document.getElementById('opt-organize-blank-count')?.value || '0', 10);
-    const blankAfter = Number.parseInt(document.getElementById('opt-organize-blank-after')?.value || '0', 10);
-    const organizedBlob = await runPDFOrganize(range, angle, watermark, blankCount, blankAfter);
+    const blankCount = Number(document.getElementById('opt-organize-blank-count')?.value || '0');
+    const blankAfter = Number(document.getElementById('opt-organize-blank-after')?.value || '0');
+    const rotatePages = document.getElementById('opt-organize-rotate-pages')?.value || '';
+    const organizedBlob = await runPDFOrganize(range, angle, watermark, blankCount, blankAfter, rotatePages);
     
-    const outputName = 'organized_' + appState.activeFiles[0].name;
+    const outputName = 'organized_' + appState.activeFiles[0].name.replace(/\.pdf$/i, '') + '.pdf';
     registerToolResult(downloadBtn, organizedBlob, outputName);
     logHistory(outputName, 'Organize PDF', (organizedBlob.size / (1024*1024)).toFixed(2) + ' MB');
     showToast('PDF organized locally!', 'success');
@@ -7671,7 +7791,7 @@ async function executeToolAlgorithm() {
         <ul style="list-style:none; display:flex; flex-direction:column; gap:6px;">
           ${extractedFiles.map((f, i) => `
             <li style="display:flex; justify-content:between; align-items:center; font-size:13px; font-family:var(--font-mono);">
-              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px;">${f.name}</span>
+              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px;">${escapeHTML(f.name)}</span>
               <button class="btn btn-ghost btn-sm" onclick="saveExtractedFileIndex(${i})" style="min-height:28px; padding:2px 8px; margin-left:auto;"><i data-lucide="download" style="width:12px;"></i> Save</button>
             </li>
           `).join('')}
@@ -7806,10 +7926,10 @@ async function executeToolAlgorithm() {
   } else if (toolId === 'png-to-svg') {
     const file = appState.activeFiles[0];
     const svgBlob = await runPngToSvg(file);
-    const outputName = file.name.split('.')[0] + '_vector.svg';
+    const outputName = file.name.split('.')[0] + '_embedded.svg';
     registerToolResult(downloadBtn, svgBlob, outputName);
     logHistory(outputName, 'PNG to SVG', (svgBlob.size / 1024).toFixed(2) + ' KB');
-    showToast('Image wrapped as SVG path!', 'success');
+    showToast('Raster image embedded in an SVG file. No vector tracing is performed.', 'success');
   } else if (toolId === 'webp-to-jpg') {
     const files = appState.activeFiles;
     const file = files[0];
@@ -7864,13 +7984,7 @@ async function executeToolAlgorithm() {
     const file = appState.activeFiles[0];
     const dataStr = await runQrReader(file);
     metricMount.classList.remove('hidden');
-    metricMount.innerHTML = `
-      <div class="complete-comparison">
-        <strong>Extracted QR Link/Text:</strong>
-        <p style="font-family:var(--font-mono); padding:8px; border:1px solid var(--color-border); border-radius:4px; word-break:break-all; font-size:13px; text-align:left; background:var(--color-bg); margin-top:8px;">${dataStr}</p>
-        <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${dataStr.replace(/'/g, "\\'")}')" style="margin-top:8px;"><i data-lucide="copy" style="width:12px;"></i> Copy Result</button>
-      </div>
-    `;
+    window.GxaToolSafety.textResult(metricMount, 'Extracted QR text', dataStr, '', true);
     lucide.createIcons();
     downloadBtn.classList.add('hidden');
     logHistory(file.name, 'QR Code Reader', '0.0 MB');
@@ -7879,12 +7993,7 @@ async function executeToolAlgorithm() {
     const file = appState.activeFiles[0];
     const dataStr = await runBarcodeReader(file);
     metricMount.classList.remove('hidden');
-    metricMount.innerHTML = `
-      <div class="complete-comparison">
-        <strong>Extracted Barcode Tag:</strong>
-        <p style="font-family:var(--font-mono); padding:8px; border:1px solid var(--color-border); border-radius:4px; font-size:13px; background:var(--color-bg); margin-top:8px;">${dataStr}</p>
-      </div>
-    `;
+    window.GxaToolSafety.textResult(metricMount, 'Extracted barcode text', dataStr, '', true);
     downloadBtn.classList.add('hidden');
     logHistory(file.name, 'Barcode Scanner', '0.0 MB');
     showToast('Barcode scanned client-side!', 'success');
@@ -7894,13 +8003,7 @@ async function executeToolAlgorithm() {
     const file = appState.activeFiles[0];
     const resStr = await runBase64Tool(file, textRaw, mode);
     metricMount.classList.remove('hidden');
-    metricMount.innerHTML = `
-      <div style="text-align:left;">
-        <strong>Base64 Output:</strong>
-        <textarea readonly class="form-input-text" style="height:120px; font-family:var(--font-mono); font-size:11px; margin-top:8px;" onclick="this.select()">${resStr}</textarea>
-        <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(this.previousElementSibling.value)" style="margin-top:8px;"><i data-lucide="copy" style="width:12px;"></i> Copy Base64</button>
-      </div>
-    `;
+    window.GxaToolSafety.textResult(metricMount, 'Base64 Output', resStr, '', true);
     lucide.createIcons();
     downloadBtn.classList.add('hidden');
     logHistory(file ? file.name : 'raw_text', 'Base64 Tool', '0.0 MB');
@@ -7945,16 +8048,7 @@ async function executeToolAlgorithm() {
     const file = appState.activeFiles[0];
     const exifTags = await runExifViewer(file);
     metricMount.classList.remove('hidden');
-    metricMount.innerHTML = `
-      <div style="text-align:left; font-size:12px; max-height:160px; overflow-y:auto;">
-        <h5 style="font-weight:700; margin-bottom:6px;">Image EXIF Header Details</h5>
-        <table style="width:100%; border-collapse:collapse;">
-          ${Object.entries(exifTags).map(([k, v]) => `
-            <tr style="border-bottom:1px solid var(--color-border);"><td style="padding:3px 0; color:var(--color-text-secondary);">${k}</td><td style="text-align:right; font-weight:700; word-break:break-all;">${v}</td></tr>
-          `).join('')}
-        </table>
-      </div>
-    `;
+    window.GxaToolSafety.pairs(metricMount, 'Image EXIF Header Details', Object.entries(exifTags));
     const archive = new JSZip();
     archive.file('metadata.json', JSON.stringify(exifTags, null, 2));
     if (document.getElementById('opt-exif-clean-copy')?.checked) {
@@ -8189,72 +8283,77 @@ async function executeToolAlgorithm() {
 }
 
 // --- ALGORITHM: PDF MERGE ---
-async function runPDFMerge() {
+async function runPDFMerge(selections = []) {
   const mergedPdf = await PDFLib.PDFDocument.create();
   const files = appState.activeFiles;
-  
-  // If reverse is enabled
-  const orderedFiles = appState.activeToolOptions.reverse ? [...files].reverse() : files;
-  
-  for (const file of orderedFiles) {
-    const arrayBuffer = await file.arrayBuffer();
-    const doc = await PDFLib.PDFDocument.load(arrayBuffer);
-    const copiedPages = await mergedPdf.copyPages(doc, doc.getPageIndices());
-    copiedPages.forEach((page) => mergedPdf.addPage(page));
+  if (!files.length) throw new Error('Choose at least one PDF to merge.');
+  if (!Array.isArray(selections) || (selections.length && selections.length !== files.length)) throw new Error('The page selections no longer match the file queue. Review the files and try again.');
+  const queue = files.map((file, index) => ({ file, selection: selections[index] || { range: '', rotation: 0 } }));
+  if (appState.activeToolOptions.reverse) queue.reverse();
+  let expectedPages = 0;
+  for (const { file, selection } of queue) {
+    const rotation = selection.rotation ?? 0, range = selection.range ?? '';
+    if (![0, 90, 180, 270].includes(rotation) || typeof range !== 'string' || range.length > 2000) throw new Error('Use a valid page selection and a quarter-turn rotation for each file.');
+    let doc, liveFields;
+    try {
+      doc = await PDFLib.PDFDocument.load(await file.arrayBuffer());
+      if (!doc.catalog || !doc.getPageCount()) throw new Error('Missing document pages');
+      const form = doc.catalog.lookupMaybe(PDFLib.PDFName.of('AcroForm'), PDFLib.PDFDict);
+      liveFields = !!form && (form.has(PDFLib.PDFName.of('XFA')) || (form.lookupMaybe(PDFLib.PDFName.of('Fields'), PDFLib.PDFArray)?.size() || 0) > 0);
+    }
+    catch { throw new Error('A PDF could not be opened. Unlock password-protected files with your authorized password first, and check damaged files separately.'); }
+    if (liveFields) throw new Error('This PDF contains live form fields. Explicitly flatten supported AcroForms in Edit PDF before merging; XFA requires a compatible external editor. Live field preservation is not supported by this merge engine.');
+    // Parse each group separately so explicit duplicate page numbers remain meaningful.
+    const indices = range.trim() ? range.split(',').flatMap(group => parsePdfPageSelection(group.trim(), doc.getPageCount())) : doc.getPageIndices();
+    expectedPages += indices.length;
+    if (expectedPages > 2000) throw new Error('Merge up to 2,000 output pages at a time to limit browser memory use.');
+    const copiedPages = await mergedPdf.copyPages(doc, indices);
+    copiedPages.forEach(page => { page.setRotation(PDFLib.degrees((page.getRotation().angle + rotation + 360) % 360)); mergedPdf.addPage(page); });
   }
-  
+  if (!expectedPages) throw new Error('The selected files contain no pages to merge.');
   const pdfBytes = await mergedPdf.save();
+  const reopened = await PDFLib.PDFDocument.load(pdfBytes);
+  if (reopened.getPageCount() !== expectedPages) throw new Error('The merged page count could not be verified. No download was created.');
   return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
 // --- ALGORITHM: PDF ORGANIZE (SPLIT/ROTATE/WATERMARK) ---
-async function runPDFOrganize(rangeStr, rotationAngle, watermarkText, blankCount = 0, blankAfter = 0) {
-  const file = appState.activeFiles[0];
-  const arrayBuffer = await file.arrayBuffer();
-  const srcDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+async function runPDFOrganize(rangeStr, rotationAngle, watermarkText, blankCount = 0, blankAfter = 0, rotateRange = '') {
+  const srcDoc = await loadPdfForPageCopy(appState.activeFiles[0]);
+  if (![0, 90, 180, 270].includes(rotationAngle)) throw new Error('Choose a quarter-turn rotation: 0, 90, 180 or 270 degrees.');
+  if (!Number.isInteger(blankCount) || blankCount < 0 || blankCount > 50) throw new Error('Insert between 0 and 50 whole blank pages.');
+  if (typeof watermarkText !== 'string' || watermarkText.length > 200) throw new Error('Use a watermark of at most 200 characters.');
+  const indices = parsePdfOrderedPages(rangeStr, srcDoc.getPageCount());
+  const rotateIndices = new Set(parsePdfOrderedPages(rotateRange, srcDoc.getPageCount()));
+  if (!Number.isInteger(blankAfter) || blankAfter < 0 || blankAfter > indices.length) throw new Error(`Insert blanks after an output position between 0 and ${indices.length}.`);
+  if (indices.length + blankCount > 2000) throw new Error('Organize up to 2,000 output pages at a time.');
   const newPdf = await PDFLib.PDFDocument.create();
-  
-  // Calculate selected page indices
-  let indices = [];
-  if (rangeStr.trim() !== '') {
-    const parts = rangeStr.split(',');
-    parts.forEach(part => {
-      if (part.includes('-')) {
-        const [start, end] = part.split('-').map(n => parseInt(n.trim()) - 1);
-        for (let i = start; i <= end; i++) {
-          if (i >= 0 && i < srcDoc.getPageCount()) indices.push(i);
-        }
-      } else {
-        const val = parseInt(part.trim()) - 1;
-        if (val >= 0 && val < srcDoc.getPageCount()) indices.push(val);
-      }
-    });
-  } else {
-    // If range is empty, use all pages
-    indices = srcDoc.getPageIndices();
+  let watermarkFont;
+  if (watermarkText) {
+    watermarkFont = await newPdf.embedFont(PDFLib.StandardFonts.Helvetica);
+    try { watermarkFont.encodeText(watermarkText); }
+    catch { throw new Error('This watermark font supports Latin-script text only. Remove unsupported characters and retry.'); }
   }
-  
+  // Capture the source orientation once: duplicate pages must not accumulate turns.
+  const rotations = indices.map(index => (srcDoc.getPage(index).getRotation().angle + (rotateIndices.has(index) ? rotationAngle : 0) + 360) % 360);
   const copiedPages = await newPdf.copyPages(srcDoc, indices);
-  const safeBlankCount = Number.isInteger(blankCount) && blankCount >= 0 && blankCount <= 50 ? blankCount : 0;
-  const safeBlankAfter = Number.isInteger(blankAfter) && blankAfter >= 0 && blankAfter <= copiedPages.length
-    ? blankAfter
-    : copiedPages.length;
+  const usedSources = new Set();
+  for (let index = 0; index < indices.length; index += 1) {
+    // pdf-lib shares copied dictionaries for repeats within one copyPages call.
+    // A fresh copy prevents duplicate pages from receiving the same watermark twice.
+    if (usedSources.has(indices[index])) [copiedPages[index]] = await newPdf.copyPages(srcDoc, [indices[index]]);
+    usedSources.add(indices[index]);
+  }
   const addBlankPages = (referencePage) => {
-    if (safeBlankCount === 0) return;
-    const fallback = srcDoc.getPage(0);
-    const width = referencePage?.getWidth() || fallback.getWidth();
-    const height = referencePage?.getHeight() || fallback.getHeight();
-    for (let count = 0; count < safeBlankCount; count += 1) newPdf.addPage([width, height]);
+    for (let count = 0; count < blankCount; count += 1) newPdf.addPage([referencePage.getWidth(), referencePage.getHeight()]);
   };
-  if (safeBlankAfter === 0) addBlankPages(copiedPages[0]);
+  if (blankAfter === 0) addBlankPages(copiedPages[0]);
   copiedPages.forEach((page, outputIndex) => {
-    // Apply rotation
-    if (rotationAngle !== 0) {
-      page.setRotation(PDFLib.degrees(rotationAngle));
-    }
+    page.setRotation(PDFLib.degrees(rotations[outputIndex]));
     // Draw simple text watermark
     if (watermarkText !== '') {
       page.drawText(watermarkText, {
+        font: watermarkFont,
         x: page.getWidth() / 4,
         y: page.getHeight() / 2,
         size: 40,
@@ -8264,10 +8363,12 @@ async function runPDFOrganize(rangeStr, rotationAngle, watermarkText, blankCount
       });
     }
     newPdf.addPage(page);
-    if (outputIndex + 1 === safeBlankAfter) addBlankPages(page);
+    if (outputIndex + 1 === blankAfter) addBlankPages(page);
   });
   
   const pdfBytes = await newPdf.save();
+  const verified = await PDFLib.PDFDocument.load(pdfBytes);
+  if (verified.getPageCount() !== indices.length + blankCount) throw new Error('The organized output could not be verified. No download was created.');
   return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
@@ -8705,10 +8806,21 @@ function copyColorToClipboard(hex) {
 
 // --- ALGORITHM: ZIP ARCHIVER MAKER ---
 async function runZIPMaker() {
+  if (!appState.activeFiles.length) throw new Error('Choose at least one file to create a ZIP.');
   const zip = new JSZip();
-  
+  const reserved = new Set(appState.activeFiles.map(file => file.name));
+  const used = new Set();
   for (const file of appState.activeFiles) {
-    zip.file(file.name, file);
+    let name = file.name;
+    const dot = name.lastIndexOf('.');
+    const stem = dot > 0 ? name.slice(0, dot) : name;
+    const extension = dot > 0 ? name.slice(dot) : '';
+    let suffix = 2;
+    while (used.has(name)) {
+      do { name = `${stem} (${suffix++})${extension}`; } while (reserved.has(name));
+    }
+    used.add(name);
+    zip.file(name, await file.arrayBuffer());
   }
   
   return await zip.generateAsync({ type: 'blob' });
@@ -8722,8 +8834,17 @@ function setSplitMode(mode, btn) {
   group?.classList.toggle('hidden', mode !== 'range');
   everyNGroup?.classList.toggle('hidden', mode !== 'every-n');
   const btns = btn.parentElement.querySelectorAll('.preset-btn');
-  btns.forEach(b => b.classList.remove('active'));
+  btns.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
   btn.classList.add('active');
+  btn.setAttribute('aria-pressed', 'true');
+  const input = document.getElementById('opt-split-range');
+  if (input) {
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function getPdfSplitPlan(pageCount) {
+  return planPdfSplit(appState.activeToolOptions.mode || 'every', document.getElementById('opt-split-range')?.value || '', Number(document.getElementById('opt-split-every-n')?.value || 2), pageCount);
 }
 
 function setExportFormat(fmt, btn) {
@@ -8791,38 +8912,83 @@ function parsePdfPageSelection(rangeStr, pageCount) {
     if (!/^\d+(?:\s*-\s*\d+)?$/.test(value)) throw new Error(`Invalid page range: "${value}".`);
     const [startValue, endValue] = value.split('-').map(part => Number(part.trim()));
     const start = startValue;
-    const end = endValue || startValue;
+    const end = endValue ?? startValue;
     if (start < 1 || end < start || end > pageCount) throw new Error(`Page range "${value}" is outside 1-${pageCount}.`);
     for (let page = start; page <= end; page += 1) selected.push(page - 1);
   }
   return [...new Set(selected)];
 }
 
-async function runPDFSplit(mode, rangeStr, everyN = 2) {
-  const file = appState.activeFiles[0];
-  const arrayBuffer = await file.arrayBuffer();
-  const srcDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-  const zip = new JSZip();
-  
-  let ranges = [];
+// Shared by Split/Organize processing and the non-rasterized output-plan preview.
+function parsePdfOrderedPages(rangeStr, pageCount) {
+  if (typeof rangeStr !== 'string' || rangeStr.length > 4000) throw new Error('Use a page selection of at most 4,000 characters.');
+  if (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > 2000) throw new Error('Choose a PDF with between 1 and 2,000 source pages.');
+  if (!rangeStr.trim()) return Array.from({ length: pageCount }, (_, index) => index);
+  const indices = [];
+  for (const group of rangeStr.split(',')) {
+    indices.push(...parsePdfPageSelection(group.trim(), pageCount));
+    if (indices.length > 2000) throw new Error('Select up to 2,000 output pages at a time.');
+  }
+  return indices;
+}
+
+async function loadPdfForPageCopy(file) {
+  if (!file) throw new Error('Choose a PDF before processing.');
+  if (file.size > 25 * 1024 * 1024) throw new Error('Choose a PDF up to 25 MB to limit browser memory use.');
+  let doc, hasLiveForm;
+  try {
+    doc = await PDFLib.PDFDocument.load(await file.arrayBuffer());
+    if (!doc.catalog || !doc.getPageCount()) throw new Error('Missing document pages');
+    const form = doc.catalog.lookupMaybe(PDFLib.PDFName.of('AcroForm'), PDFLib.PDFDict);
+    hasLiveForm = !!form && (form.has(PDFLib.PDFName.of('XFA')) || (form.lookupMaybe(PDFLib.PDFName.of('Fields'), PDFLib.PDFArray)?.size() || 0) > 0);
+  } catch { throw new Error('The PDF could not be opened. Unlock it with your authorized password first if protected, or check the source for damage.'); }
+  if (hasLiveForm) throw new Error('This PDF contains live form fields. Explicitly flatten supported AcroForms in Edit PDF first; XFA needs a compatible external editor. These page-copy tools cannot preserve live field trees.');
+  if (doc.getPageCount() > 2000) throw new Error('Choose a PDF with at most 2,000 source pages to limit browser memory use.');
+  return doc;
+}
+
+function planPdfSplit(mode, rangeStr, everyN, pageCount) {
+  if (!['every', 'every-n', 'range'].includes(mode)) throw new Error('Choose a supported split mode.');
+  if (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > 2000) throw new Error('Choose a PDF with between 1 and 2,000 source pages.');
+  const ranges = [];
   if (mode === 'every') {
-    for (let i = 0; i < srcDoc.getPageCount(); i++) {
+    if (pageCount > 500) throw new Error('Create up to 500 output files at once. Use Every N pages or custom groups for a longer PDF.');
+    for (let i = 0; i < pageCount; i++) {
       ranges.push([i]);
     }
   } else if (mode === 'every-n') {
     if (!Number.isInteger(everyN) || everyN < 1 || everyN > 500) throw new Error('Pages per output must be between 1 and 500.');
-    for (let start = 0; start < srcDoc.getPageCount(); start += everyN) {
-      ranges.push(Array.from({ length: Math.min(everyN, srcDoc.getPageCount() - start) }, (_, offset) => start + offset));
+    for (let start = 0; start < pageCount; start += everyN) {
+      ranges.push(Array.from({ length: Math.min(everyN, pageCount - start) }, (_, offset) => start + offset));
     }
   } else {
-    ranges = String(rangeStr || '').split(',').map(group => parsePdfPageSelection(group.trim(), srcDoc.getPageCount()));
+    if (typeof rangeStr !== 'string' || !rangeStr.trim() || rangeStr.length > 4000) throw new Error('Enter output groups using at most 4,000 characters.');
+    // Keep legacy comma-separated range outputs; semicolons opt into multi-selection groups.
+    const groups = rangeStr.split(rangeStr.includes(';') ? ';' : ',');
+    let total = 0;
+    for (const group of groups) {
+      if (!group.trim()) throw new Error('An output group is empty. Remove trailing separators or enter its pages.');
+      const indices = parsePdfOrderedPages(group.trim(), pageCount);
+      total += indices.length;
+      if (total > 2000) throw new Error('Copy up to 2,000 pages across all split outputs.');
+      ranges.push(indices);
+    }
   }
-  
+  if (ranges.length > 500) throw new Error('Create up to 500 output files at once. Use larger groups.');
+  return ranges;
+}
+
+async function runPDFSplit(mode, rangeStr, everyN = 2) {
+  const srcDoc = await loadPdfForPageCopy(appState.activeFiles[0]);
+  const ranges = planPdfSplit(mode, rangeStr, everyN, srcDoc.getPageCount());
+  const zip = new JSZip();
   for (let idx = 0; idx < ranges.length; idx++) {
     const singleDoc = await PDFLib.PDFDocument.create();
     const copiedPages = await singleDoc.copyPages(srcDoc, ranges[idx]);
     copiedPages.forEach(p => singleDoc.addPage(p));
     const bytes = await singleDoc.save();
+    const verified = await PDFLib.PDFDocument.load(bytes);
+    if (verified.getPageCount() !== ranges[idx].length) throw new Error('A split output could not be verified. No archive was created.');
     zip.file(`split_part_${idx + 1}.pdf`, bytes);
   }
   
@@ -9027,7 +9193,14 @@ async function createTextPdf(text, options = {}) {
       if (font.widthOfTextAtSize(next, fontSize) <= maxWidth) line = next;
       else {
         if (line) lines.push(line);
-        line = word;
+        line = '';
+        // Wrap unbroken URLs/tokens too; never draw text beyond the page edge.
+        for (const character of word) {
+          if (font.widthOfTextAtSize(line + character, fontSize) > maxWidth) {
+            lines.push(line);
+            line = character;
+          } else line += character;
+        }
       }
     });
     if (line) lines.push(line);
@@ -9035,6 +9208,7 @@ async function createTextPdf(text, options = {}) {
   let page;
   let y;
   const newPage = () => {
+    if (pdfDoc.getPageCount() >= 500) throw new Error('Text PDF output exceeds 500 pages. Split the source document; no incomplete PDF was exported.');
     page = pdfDoc.addPage(pageSize);
     y = pageSize[1] - margin;
     if (options.title) {
@@ -9649,27 +9823,47 @@ function setJsonMode(mode, btn) {
   generateJsonModeLive();
 }
 
+function convertBase64Text(value, mode) {
+  if (mode === 'encode') {
+    let binary = '';
+    for (const byte of new TextEncoder().encode(value)) binary += String.fromCharCode(byte);
+    return window.btoa(binary);
+  }
+  let binary;
+  try { binary = window.atob(value.replace(/\s+/g, '')); }
+  catch { throw new Error('Invalid Base64 string.'); }
+  try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(Uint8Array.from(binary, char => char.charCodeAt(0))); }
+  catch { throw new Error('Decoded bytes are not UTF-8 text. Binary file decoding is not supported by this text tool.'); }
+}
+
+function importBase64File(fileInput) {
+  appState.activeToolOptions.base64File = fileInput.files[0] || null;
+  const input = document.getElementById('opt-b64-raw');
+  if (input && appState.activeToolOptions.base64File) input.value = '';
+  return generateBase64TextLive();
+}
+
 function generateBase64TextLive() {
   const val = document.getElementById('opt-b64-raw').value;
   const mode = appState.activeToolOptions.mode || 'encode';
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
-  let out = '';
-  if (mode === 'encode') {
-    out = window.btoa(val);
-  } else {
-    try {
-      out = window.atob(val);
-    } catch(e) {
-      out = 'Invalid Base64 string.';
-    }
+  const revision = (preview.base64Revision || 0) + 1;
+  preview.base64Revision = revision;
+  preview.dataset.base64Valid = 'false';
+  const render = (out, error = false) => {
+    if (!preview.isConnected || preview.base64Revision !== revision) return;
+    window.GxaToolSafety.textResult(preview, error ? 'Base64 conversion error' : 'Base64 Live Preview', out, '', false);
+    preview.dataset.base64Valid = error ? 'false' : 'true';
+    if (error) preview.firstElementChild.setAttribute('role', 'alert');
+  };
+  const file = appState.activeToolOptions.base64File;
+  if (file) {
+    preview.textContent = 'Reading selected file…';
+    return runBase64Tool(file, '', mode).then(out => render(out), () => render('The selected file could not be converted. Decode mode requires valid Base64 containing UTF-8 text.', true));
   }
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Base64 Live Preview</h5>
-      <textarea class="form-input-text" style="height:120px; font-family:var(--font-mono); font-size:11px;" readonly>${out}</textarea>
-    </div>
-  `;
+  try { render(convertBase64Text(val, mode)); }
+  catch (error) { render(error.message, true); }
 }
 
 function generateJsonModeLive() {
@@ -10011,19 +10205,9 @@ async function runPDFToText(file) {
 
 // --- ALGORITHM: HTML TO PDF ---
 async function runHtmlToPDF(file, rawCode) {
-  const code = file ? await file.text() : rawCode;
-  const pdfDoc = await PDFLib.PDFDocument.create();
-  const page = pdfDoc.addPage([595.28, 841.89]);
-  page.drawText("HTML Template Compiled", { x: 50, y: 800, size: 18 });
-  const cleanText = code.replace(/<[^>]*>/g, '\n').split('\n').filter(l => l.trim() !== '');
-  let y = 750;
-  cleanText.forEach(line => {
-    if (y < 50) return;
-    page.drawText(line.substring(0, 80), { x: 50, y: y, size: 11 });
-    y -= 20;
-  });
-  const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes], { type: 'application/pdf' });
+  await window.GxaWorkspace.loadScriptOnce('/assets/html-to-pdf.js', 'GxaHtmlToPdf');
+  if (file && file.size > window.GxaHtmlToPdf.MAX_BYTES) throw new Error('HTML input exceeds the 2 MB conversion limit.');
+  return window.GxaHtmlToPdf.convert(file ? await file.text() : rawCode);
 }
 
 // --- ALGORITHM: PDF TO HTML ---
@@ -10037,26 +10221,19 @@ async function runPDFToHtml(file) {
 
 // --- ALGORITHM: MARKDOWN TO PDF ---
 async function runMarkdownToPDF(file, rawMd) {
+  if (file && file.size > 2 * 1024 * 1024) throw new Error('Markdown input exceeds the 2 MB conversion limit.');
   const md = file ? await file.text() : rawMd;
-  const pdfDoc = await PDFLib.PDFDocument.create();
-  const page = pdfDoc.addPage([595.28, 841.89]);
-  page.drawText("Markdown Document Export", { x: 50, y: 800, size: 18 });
-  let y = 740;
-  const lines = md.split('\n');
-  lines.forEach(line => {
-    if (y < 40) return;
-    if (line.startsWith('#')) {
-      const depth = Math.min(line.match(/^#+/)[0].length, 3);
-      const clean = line.replace(/^#+\s*/, '');
-      page.drawText(clean, { x: 50, y: y, size: 20 - depth * 2 });
-      y -= 28;
-    } else {
-      page.drawText(line.substring(0, 80), { x: 50, y: y, size: 11 });
-      y -= 18;
-    }
-  });
-  const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes], { type: 'application/pdf' });
+  if (!String(md || '').trim()) throw new Error('Enter Markdown or choose a non-empty text file.');
+  if (new TextEncoder().encode(md).length > 2 * 1024 * 1024) throw new Error('Markdown input exceeds the 2 MB conversion limit.');
+  await window.GxaWorkspace.loadScriptOnce('/assets/html-to-pdf.js', 'GxaHtmlToPdf');
+  // Keep the existing heading/text scope, but use the shared paginated renderer.
+  // Escape source markup: embedded HTML never executes or loads remote content.
+  const html = String(md).replace(/\r\n?/g, '\n').split('\n').map(line => {
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (heading) return `<h${heading[1].length}>${escapeHTML(heading[2])}</h${heading[1].length}>`;
+    return `<pre>${escapeHTML(line || '\n')}</pre>`;
+  }).join('');
+  return window.GxaHtmlToPdf.convert(html);
 }
 
 // --- ALGORITHM: PDF TO MARKDOWN ---
@@ -10067,24 +10244,26 @@ async function runPDFToMarkdown(file) {
 }
 
 // --- ALGORITHM: SVG TO PNG ---
-function runSvgToPng(file, targetWidth) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ratio = img.height / img.width;
-        canvas.width = targetWidth;
-        canvas.height = targetWidth * ratio;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => resolve(blob), 'image/png');
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+async function runSvgToPng(file, targetWidth) {
+  if (!file || !file.size || file.size > 10 * 1024 * 1024) throw new Error('Choose a non-empty SVG file up to 10 MB.');
+  const width = Math.round(Number(targetWidth));
+  if (!Number.isFinite(width) || width < 1 || width > 10000) throw new Error('Output width must be between 1 and 10,000 pixels.');
+  const decoded = await loadDecodedImageSource(file);
+  const canvas = document.createElement('canvas');
+  try {
+    const height = Math.round(width * decoded.height / decoded.width);
+    if (!Number.isFinite(height) || height < 1 || height > 10000 || width * height > 24_000_000) throw new Error('Output dimensions exceed the safe 24-megapixel SVG conversion limit.');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas support is required to convert SVG images.');
+    context.drawImage(decoded.source, 0, 0, width, height);
+    return await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('The browser could not encode the PNG image.')), 'image/png'));
+  } finally {
+    decoded.close();
+    canvas.width = 0;
+    canvas.height = 0;
+  }
 }
 
 // --- ALGORITHM: PNG TO SVG ---
@@ -10197,6 +10376,7 @@ async function runBarcodeReader(file) {
 // --- ALGORITHM: BASE64 TOOL ---
 async function runBase64Tool(file, textRaw, mode) {
   if (file) {
+    if (mode === 'decode') return convertBase64Text(await file.text(), mode);
     const buffer = await file.arrayBuffer();
     let binary = '';
     const bytes = new Uint8Array(buffer);
@@ -10205,21 +10385,8 @@ async function runBase64Tool(file, textRaw, mode) {
       binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary);
-  } else {
-    if (mode === 'encode') {
-      const bytes = new TextEncoder().encode(textRaw);
-      let binary = '';
-      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-      return window.btoa(binary);
-    } else {
-      try {
-        const binary = window.atob(textRaw.replace(/\s+/g, ''));
-        return new TextDecoder().decode(Uint8Array.from(binary, char => char.charCodeAt(0)));
-      } catch(e) {
-        throw new Error('Invalid Base64 string.');
-      }
-    }
   }
+  return convertBase64Text(textRaw, mode);
 }
 
 // --- ALGORITHM: HASH TOOL ---
@@ -10309,24 +10476,20 @@ function downloadLoremText() {
 }
 
 function generateUUIDs() {
-  const count = parseInt(document.getElementById('opt-uuid-count').value) || 5;
-  const uuids = [];
-  for (let i = 0; i < count; i++) {
-    uuids.push(crypto.randomUUID ? crypto.randomUUID() : 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6');
-  }
-  const output = uuids.join('\n');
   const preview = document.getElementById('generator-preview-mount');
-  if (preview) {
-    preview.innerHTML = `
-      <div style="width:100%; text-align:left;">
-        <h5 style="font-weight:700; margin-bottom:8px;">Generated UUID Strings</h5>
-        <textarea id="generated-uuid-display" readonly class="form-input-text" style="height:150px; font-family:var(--font-mono); font-size:12px;" onclick="this.select()">${output}</textarea>
-      </div>
-    `;
+  try {
+    const count = Number(document.getElementById('opt-uuid-count').value);
+    if (!Number.isInteger(count) || count < 1 || count > 100) throw new Error('Choose a whole number from 1 to 100.');
+    const output = Array.from({ length: count }, () => window.GxaToolSafety.uuidV4()).join('\n');
+    window.GxaToolSafety.textResult(preview, 'Generated UUID v4 strings', output, 'generated-uuid-display');
+  } catch (error) {
+    if (preview) { preview.replaceChildren(); const message = document.createElement('p'); message.setAttribute('role', 'alert'); message.textContent = error.message; preview.append(message); }
   }
 }
 function downloadUUIDsText() {
-  const txt = document.getElementById('generated-uuid-display').value;
+  const display = document.getElementById('generated-uuid-display');
+  if (!display) { showToast('Generate UUIDs successfully before downloading.', 'error'); return; }
+  const txt = display.value;
   const blob = new Blob([txt], { type: 'text/plain' });
   saveBlob(blob, 'uuid_keys.txt');
   logHistory('uuid_keys.txt', 'UUID Generator', '0.0 KB');
@@ -10379,16 +10542,7 @@ function generateUserAgent() {
   const vendor = navigator.vendor;
   const preview = document.getElementById('generator-preview-mount');
   if (preview) {
-    preview.innerHTML = `
-      <div style="width:100%; text-align:left; font-size:13px;">
-        <h5 style="font-weight:700; margin-bottom:8px;">Client Information</h5>
-        <div style="padding:10px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-bg); line-height:1.6;">
-          <p><strong>User Agent:</strong> <span style="font-family:var(--font-mono); font-size:11px;">${ua}</span></p>
-          <p style="margin-top:6px;"><strong>Operating Platform:</strong> ${platform}</p>
-          <p style="margin-top:6px;"><strong>Browser Vendor:</strong> ${vendor}</p>
-        </div>
-      </div>
-    `;
+    window.GxaToolSafety.pairs(preview, 'Current browser information', [['User Agent', ua], ['Operating Platform', platform], ['Browser Vendor', vendor]]);
   }
 }
 
@@ -10417,14 +10571,7 @@ function generateCronExplanation() {
     if (exp === '0 9 * * 1-5') desc = "At 09:00 AM, Monday through Friday.";
   }
   
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Cron Schedule Description</h5>
-      <div style="padding:12px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-bg); font-weight:bold; font-size:14px; color:var(--color-primary); line-height:1.5;">
-        "${desc}"
-      </div>
-    </div>
-  `;
+  window.GxaToolSafety.textResult(preview, "Cron Schedule Description", desc, "", false);
 }
 
 function generateRegexTest() {
@@ -10506,12 +10653,7 @@ function generateCssBeautify() {
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   const formatted = css.replace(/{\s*/g, ' {\n  ').replace(/;\s*/g, ';\n  ').replace(/\s*}\s*/g, '\n}\n\n').trim();
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Formatted CSS</h5>
-      <textarea id="generated-css-display" class="form-input-text" style="height:150px; font-family:var(--font-mono); font-size:11px;" readonly>${formatted}</textarea>
-    </div>
-  `;
+  window.GxaToolSafety.textResult(preview, "Formatted CSS", formatted, "generated-css-display", false);
 }
 function downloadCssFile() {
   const css = document.getElementById('generated-css-display').value;
@@ -10524,12 +10666,7 @@ function generateJsBeautify() {
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   const formatted = js.replace(/{\s*/g, ' {\n  ').replace(/;\s*/g, ';\n  ').replace(/\n\s*}\s*/g, '\n}\n').trim();
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Formatted JS Output</h5>
-      <textarea id="generated-js-display" class="form-input-text" style="height:150px; font-family:var(--font-mono); font-size:11px;" readonly>${formatted}</textarea>
-    </div>
-  `;
+  window.GxaToolSafety.textResult(preview, "Formatted JS Output", formatted, "generated-js-display", false);
 }
 function downloadJsFile() {
   const js = document.getElementById('generated-js-display').value;
@@ -10542,12 +10679,7 @@ function generateHtmlBeautify() {
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   const formatted = html.replace(/></g, '>\n<').replace(/^(.*)$/gm, '  $1').trim();
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Formatted HTML</h5>
-      <textarea id="generated-html-beaut-display" class="form-input-text" style="height:150px; font-family:var(--font-mono); font-size:11px;" readonly>${formatted}</textarea>
-    </div>
-  `;
+  window.GxaToolSafety.textResult(preview, "Formatted HTML", formatted, "generated-html-beaut-display", false);
 }
 function downloadHtmlBeautFile() {
   const html = document.getElementById('generated-html-beaut-display').value;
@@ -10668,12 +10800,7 @@ function generateUrlConvert() {
       result = "Invalid encoded string.";
     }
   }
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">URL Conversion Results</h5>
-      <textarea readonly class="form-input-text" style="height:120px; font-family:var(--font-mono); font-size:11px;">${result}</textarea>
-    </div>
-  `;
+  window.GxaToolSafety.textResult(preview, "URL Conversion Results", result, "", false);
 }
 
 function generateCaseConvert() {
@@ -10695,12 +10822,7 @@ function generateCaseConvert() {
   } else if (type === 'kebab') {
     result = text.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
   }
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Re-cased text</h5>
-      <textarea id="generated-case-display" readonly class="form-input-text" style="height:120px; line-height:1.5;">${result}</textarea>
-    </div>
-  `;
+  window.GxaToolSafety.textResult(preview, "Re-cased text", result, "generated-case-display", false);
 }
 function downloadCaseTextFile() {
   const txt = document.getElementById('generated-case-display').value;
@@ -10764,6 +10886,7 @@ function importFileForHashing(fileInput) {
 // --- Base64 Live Download ---
 function downloadBase64TextFile() {
   const preview = document.getElementById('generator-preview-mount');
+  if (preview?.dataset.base64Valid !== 'true') { showToast('Convert valid input before downloading.', 'error'); return; }
   const textarea = preview ? preview.querySelector('textarea') : null;
   if (textarea) {
     const blob = new Blob([textarea.value], { type: 'text/plain' });
@@ -10778,15 +10901,24 @@ async function generateHashTextLive() {
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
+  const revision = (preview.hashRevision || 0) + 1;
+  preview.hashRevision = revision;
   let hash = '';
-  if (val.trim() === '') {
-    hash = '-';
-  } else {
+  try {
     const data = new TextEncoder().encode(val);
     const hashBuffer = await crypto.subtle.digest(algo, data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    if (preview.isConnected && preview.hashRevision === revision) {
+      preview.replaceChildren();
+      const error = document.createElement('p'); error.setAttribute('role', 'alert');
+      error.textContent = 'Hashing is unavailable. Use a secure, modern browser and a supported SHA algorithm.';
+      preview.append(error);
+    }
+    return;
   }
+  if (!preview.isConnected || preview.hashRevision !== revision) return;
   
   preview.innerHTML = `
     <div class="generated-output-card" role="status" aria-live="polite">
@@ -10870,12 +11002,7 @@ function generateSqlBeautify() {
       .trim();
   }
   
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Formatted SQL Query</h5>
-      <textarea id="generated-sql-display" class="form-input-text" style="height:150px; font-family:var(--font-mono); font-size:11px;" readonly>${formatted}</textarea>
-    </div>
-  `;
+  window.GxaToolSafety.textResult(preview, "Formatted SQL Query", formatted, "generated-sql-display", false);
 }
 function downloadSqlFile() {
   const display = document.getElementById('generated-sql-display');
@@ -10949,12 +11076,7 @@ function generateXmlToJson() {
     }
   }
   
-  preview.innerHTML = `
-    <div style="width:100%; text-align:left;">
-      <h5 style="font-weight:700; margin-bottom:8px;">Parsed JSON Output</h5>
-      <textarea id="generated-xmljson-display" class="form-input-text" style="height:150px; font-family:var(--font-mono); font-size:11px;" readonly>${jsonResult}</textarea>
-    </div>
-  `;
+  window.GxaToolSafety.textResult(preview, "Parsed JSON Output", jsonResult, "generated-xmljson-display", false);
 }
 function downloadXmlToJsonFile() {
   const display = document.getElementById('generated-xmljson-display');
@@ -10966,11 +11088,16 @@ function downloadXmlToJsonFile() {
 
 // --- Epoch/Timestamp Converter ---
 function generateTimestampConvert() {
-  const val = parseInt(document.getElementById('opt-ts-val').value) || 0;
+  const raw = document.getElementById('opt-ts-val').value.trim();
+  const val = Number(raw);
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
   const dateObj = new Date(val * 1000);
+  if (!raw || !Number.isFinite(val) || !Number.isFinite(dateObj.getTime())) {
+    preview.textContent = 'Enter a valid Unix timestamp in seconds within the supported date range.';
+    return;
+  }
   const localDate = dateObj.toString();
   const utcDate = dateObj.toUTCString();
   const isoDate = dateObj.toISOString();
@@ -11074,6 +11201,9 @@ async function runPDFExtractImages(file) {
 
 // --- ALGORITHM: CROP PDF ---
 async function runPDFCrop(file, top, bottom, left, right, pageSelection = '') {
+  if (![top, bottom, left, right].every(value => Number.isFinite(value) && value >= 0)) {
+    throw new Error('Crop margins must be finite, non-negative numbers.');
+  }
   const arrayBuffer = await file.arrayBuffer();
   const doc = await PDFLib.PDFDocument.load(arrayBuffer);
   const pages = doc.getPages();
@@ -11650,19 +11780,21 @@ function generateSimpleCalc(resetExpression = false) {
 }
 
 function evaluateSciExpression(expr) {
+  const operations = {
+    sin: value => Math.sin(value * Math.PI / 180),
+    cos: value => Math.cos(value * Math.PI / 180),
+    tan: value => Math.tan(value * Math.PI / 180),
+    asin: value => Math.asin(value) * 180 / Math.PI,
+    acos: value => Math.acos(value) * 180 / Math.PI,
+    atan: value => Math.atan(value) * 180 / Math.PI,
+    log: Math.log10,
+    ln: Math.log,
+    sqrt: Math.sqrt
+  };
   let mathExpr = expr
     .replace(/π/g, 'Math.PI')
     .replace(/\be\b/g, 'Math.E')
-    .replace(/sin\(/g, 'Math.sin((Math.PI/180)*')
-    .replace(/cos\(/g, 'Math.cos((Math.PI/180)*')
-    .replace(/tan\(/g, 'Math.tan((Math.PI/180)*')
-    .replace(/asin\(/g, '(180/Math.PI)*Math.asin(')
-    .replace(/acos\(/g, '(180/Math.PI)*Math.acos(')
-    .replace(/atan\(/g, '(180/Math.PI)*Math.atan(')
-    .replace(/log\(/g, 'Math.log10(')
-    .replace(/ln\(/g, 'Math.log(')
-    .replace(/sqrt\(/g, 'Math.sqrt(')
-    .replace(/√\(/g, 'Math.sqrt(')
+    .replace(/√\(/g, 'sqrt(')
     .replace(/\^/g, '**');
     
   const openCount = (mathExpr.match(/\(/g) || []).length;
@@ -11673,10 +11805,11 @@ function evaluateSciExpression(expr) {
   
   try {
     const sanitizedCheck = mathExpr
-      .replace(/Math\.(PI|E|sin|cos|tan|asin|acos|atan|log10|log|sqrt)/g, '')
+      .replace(/\b(?:asin|acos|atan|sin|cos|tan|log|ln|sqrt)\(/g, '(')
+      .replace(/Math\.(PI|E)/g, '')
       .replace(/[0-9-+*/().\s]|\*\*/g, '');
     if (sanitizedCheck.trim() === '') {
-      const result = Function('"use strict"; return (' + mathExpr + ')')();
+      const result = Function(...Object.keys(operations), '"use strict"; return (' + mathExpr + ')')(...Object.values(operations));
       if (result === Infinity || result === -Infinity) return 'Error: Div by 0';
       if (isNaN(result)) return 'Error';
       return result;
@@ -11780,12 +11913,12 @@ function generateScientificCalc(resetExpression = false) {
 function generatePercentageCalc() {
   const hasInput = ['opt-pct-val1', 'opt-pct-val2', 'opt-pct-a', 'opt-pct-b', 'opt-pct-from', 'opt-pct-to']
     .some(id => document.getElementById(id)?.value !== '');
-  const val1 = parseFloat(document.getElementById('opt-pct-val1').value) || 0;
-  const val2 = parseFloat(document.getElementById('opt-pct-val2').value) || 0;
-  const a = parseFloat(document.getElementById('opt-pct-a').value) || 0;
-  const b = parseFloat(document.getElementById('opt-pct-b').value) || 1;
-  const from = parseFloat(document.getElementById('opt-pct-from').value) || 0;
-  const to = parseFloat(document.getElementById('opt-pct-to').value) || 0;
+  const val1 = parseFloat(document.getElementById('opt-pct-val1').value);
+  const val2 = parseFloat(document.getElementById('opt-pct-val2').value);
+  const a = parseFloat(document.getElementById('opt-pct-a').value);
+  const b = parseFloat(document.getElementById('opt-pct-b').value);
+  const from = parseFloat(document.getElementById('opt-pct-from').value);
+  const to = parseFloat(document.getElementById('opt-pct-to').value);
   
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
@@ -11796,27 +11929,68 @@ function generatePercentageCalc() {
   
   const res1 = (val1 / 100) * val2;
   const res2 = (a / b) * 100;
-  const res3 = from !== 0 ? ((to - from) / from) * 100 : 0;
+  const res3 = ((to - from) / from) * 100;
+  const label = value => Number.isFinite(value) ? value : '—';
+  const result = (inputs, value, divisor, suffix = '') => {
+    if (!inputs.every(Number.isFinite)) return 'Enter both values as finite numbers.';
+    if (divisor === 0) return 'Not defined: the base value is zero.';
+    if (!Number.isFinite(value)) return 'Values exceed the supported calculation range.';
+    return value.toFixed(4).replace(/\.?0+$/, '') + suffix;
+  };
+  const change = result([from, to], res3, from, '%');
   
   preview.innerHTML = `
     <div style="width:100%; text-align:left; display:block; font-size:13px; line-height:1.6;">
       <h5 style="font-weight:700; margin-bottom:12px; text-align:center;">Percentage Calculations</h5>
       <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:12px; border-radius:8px; margin-bottom:10px;">
-        <strong>1. What is ${val1}% of ${val2}?</strong>
-        <div style="font-size:18px; font-weight:800; color:var(--color-primary); margin-top:4px;">Result: ${res1.toFixed(4).replace(/\.?0+$/, "")}</div>
+        <strong>1. What is ${label(val1)}% of ${label(val2)}?</strong>
+        <div style="font-size:18px; font-weight:800; color:var(--color-primary); margin-top:4px;">Result: ${result([val1, val2], res1, 100)}</div>
       </div>
       <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:12px; border-radius:8px; margin-bottom:10px;">
-        <strong>2. ${a} is what percent of ${b}?</strong>
-        <div style="font-size:18px; font-weight:800; color:var(--color-primary); margin-top:4px;">Result: ${res2.toFixed(4).replace(/\.?0+$/, "")}%</div>
+        <strong>2. ${label(a)} is what percent of ${label(b)}?</strong>
+        <div style="font-size:18px; font-weight:800; color:var(--color-primary); margin-top:4px;">Result: ${result([a, b], res2, b, '%')}</div>
       </div>
       <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:12px; border-radius:8px;">
-        <strong>3. Percentage Change from ${from} to ${to}:</strong>
+        <strong>3. Percentage Change from ${label(from)} to ${label(to)}:</strong>
         <div style="font-size:18px; font-weight:800; color:${res3 >= 0 ? 'var(--color-accent)' : 'var(--color-danger)'}; margin-top:4px;">
-          Result: ${res3 >= 0 ? '+' : ''}${res3.toFixed(4).replace(/\.?0+$/, "")}% ${res3 >= 0 ? '(Increase)' : '(Decrease)'}
+          Result: ${Number.isFinite(res3) && from !== 0 ? `${res3 > 0 ? '+' : ''}${change} ${res3 > 0 ? '(Increase)' : res3 < 0 ? '(Decrease)' : '(No change)'}` : change}
         </div>
       </div>
     </div>
   `;
+}
+
+// Date inputs are civil dates, not instants: UTC arithmetic avoids DST and
+// west-of-UTC date shifts. Month/year offsets clamp to the last valid day.
+function parseCalculatorDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? date : null;
+}
+
+function offsetCalculatorMonths(date, months) {
+  if (!Number.isSafeInteger(months)) return null;
+  const monthIndex = date.getUTCFullYear() * 12 + date.getUTCMonth() + months;
+  const year = Math.floor(monthIndex / 12);
+  if (year < 1 || year > 9999) return null;
+  const month = monthIndex - year * 12;
+  const result = new Date(0);
+  result.setUTCFullYear(year, month + 1, 0);
+  const day = Math.min(date.getUTCDate(), result.getUTCDate());
+  result.setUTCFullYear(year, month, day);
+  return result;
+}
+
+function calculatorCalendarDuration(first, second) {
+  const start = first <= second ? first : second;
+  const end = first <= second ? second : first;
+  let months = (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + end.getUTCMonth() - start.getUTCMonth();
+  let anchor = offsetCalculatorMonths(start, months);
+  if (anchor > end) anchor = offsetCalculatorMonths(start, --months);
+  return { years: Math.floor(months / 12), months: months % 12, days: Math.round((end - anchor) / 86400000) };
 }
 
 function generateAgeCalc() {
@@ -11830,27 +12004,21 @@ function generateAgeCalc() {
     return;
   }
   
-  const birthDate = new Date(dobVal);
-  const targetDate = targetVal ? new Date(targetVal) : new Date();
+  const birthDate = parseCalculatorDate(dobVal);
+  const today = new Date();
+  const todayValue = `${String(today.getFullYear()).padStart(4, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const targetDate = parseCalculatorDate(targetVal || todayValue);
+  if (!birthDate || !targetDate) {
+    preview.textContent = 'Please select valid calendar dates between years 0001 and 9999.';
+    return;
+  }
   
   if (targetDate < birthDate) {
     preview.innerHTML = `<div style="color:var(--color-danger); font-size:13px; text-align:center;">Target date cannot be earlier than birth date.</div>`;
     return;
   }
   
-  let years = targetDate.getFullYear() - birthDate.getFullYear();
-  let months = targetDate.getMonth() - birthDate.getMonth();
-  let days = targetDate.getDate() - birthDate.getDate();
-  
-  if (days < 0) {
-    months--;
-    const prevMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 0);
-    days += prevMonth.getDate();
-  }
-  if (months < 0) {
-    years--;
-    months += 12;
-  }
+  const { years, months, days } = calculatorCalendarDuration(birthDate, targetDate);
   
   const diffMs = targetDate - birthDate;
   const totalSeconds = Math.floor(diffMs / 1000);
@@ -11860,15 +12028,13 @@ function generateAgeCalc() {
   const totalWeeks = Math.floor(totalDays / 7);
   const totalMonths = (years * 12) + months;
   
-  const nextBday = new Date(targetDate.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+  let nextBday = offsetCalculatorMonths(birthDate, (targetDate.getUTCFullYear() - birthDate.getUTCFullYear()) * 12);
   if (nextBday < targetDate) {
-    nextBday.setFullYear(targetDate.getFullYear() + 1);
+    nextBday = offsetCalculatorMonths(birthDate, (targetDate.getUTCFullYear() + 1 - birthDate.getUTCFullYear()) * 12);
   }
-  const nextBdayDiff = nextBday - targetDate;
-  const nextBdayDays = Math.ceil(nextBdayDiff / (1000 * 60 * 60 * 24));
-  const nextBdayMonths = Math.floor(nextBdayDays / 30.4375);
-  const nextBdayDaysRem = Math.floor(nextBdayDays % 30.4375);
-  const nextBdayWeekday = nextBday.toLocaleDateString('en-US', { weekday: 'long' });
+  const nextDuration = nextBday ? calculatorCalendarDuration(targetDate, nextBday) : null;
+  const birthdaySummary = nextDuration ? `In ${nextDuration.years * 12 + nextDuration.months} Months, ${nextDuration.days} Days` : 'Outside the supported calendar range';
+  const birthdayDetail = nextBday ? `Will be on a <strong>${nextBday.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })}</strong>` : 'Choose an earlier target date for the next birthday.';
   
   preview.innerHTML = `
     <div style="width:100%; text-align:left; display:block; font-size:13px; line-height:1.5;">
@@ -11891,8 +12057,9 @@ function generateAgeCalc() {
       
       <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:12px; border-radius:8px; margin-bottom:15px;">
         <strong style="display:block; margin-bottom:4px; font-size:12px; text-transform:uppercase; color:var(--color-text-secondary);">Next Birthday</strong>
-        <div style="font-size:15px; font-weight:700;">In ${nextBdayMonths} Months, ${nextBdayDaysRem} Days</div>
-        <div style="font-size:11px; color:var(--color-text-muted); margin-top:2px;">Will be on a <strong>${nextBdayWeekday}</strong></div>
+        <div style="font-size:15px; font-weight:700;">${birthdaySummary}</div>
+        <div style="font-size:11px; color:var(--color-text-muted); margin-top:2px;">${birthdayDetail}</div>
+        <div style="font-size:11px; color:var(--color-text-secondary); margin-top:4px;">Calendar dates only. Month ends clamp to the last valid day; February 29 anniversaries use February 28 in non-leap years.</div>
       </div>
       
       <h6 style="font-weight:700; margin-bottom:8px; font-size:12px; text-transform:uppercase; color:var(--color-text-secondary);">Cumulative Totals</h6>
@@ -11919,7 +12086,11 @@ function generateDateCalc() {
     return;
   }
   
-  const startDate = new Date(startVal);
+  const startDate = parseCalculatorDate(startVal);
+  if (!startDate) {
+    preview.textContent = 'Please select a valid start date between years 0001 and 9999.';
+    return;
+  }
   
   if (mode === 'duration') {
     const endVal = document.getElementById('opt-date-end').value;
@@ -11927,23 +12098,15 @@ function generateDateCalc() {
       preview.innerHTML = `<div style="color:var(--color-text-secondary); font-size:13px; text-align:center;">Please select end date in configuration.</div>`;
       return;
     }
-    const endDate = new Date(endVal);
+    const endDate = parseCalculatorDate(endVal);
+    if (!endDate) {
+      preview.textContent = 'Please select a valid end date between years 0001 and 9999.';
+      return;
+    }
     const diffMs = endDate - startDate;
     const totalDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     
-    let y = endDate.getFullYear() - startDate.getFullYear();
-    let m = endDate.getMonth() - startDate.getMonth();
-    let d = endDate.getDate() - startDate.getDate();
-    
-    if (d < 0) {
-      m--;
-      const prev = new Date(endDate.getFullYear(), endDate.getMonth(), 0);
-      d += prev.getDate();
-    }
-    if (m < 0) {
-      y--;
-      m += 12;
-    }
+    const { years: y, months: m, days: d } = calculatorCalendarDuration(startDate, endDate);
     
     const absDays = Math.abs(totalDays);
     const isPast = totalDays < 0;
@@ -11957,26 +12120,35 @@ function generateDateCalc() {
         </div>
         <h6 style="font-weight:700; margin-bottom:6px; font-size:12px; text-transform:uppercase; color:var(--color-text-secondary);">Relative Breakdown</h6>
         <p><strong>${Math.abs(y)} Years, ${Math.abs(m)} Months, ${Math.abs(d)} Days</strong></p>
+        <p style="font-size:11px; color:var(--color-text-secondary);">Calendar months clamp to the last valid day before counting remaining days.</p>
       </div>
     `;
   } else {
-    const offset = parseInt(document.getElementById('opt-date-offset').value) || 0;
+    const offsetValue = document.getElementById('opt-date-offset').value.trim();
+    const offset = Number(offsetValue);
     const unit = document.getElementById('opt-date-unit').value;
-    const resultDate = new Date(startDate);
+    if (!offsetValue || !Number.isSafeInteger(offset) || !['add', 'subtract'].includes(mode) || !['days', 'weeks', 'months', 'years'].includes(unit)) {
+      preview.textContent = 'Enter a whole-number offset and select a valid operation and unit.';
+      return;
+    }
+    let resultDate = new Date(startDate);
     const multiplier = mode === 'add' ? 1 : -1;
     const val = offset * multiplier;
     
     if (unit === 'days') {
-      resultDate.setDate(startDate.getDate() + val);
+      resultDate.setUTCDate(startDate.getUTCDate() + val);
     } else if (unit === 'weeks') {
-      resultDate.setDate(startDate.getDate() + (val * 7));
+      resultDate.setUTCDate(startDate.getUTCDate() + (val * 7));
     } else if (unit === 'months') {
-      resultDate.setMonth(startDate.getMonth() + val);
+      resultDate = offsetCalculatorMonths(startDate, val);
     } else if (unit === 'years') {
-      resultDate.setFullYear(startDate.getFullYear() + val);
+      resultDate = offsetCalculatorMonths(startDate, val * 12);
     }
-    
-    const formattedDate = resultDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if (!resultDate || !Number.isFinite(resultDate.getTime()) || resultDate.getUTCFullYear() < 1 || resultDate.getUTCFullYear() > 9999) {
+      preview.textContent = 'The result is outside the supported calendar range (years 0001–9999).';
+      return;
+    }
+    const formattedDate = resultDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
     
     preview.innerHTML = `
       <div style="width:100%; text-align:left; display:block; font-size:13px; line-height:1.5;">
@@ -11984,6 +12156,7 @@ function generateDateCalc() {
         <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:15px; border-radius:8px; text-align:center;">
           <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:6px;">Resulting Date:</div>
           <div style="font-size:18px; font-weight:800; color:var(--color-accent);">${formattedDate}</div>
+          <div style="font-size:11px; color:var(--color-text-secondary); margin-top:6px;">Month/year offsets use the last valid day when needed.</div>
         </div>
       </div>
     `;
@@ -11991,22 +12164,27 @@ function generateDateCalc() {
 }
 
 function generateEMICalc() {
-  const p = parseFloat(document.getElementById('opt-emi-amount').value) || 0;
-  const annualRate = parseFloat(document.getElementById('opt-emi-rate').value) || 0;
-  const years = parseFloat(document.getElementById('opt-emi-years').value) || 0;
+  const p = parseFloat(document.getElementById('opt-emi-amount').value);
+  const annualRate = parseFloat(document.getElementById('opt-emi-rate').value);
+  const years = parseFloat(document.getElementById('opt-emi-years').value);
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
-  if (p <= 0 || annualRate <= 0 || years <= 0) {
+  if (![p, annualRate, years].every(Number.isFinite) || p <= 0 || annualRate < 0 || years <= 0) {
     preview.innerHTML = `<div style="color:var(--color-text-secondary); font-size:13px; text-align:center;">Enter loan details to view EMI breakdown.</div>`;
     return;
   }
   
   const r = annualRate / 12 / 100;
   const n = years * 12;
-  const emi = p * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1);
+  // Equivalent annuity formula without subtracting near-equal powers at tiny rates.
+  const emi = r === 0 ? p / n : p * r / -Math.expm1(-n * Math.log1p(r));
   const totalPay = emi * n;
   const totalInt = totalPay - p;
+  if (![emi, totalPay, totalInt].every(Number.isFinite)) {
+    preview.textContent = 'These values exceed the supported calculation range. Use smaller values.';
+    return;
+  }
   const intPct = (totalInt / totalPay) * 100;
   const princPct = 100 - intPct;
   
@@ -12038,15 +12216,15 @@ function generateEMICalc() {
 }
 
 function generateLoanCalc() {
-  const p = parseFloat(document.getElementById('opt-loan-amount').value) || 0;
-  const annualRate = parseFloat(document.getElementById('opt-loan-rate').value) || 0;
-  const months = parseInt(document.getElementById('opt-loan-months').value) || 0;
+  const p = parseFloat(document.getElementById('opt-loan-amount').value);
+  const annualRate = parseFloat(document.getElementById('opt-loan-rate').value);
+  const months = Number(document.getElementById('opt-loan-months').value);
   const type = document.getElementById('opt-loan-type').value;
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
-  if (p <= 0 || annualRate <= 0 || months <= 0) {
-    preview.innerHTML = `<div style="color:var(--color-text-secondary); font-size:13px; text-align:center;">Enter details to view loan calculation.</div>`;
+  if (![p, annualRate, months].every(Number.isFinite) || p <= 0 || annualRate < 0 || !Number.isInteger(months) || months < 1 || months > 1200) {
+    preview.textContent = 'Enter a positive loan amount, a non-negative rate, and 1–1200 whole months.';
     return;
   }
   
@@ -12078,7 +12256,7 @@ function generateLoanCalc() {
     }
   } else {
     const r = annualRate / 12 / 100;
-    monthlyPayment = p * r * Math.pow(1+r, months) / (Math.pow(1+r, months) - 1);
+    monthlyPayment = r === 0 ? p / months : p * r / -Math.expm1(-months * Math.log1p(r));
     totalPayment = monthlyPayment * months;
     totalInterest = totalPayment - p;
     
@@ -12097,6 +12275,10 @@ function generateLoanCalc() {
     }
   }
   
+  if (![monthlyPayment, totalPayment, totalInterest].every(Number.isFinite) || schedule.some(row => !Object.values(row).every(Number.isFinite))) {
+    preview.textContent = 'These values exceed the supported calculation range. Use smaller values.';
+    return;
+  }
   let tableRows = '';
   schedule.forEach(row => {
     tableRows += `
@@ -12147,14 +12329,14 @@ function generateLoanCalc() {
 }
 
 function generateInterestCalc() {
-  const p = parseFloat(document.getElementById('opt-int-principal').value) || 0;
-  const r = parseFloat(document.getElementById('opt-int-rate').value) || 0;
-  const t = parseFloat(document.getElementById('opt-int-years').value) || 0;
+  const p = parseFloat(document.getElementById('opt-int-principal').value);
+  const r = parseFloat(document.getElementById('opt-int-rate').value);
+  const t = parseFloat(document.getElementById('opt-int-years').value);
   const type = document.getElementById('opt-int-type').value;
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
-  if (p <= 0 || r <= 0 || t <= 0) {
+  if (![p, r, t].every(Number.isFinite) || p <= 0 || r < 0 || t < 0) {
     preview.innerHTML = `<div style="color:var(--color-text-secondary); font-size:13px; text-align:center;">Enter details to view interest calculation.</div>`;
     return;
   }
@@ -12175,6 +12357,10 @@ function generateInterestCalc() {
     
     total = p * Math.pow(1 + (r / (n * 100)), n * t);
     interest = total - p;
+  }
+  if (![total, interest].every(Number.isFinite)) {
+    preview.textContent = 'These values exceed the supported calculation range. Use smaller values.';
+    return;
   }
   
   preview.innerHTML = `
@@ -12256,13 +12442,13 @@ function generateGstCalc() {
 }
 
 function generateSipCalc() {
-  const p = parseFloat(document.getElementById('opt-sip-monthly').value) || 0;
-  const annualRate = parseFloat(document.getElementById('opt-sip-rate').value) || 0;
-  const years = parseFloat(document.getElementById('opt-sip-years').value) || 0;
+  const p = parseFloat(document.getElementById('opt-sip-monthly').value);
+  const annualRate = parseFloat(document.getElementById('opt-sip-rate').value);
+  const years = parseFloat(document.getElementById('opt-sip-years').value);
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
-  if (p <= 0 || annualRate <= 0 || years <= 0) {
+  if (![p, annualRate, years].every(Number.isFinite) || p <= 0 || annualRate < 0 || years <= 0) {
     preview.innerHTML = `<div style="color:var(--color-text-secondary); font-size:13px; text-align:center;">Enter investment details to view projections.</div>`;
     return;
   }
@@ -12270,8 +12456,12 @@ function generateSipCalc() {
   const r = annualRate / 12 / 100;
   const m = years * 12;
   const totalInvested = p * m;
-  const futureValue = p * ((Math.pow(1 + r, m) - 1) / r) * (1 + r);
+  const futureValue = r === 0 ? totalInvested : p * (Math.expm1(m * Math.log1p(r)) / r) * (1 + r);
   const returns = futureValue - totalInvested;
+  if (![totalInvested, futureValue, returns].every(Number.isFinite)) {
+    preview.textContent = 'These values exceed the supported calculation range. Use smaller values.';
+    return;
+  }
   
   const investPct = (totalInvested / futureValue) * 100;
   const returnPct = 100 - investPct;
@@ -12377,8 +12567,8 @@ function generateDiscountCalc() {
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
-  if (p <= 0) {
-    preview.innerHTML = `<div style="color:var(--color-text-secondary); font-size:13px; text-align:center;">Enter original price to compute savings.</div>`;
+  if (![p, d1, d2, t].every(Number.isFinite) || p <= 0 || d1 < 0 || d1 > 100 || d2 < 0 || d2 > 100 || t < 0) {
+    preview.textContent = 'Enter a positive price, discounts from 0 to 100%, and a non-negative tax rate.';
     return;
   }
   
@@ -12387,6 +12577,10 @@ function generateDiscountCalc() {
   const tax = p2 * (t/100);
   const finalPrice = p2 + tax;
   const savings = p - p2;
+  if (!Number.isFinite(finalPrice)) {
+    preview.textContent = 'These values exceed the supported calculation range. Use smaller values.';
+    return;
+  }
   
   preview.innerHTML = `
     <div style="width:100%; text-align:left; display:block; font-size:13px; line-height:1.5;">

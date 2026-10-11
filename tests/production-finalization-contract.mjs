@@ -12,7 +12,9 @@ assert.deepEqual(migrations, [
   '0002_repair_auth_schema_after_site_reconnect.sql',
   '0003_create_admin_analytics_schema.sql',
   '0004_link_netlify_identity_profiles.sql',
-  '0005_create_support_messages.sql'
+  '0005_create_support_messages.sql',
+  '0006_admin_accounts.sql',
+  '0007_admin_resource_workflows.sql'
 ]);
 for (const migration of migrations) {
   const sql = await read(`netlify/database/migrations/${migration}`);

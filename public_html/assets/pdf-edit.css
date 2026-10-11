@@ -60,6 +60,15 @@
 .pdf-edit .pdf-edit-form-widget[type="checkbox"], .pdf-edit .pdf-edit-form-widget[type="radio"] { accent-color: #2563eb; padding: 0; }
 .pdf-edit-pages { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; max-height: 200px; overflow: auto; }
 .pdf-edit-pages button { min-width: 44px; flex: 0 0 auto; }
+.pdf-edit-pages button { width: 112px; display: grid; gap: 6px; justify-items: center; align-content: end; }
+.pdf-edit-pages canvas { display: block; max-width: 96px; max-height: 124px; background: #fff; }
+.pdf-edit-more, .pdf-edit-advanced, .pdf-edit-page-management { min-width: 0; max-width: 100%; }
+.pdf-edit-more summary, .pdf-edit-advanced summary, .pdf-edit-page-management summary { cursor: pointer; padding: 12px; min-height: 44px; font-size: 14px; font-weight: 600; }
+.pdf-edit-more > div, .pdf-edit-page-management > div { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; }
+.pdf-edit-page-management { border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
+.pdf-edit-page-management p { padding: 0 12px; color: var(--color-text-secondary); }
+.pdf-edit-advanced > div { display: grid; gap: 12px; padding-block: 8px; }
+.pdf-edit-properties input[type="checkbox"] { width: 24px; height: 24px; min-height: 24px; accent-color: var(--color-primary); }
 .pdf-edit-properties { display: grid; gap: 16px; }
 .pdf-edit-properties > section { padding: 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); display: grid; gap: 12px; }
 .pdf-edit-properties h2 { margin: 0; font-size: 16px; line-height: 1.4; }

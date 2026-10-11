@@ -2,10 +2,10 @@
 (function () {
   'use strict';
   let active = null;
-  const fonts = { Helvetica: 'Arial, sans-serif', TimesRoman: '"Times New Roman", serif', Courier: '"Courier New", monospace', TimesRomanItalic: '"Times New Roman", serif' };
+  const fonts = Object.fromEntries(['Helvetica', 'TimesRoman', 'Courier'].flatMap(family => ['', 'Bold', 'Italic', 'BoldItalic'].map(style => [family + style, family === 'Helvetica' ? 'Arial, sans-serif' : family === 'TimesRoman' ? '"Times New Roman", serif' : '"Courier New", monospace'])));
   const maxPdfBytes = 25 * 1024 * 1024;
   const escape = text => String(text ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-  const cloneState = data => ({ fieldValues: structuredClone(data.fieldValues), overlays: data.overlays.map(item => ({ ...item })) });
+  const cloneState = data => ({ fieldValues: structuredClone(data.fieldValues), overlays: data.overlays.map(item => ({ ...item })), pagePlan: data.pagePlan?.map(item => ({ ...item })) });
 
   function dispose() {
     active?.destroy();
@@ -41,6 +41,9 @@
     let signatureHasInk = false;
     let editingInput = null;
     let resizeTimer;
+    let thumbnailObserver = null;
+    let thumbnailRevision = 0;
+    let thumbnailTask = null;
     const abort = new AbortController();
     const on = (el, event, fn) => el.addEventListener(event, fn, { signal: abort.signal });
     root.innerHTML = `
@@ -58,18 +61,32 @@
             <button type="button" data-tool="date" aria-pressed="false">Date</button>
             <button type="button" data-tool="signature" aria-pressed="false">Type signature</button>
             <button type="button" data-tool="rectangle" aria-pressed="false">Rectangle</button>
+            <details class="pdf-edit-more"><summary>More drawing tools</summary><div>
+              <button type="button" data-tool="ellipse" aria-pressed="false">Ellipse</button>
+              <button type="button" data-tool="line" aria-pressed="false">Line</button>
+              <button type="button" data-tool="arrow" aria-pressed="false">Arrow</button>
+              <button type="button" data-tool="highlight" aria-pressed="false">Highlight area</button>
+              <button type="button" data-tool="underline" aria-pressed="false">Underline area</button>
+              <button type="button" data-tool="strike" aria-pressed="false">Strike-through area</button>
+            </div></details>
             <button type="button" data-action="image">Image / signature image</button>
             <button type="button" data-action="draw-signature">Draw signature</button>
             <button type="button" data-action="undo" disabled>Undo</button>
             <button type="button" data-action="redo" disabled>Redo</button>
           </div>
           <input id="pdf-edit-image" type="file" accept="image/png,image/jpeg" hidden>
+          <input id="pdf-edit-replace-image" type="file" accept="image/png,image/jpeg" hidden>
           <div class="pdf-edit-placement" hidden><span>Tap the original page to place the selected element.</span><button type="button" data-action="place-center">Add at page center</button></div>
           <div class="pdf-edit-view-controls preview-control-bar" aria-label="Page and zoom controls">
             <button type="button" data-action="previous" aria-label="Previous PDF page">Previous</button><output id="pdf-edit-page-number"></output><button type="button" data-action="next" aria-label="Next PDF page">Next</button>
             <button type="button" data-action="zoom-out" aria-label="Zoom out">−</button><output id="pdf-edit-zoom"></output><button type="button" data-action="zoom-in" aria-label="Zoom in">+</button>
             <button type="button" data-action="fit-width">Fit Width</button><button type="button" data-action="fit-page">Fit Page</button><button type="button" data-action="actual-size">100%</button>
           </div>
+          <details class="pdf-edit-page-management"><summary>Manage pages</summary><p>Move pages using the buttons below. Rotate before adding overlays on that page. Pages with form fields or annotations cannot be duplicated or deleted; export a flattened copy first for supported forms. Deleting a page is not secure redaction.</p><div>
+            <button type="button" data-action="page-up">Move page earlier</button><button type="button" data-action="page-down">Move page later</button>
+            <button type="button" data-action="page-rotate">Rotate page 90°</button><button type="button" data-action="page-duplicate">Duplicate page</button>
+            <button type="button" data-action="page-blank">Insert blank after page</button><button type="button" data-action="page-delete">Delete page</button>
+          </div></details>
           <div class="pdf-edit-grid">
             <div class="pdf-edit-main"><div class="pdf-edit-viewport"><div class="pdf-edit-page" tabindex="0" aria-label="Original PDF page. Choose a tool, then tap the page; use selected element controls for keyboard positioning."><canvas aria-label="Original PDF page preview"></canvas><div class="pdf-edit-layer"></div></div></div>
               <nav class="pdf-thumbnail-strip pdf-edit-pages" aria-label="PDF pages"></nav>
@@ -96,6 +113,7 @@
     const formMode = $('#pdf-edit-form-mode');
     const fileInput = $('#pdf-edit-file');
     const imageInput = $('#pdf-edit-image');
+    const replaceImageInput = $('#pdf-edit-replace-image');
     const signatureDialog = $('.pdf-edit-signature-dialog');
     const signatureCanvas = $('#pdf-edit-signature-pad');
     const signatureContext = signatureCanvas.getContext('2d');
@@ -158,6 +176,7 @@
         if (file.type && file.type !== 'application/pdf') throw new Error('The file type does not match a PDF.');
         const bytes = new Uint8Array(await file.arrayBuffer());
         const detected = await core.inspect(bytes, window.PDFLib);
+        if (detected.pages.length > 500) throw new Error('Edit PDF supports up to 500 pages per document. Split this PDF first.');
         const pdfjs = await window.GxaWorkspace.ensurePdfJs();
         const loaded = await pdfjs.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise;
         if (!alive || token !== loadRevision) { await loaded.destroy(); return; }
@@ -167,7 +186,7 @@
         pdf = loaded; source = bytes; sourceName = file.name; info = detected;
         pendingImage = null; editingInput = null;
         signatureContext.clearRect(0, 0, 600, 200); signatureHasInk = false;
-        data = { fieldValues: Object.create(null), overlays: [] }; undo = []; redo = []; selectedId = null; pageIndex = 0; zoomMode = 'width';
+        data = { fieldValues: Object.create(null), overlays: [], pagePlan: detected.pages.map((_, index) => ({ sourceIndex: index, rotation: 0, id: crypto.randomUUID() })) }; undo = []; redo = []; selectedId = null; pageIndex = 0; zoomMode = 'width';
         for (const field of info.fields) {
           if (field.type !== 'unsupported' && !field.readOnly) data.fieldValues[field.name] = structuredClone(field.value);
         }
@@ -188,15 +207,82 @@
     }
     function renderPages() {
       const nav = $('.pdf-edit-pages');
+      thumbnailObserver?.disconnect(); thumbnailTask?.cancel();
+      const token = ++thumbnailRevision;
+      const queue = []; let running = false;
+      async function drain() {
+        if (running) return; running = true;
+        try {
+          while (queue.length && alive && token === thumbnailRevision) {
+            const button = queue.shift();
+            const page = await pdf.getPage(Number(button.dataset.page) + 1);
+            if (!alive || token !== thumbnailRevision || !button.isConnected) break;
+            const base = page.getViewport({ scale: 1 });
+            const view = page.getViewport({ scale: Math.min(96 / base.width, 124 / base.height) });
+            const thumb = button.querySelector('canvas');
+            thumb.width = Math.ceil(view.width); thumb.height = Math.ceil(view.height);
+            thumbnailTask = page.render({ canvasContext: thumb.getContext('2d'), viewport: view, annotationMode: window.pdfjsLib.AnnotationMode.ENABLE });
+            try { await thumbnailTask.promise; } catch (error) { if (error.name !== 'RenderingCancelledException') button.title = 'Thumbnail unavailable; open this page to inspect it.'; }
+          }
+        } catch { /* Main-page rendering retains its own accessible error state. */ }
+        finally { running = false; }
+      }
+      thumbnailObserver = window.IntersectionObserver ? new IntersectionObserver(entries => {
+        for (const entry of entries) if (entry.isIntersecting) { thumbnailObserver.unobserve(entry.target); queue.push(entry.target); }
+        drain();
+      }, { root: nav, rootMargin: '100px' }) : null;
       nav.replaceChildren();
-      // Reuse the shared PDF page-strip presentation, with no second thumbnail render queue.
+      // Small visible thumbnails only, rendered sequentially; never full-resolution pages.
       for (let index = 0; index < info.pages.length; index++) {
         const button = document.createElement('button');
         button.type = 'button'; button.textContent = String(index + 1); button.dataset.page = String(index);
         button.setAttribute('aria-label', `Go to PDF page ${index + 1}`);
         button.setAttribute('aria-current', index === pageIndex ? 'page' : 'false');
-        nav.append(button);
+        const thumb = document.createElement('canvas'); thumb.width = 1; thumb.height = 1; thumb.setAttribute('aria-hidden', 'true');
+        button.prepend(thumb); nav.append(button); thumbnailObserver?.observe(button);
       }
+    }
+    async function rebuildPages(nextData) {
+      const token = loadRevision;
+      const bytes = await core.exportPdf(source, { pagePlan: nextData.pagePlan }, window.PDFLib);
+      const detected = await core.inspect(bytes, window.PDFLib);
+      const loaded = await window.pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
+      if (!alive || token !== loadRevision) { await loaded.destroy(); return false; }
+      ++revision; renderTask?.cancel(); thumbnailTask?.cancel(); ++thumbnailRevision; thumbnailObserver?.disconnect();
+      pdf?.destroy(); pdf = loaded; info = detected;
+      pageIndex = Math.min(pageIndex, info.pages.length - 1);
+      $('#pdf-edit-info').textContent = `${info.pages.length} pages · ${window.GxaWorkspace.formatBytes(source.byteLength)} original`;
+      return true;
+    }
+    async function changePage(name) {
+      if (!source || preview || busy) return;
+      if (name === 'page-rotate' && data.overlays.some(item => item.pageIndex === pageIndex)) { status('Rotate this page before adding overlays, or clear its overlays first. Other page edits remain available.', true); return; }
+      if (name === 'page-delete' && !window.confirm('Delete this page and its overlays? This is not secure removal of sensitive data.')) return;
+      const next = cloneState(data), oldPlan = data.pagePlan;
+      const current = next.pagePlan[pageIndex]; let target = pageIndex;
+      if (name === 'page-up' || name === 'page-down') {
+        target += name === 'page-up' ? -1 : 1;
+        if (target < 0 || target >= next.pagePlan.length) return;
+        [next.pagePlan[pageIndex], next.pagePlan[target]] = [next.pagePlan[target], next.pagePlan[pageIndex]];
+      }
+      if (name === 'page-rotate') current.rotation = (current.rotation + 90) % 360;
+      if (name === 'page-duplicate') { next.pagePlan.splice(pageIndex + 1, 0, { ...current, id: crypto.randomUUID() }); target++; }
+      if (name === 'page-blank') { const view = info.pages[pageIndex]; next.pagePlan.splice(pageIndex + 1, 0, { id: crypto.randomUUID(), sourceIndex: null, rotation: 0, width: view.visualWidth, height: view.visualHeight }); target++; }
+      if (name === 'page-delete') next.pagePlan.splice(pageIndex, 1);
+      next.overlays = data.overlays.flatMap(item => {
+        const newIndex = next.pagePlan.findIndex(entry => entry.id === oldPlan[item.pageIndex].id);
+        if (newIndex < 0) return [];
+        const moved = { ...item, pageIndex: newIndex };
+        return name === 'page-duplicate' && item.pageIndex === pageIndex ? [moved, { ...item, pageIndex: target, id: `overlay-${crypto.randomUUID()}` }] : [moved];
+      });
+      if (next.overlays.length > 300) { status('Duplicating this page would exceed the 300-overlay limit.', true); return; }
+      setBusy(true, 'Updating document pages…');
+      try {
+        if (!await rebuildPages(next)) return;
+        remember(); data = next; pageIndex = Math.min(target, info.pages.length - 1); selectedId = null;
+        renderPages(); changed('Page changes applied. Undo restores the previous page arrangement.'); await renderPage();
+      } catch (error) { status(error.message || 'Page changes could not be applied.', true); }
+      finally { if (alive) { setBusy(false); historyState(); } }
     }
     async function renderPage() {
       if (!pdf || !alive) return;
@@ -226,6 +312,7 @@
       $('.pdf-edit-grid').classList.toggle('is-preview', preview);
       $('.pdf-edit-properties').hidden = preview;
       $('.pdf-edit-toolbar').hidden = preview;
+      $('.pdf-edit-page-management').hidden = preview;
       if (preview) $('.pdf-edit-placement').hidden = true;
       renderLayers(); renderFields();
     }
@@ -280,7 +367,7 @@
         box.tabIndex = 0; box.setAttribute('role', 'button'); box.setAttribute('aria-label', `${overlay.type === 'text' ? 'Text' : overlay.type} overlay; select to edit or use arrow keys to move`);
         Object.assign(box.style, { left: `${overlay.x * scale}px`, top: `${overlay.y * scale}px`, width: `${overlay.width * scale}px`, height: `${overlay.height * scale}px` });
         const art = document.createElement('div'); art.className = 'pdf-edit-object-art';
-        Object.assign(art.style, { width: `${overlay.width}px`, height: `${overlay.height}px`, transform: `scale(${scale})`, color: overlay.color });
+        Object.assign(art.style, { width: `${overlay.width}px`, height: `${overlay.height}px`, transform: `scale(${scale})`, color: overlay.color, opacity: String(overlay.opacity ?? 1) });
         box.append(art); layer.append(box);
         if (overlay.type === 'text') {
           try {
@@ -293,7 +380,9 @@
               text.setAttribute('x', String(line.x)); text.setAttribute('y', String(line.y));
               text.setAttribute('fill', overlay.color); text.setAttribute('font-family', fonts[overlay.font]);
               text.setAttribute('font-size', String(overlay.fontSize));
-              if (overlay.font === 'TimesRomanItalic') text.setAttribute('font-style', 'italic');
+              if (overlay.font.includes('Italic')) text.setAttribute('font-style', 'italic');
+              if (overlay.font.includes('Bold')) text.setAttribute('font-weight', 'bold');
+              if (overlay.underline) text.setAttribute('text-decoration', 'underline');
               if (line.width > 0) { text.setAttribute('textLength', String(line.width)); text.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
               svg.append(text);
             }
@@ -304,8 +393,18 @@
         } else if (overlay.type === 'image') {
           const image = document.createElement('img'); image.alt = 'Added image'; image.src = overlay.imageUrl; art.append(image);
         } else {
-          const path = overlay.type === 'check' ? '<path d="M 12 52 L 38 78 L 88 18"/>' : overlay.type === 'cross' ? '<path d="M 15 15 L 85 85 M 85 15 L 15 85"/>' : '<rect x="4" y="4" width="92" height="92"/>';
-          art.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="6">${path}</svg>`;
+          const w = overlay.width, h = overlay.height, stroke = overlay.strokeWidth ?? 1.5, inset = stroke / 2;
+          let shape;
+          const sx = value => inset + (w-stroke)*value, sy = value => inset + (h-stroke)*value;
+          if (overlay.type === 'check') shape = `<path d="M ${sx(.12)} ${sy(.52)} L ${sx(.39)} ${sy(.82)} L ${sx(.9)} ${sy(.13)}"/>`;
+          else if (overlay.type === 'cross') shape = `<path d="M ${sx(.15)} ${sy(.85)} L ${sx(.85)} ${sy(.15)} M ${sx(.15)} ${sy(.15)} L ${sx(.85)} ${sy(.85)}"/>`;
+          else if (overlay.type === 'ellipse') shape = `<ellipse cx="${w/2}" cy="${h/2}" rx="${Math.max(.1,(w-stroke)/2)}" ry="${Math.max(.1,(h-stroke)/2)}" fill="${escape(overlay.fill || 'none')}"/>`;
+          else if (overlay.type === 'highlight') shape = `<rect width="${w}" height="${h}" fill="currentColor" stroke="none"/>`;
+          else if (['line','arrow','underline','strike'].includes(overlay.type)) {
+            const y = overlay.type === 'underline' ? h-inset : h/2, head = Math.min(12,(w-stroke)/3,(h-stroke)/2);
+            shape = `<path d="M ${inset} ${y} H ${w-inset}${overlay.type === 'arrow' ? ` M ${w-inset-head} ${y-head} L ${w-inset} ${y} L ${w-inset-head} ${y+head}` : ''}"/>`;
+          } else shape = `<rect x="${inset}" y="${inset}" width="${Math.max(0,w-stroke)}" height="${Math.max(0,h-stroke)}" fill="${escape(overlay.fill || 'none')}"/>`;
+          art.innerHTML = `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="${stroke}">${shape}</svg>`;
         }
         const grip = document.createElement('span'); grip.className = 'pdf-edit-resize'; grip.dataset.resize = 'true'; grip.setAttribute('aria-hidden','true'); box.append(grip);
       }
@@ -330,8 +429,19 @@
       panel.innerHTML = `<h2>Selected ${escape(selected.type)}</h2>
         ${selected.type === 'text' ? `<label>Text<textarea data-property="text" maxlength="5000" rows="3" placeholder="Enter your text">${escape(selected.text)}</textarea></label><label>Font<select data-property="font">${Object.keys(fonts).map(font => `<option value="${font}"${font === selected.font ? ' selected' : ''}>${font.replace('Roman',' ').replace('Italic',' Italic')}</option>`).join('')}</select></label><label>Font size (pt)<input type="number" data-property="fontSize" min="6" max="144" value="${selected.fontSize}"></label><label>Alignment<select data-property="align">${['left','center','right'].map(align => `<option${align === selected.align ? ' selected' : ''}>${align}</option>`).join('')}</select></label>` : ''}
         ${selected.type !== 'image' ? `<label>Color<input type="color" data-property="color" value="${selected.color}"></label>` : ''}
+        <details class="pdf-edit-advanced"><summary>Advanced appearance</summary><div>
+          <label>Opacity<input type="number" data-property="opacity" min="0" max="1" step="0.05" value="${selected.opacity ?? 1}"></label>
+          ${selected.type === 'text' ? `<label>Line spacing<input type="number" data-property="lineSpacing" min="1" max="3" step="0.1" value="${selected.lineSpacing ?? 1.2}"></label><label><input type="checkbox" data-property="underline"${selected.underline ? ' checked' : ''}> Underline text</label>` : selected.type !== 'image' && selected.type !== 'highlight' ? `<label>Stroke width (pt)<input type="number" data-property="strokeWidth" min="0.25" max="20" step="0.25" value="${selected.strokeWidth ?? 1.5}"></label>` : ''}
+          ${['rectangle','ellipse'].includes(selected.type) ? `<label><input type="checkbox" data-property="filled"${selected.fill ? ' checked' : ''}> Fill shape</label><label>Fill color<input type="color" data-property="fill" value="${selected.fill || '#ffffff'}"></label><p>Filled shapes cover artwork visually. They do not redact or remove underlying content.</p>` : ''}
+          <button type="button" data-action="layer-front">Bring to front</button><button type="button" data-action="layer-back">Send to back</button><button type="button" data-action="duplicate-element">Duplicate element</button>
+        </div></details>
         <div class="pdf-edit-dimensions">${[['x','Left'],['y','Top'],['width','Width'],['height','Height']].map(([prop,name]) => `<label>${name} (pt)<input type="number" data-property="${prop}" min="${prop === 'x' || prop === 'y' ? 0 : 8}" step="0.5" value="${Number(selected[prop].toFixed(2))}"></label>`).join('')}</div>
-        ${selected.type === 'image' ? '<p>Image aspect ratio is preserved when resizing.</p>' : ''}<button type="button" data-action="delete">Delete selected element</button>`;
+        ${selected.type === 'image' ? `<p>Image aspect ratio is preserved when resizing.</p><details class="pdf-edit-image-settings pdf-edit-advanced"><summary>Crop, rotate or replace image</summary><div>
+          <p>Crop percentages refer to the original inserted image, before clockwise rotation. Apply to update the preview and export together. This does not edit images already inside the original PDF.</p>
+          ${[['left','Crop left'],['top','Crop top'],['width','Crop width'],['height','Crop height']].map(([key,label]) => `<label>${label} (%)<input type="number" data-image-property="${key}" min="${['width','height'].includes(key) ? 0.01 : 0}" max="100" step="0.01" value="${selected.imageEdits?.[key] ?? (['width','height'].includes(key) ? 100 : 0)}"></label>`).join('')}
+          <label>Image rotation<select data-image-property="rotation">${[0,90,180,270].map(angle => `<option value="${angle}"${angle === (selected.imageEdits?.rotation ?? 0) ? ' selected' : ''}>${angle}° clockwise</option>`).join('')}</select></label>
+          <button type="button" data-action="apply-image-edit">Apply image changes</button><button type="button" data-action="reset-image-edit">Restore original image</button><button type="button" data-action="replace-image">Replace selected image</button>
+        </div></details>` : ''}<button type="button" data-action="delete">Delete selected element</button>`;
     }
     function clampOverlay(overlay) {
       const page = info.pages[overlay.pageIndex];
@@ -352,9 +462,10 @@
       if (data.overlays.length >= 300) { status('This editor supports up to 300 added elements.', true); return; }
       const page = info.pages[pageIndex];
       const textTool = ['text','date','signature'].includes(tool);
-      const width = textTool ? Math.min(180,page.visualWidth*.65) : tool === 'image' ? Math.min(150,page.visualWidth*.5) : 24;
+      const width = textTool ? Math.min(180,page.visualWidth*.65) : tool === 'image' ? Math.min(150,page.visualWidth*.5) : ['line','arrow','highlight','underline','strike'].includes(tool) ? Math.min(140,page.visualWidth*.5) : ['rectangle','ellipse'].includes(tool) ? 80 : 24;
       const height = tool === 'image' ? width / pendingImage.ratio : textTool ? 44 : 24;
       const overlay = { id: `overlay-${crypto.randomUUID()}`, pageIndex, type: textTool ? 'text' : tool, x, y, width, height, text: tool === 'date' ? new Date().toLocaleDateString('en-CA') : '', font: tool === 'signature' ? 'TimesRomanItalic' : 'Helvetica', fontSize: tool === 'signature' ? 22 : 14, color: '#172554', align: 'left' };
+      if (tool === 'highlight') { overlay.color = '#facc15'; overlay.opacity = .3; }
       if (tool === 'image') Object.assign(overlay,pendingImage);
       clampOverlay(overlay); remember(); data.overlays.push(overlay); selectedId=overlay.id; activateTool('select'); changed('Element added. Use Selected element controls to edit it.');
       if (textTool) $('[data-property="text"]')?.focus({ preventScroll: true });
@@ -363,22 +474,58 @@
       if (!selectedId || busy || preview) return;
       remember(); data.overlays=data.overlays.filter(item=>item.id!==selectedId); selectedId=null; changed('Element removed.');
     }
-    async function readImage(file) {
+    const imageDataUrl = blob => new Promise((resolve,reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Image could not be read.')); reader.readAsDataURL(blob); });
+    async function readImage(file, replaceId = null) {
       if (!file || busy || !source) return;
       const token = loadRevision;
+      setBusy(true, 'Reading image…');
       try {
         if (file.size > 5 * 1024 * 1024 || file.size === 0) throw new Error('Use a non-empty PNG or JPEG image up to 5 MB.');
         if (!['image/png','image/jpeg'].includes(file.type)) throw new Error('Choose a PNG or JPEG image.');
         const imageBytes=new Uint8Array(await file.arrayBuffer());
         const bitmap = await createImageBitmap(file);
         if (bitmap.width * bitmap.height > 16_000_000) { bitmap.close(); throw new Error('Use an image below 16 megapixels.'); }
-        const ratio=bitmap.width/bitmap.height; bitmap.close();
+        const width=bitmap.width, height=bitmap.height, ratio=width/height; bitmap.close();
         // Data URLs stay in this module's memory, never in storage or event payloads.
-        const imageUrl = await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Image could not be read.'));reader.readAsDataURL(file);});
+        const imageUrl = await imageDataUrl(file);
         if (!alive || token !== loadRevision || !source) return;
-        pendingImage={imageBytes,imageType:file.type,imageUrl,ratio}; activateTool('image');
+        const asset = {imageBytes,imageType:file.type,imageUrl,ratio,imageSource:{bytes:imageBytes,type:file.type,url:imageUrl,width,height},imageEdits:null};
+        if (replaceId) {
+          const selected = data.overlays.find(item => item.id === replaceId && item.type === 'image');
+          if (!selected) return;
+          remember(); Object.assign(selected, asset); clampOverlay(selected); selectedId = selected.id;
+          changed('Image replaced. Its position, width, opacity and layer order are retained; height follows the new aspect ratio.');
+        } else { pendingImage=asset; activateTool('image'); status('Image ready. Tap the page or use Add at page center.'); }
       } catch(error) { if (alive && token === loadRevision) status(error.message || 'The image could not be decoded.',true); }
-      imageInput.value='';
+      finally { if (alive && token === loadRevision) { setBusy(false); historyState(); imageInput.value=''; replaceImageInput.value=''; } }
+    }
+    async function editImage(reset = false) {
+      const selected = data.overlays.find(item => item.id === selectedId && item.type === 'image');
+      if (!selected?.imageSource || busy || preview) return;
+      const token = loadRevision, original = selected.imageSource;
+      let bitmap = null, workCanvas = null;
+      try {
+        let asset, settings = null;
+        if (reset) asset = { imageBytes: original.bytes, imageType: original.type, imageUrl: original.url, ratio: original.width / original.height };
+        else {
+          settings = Object.fromEntries(Array.from($('.pdf-edit-image-settings').querySelectorAll('[data-image-property]'), input => [input.dataset.imageProperty, input.value === '' ? NaN : Number(input.value)]));
+          const shape = core.imageEditGeometry(original.width, original.height, settings);
+          setBusy(true, 'Applying image crop and rotation…');
+          bitmap = await createImageBitmap(new Blob([original.bytes], { type: original.type }));
+          workCanvas = document.createElement('canvas'); workCanvas.width = shape.outputWidth; workCanvas.height = shape.outputHeight;
+          const ctx = workCanvas.getContext('2d');
+          if (!ctx) throw new Error('This browser could not prepare the image.');
+          ctx.translate(shape.outputWidth / 2, shape.outputHeight / 2); ctx.rotate(shape.rotation * Math.PI / 180);
+          ctx.drawImage(bitmap, shape.x, shape.y, shape.cropWidth, shape.cropHeight, -shape.cropWidth / 2, -shape.cropHeight / 2, shape.cropWidth, shape.cropHeight);
+          const blob = await new Promise(resolve => workCanvas.toBlob(resolve, 'image/png'));
+          if (!blob || blob.size > 5 * 1024 * 1024) throw new Error('The edited image exceeds the 5 MB limit. Use a smaller source or crop.');
+          asset = { imageBytes: new Uint8Array(await blob.arrayBuffer()), imageType: 'image/png', imageUrl: await imageDataUrl(blob), ratio: shape.outputWidth / shape.outputHeight };
+        }
+        if (!alive || token !== loadRevision || !data.overlays.includes(selected)) return;
+        remember(); Object.assign(selected, asset, { imageEdits: settings }); clampOverlay(selected);
+        changed(reset ? 'Original inserted image restored.' : 'Image crop and rotation applied. Preview and export use the same edited pixels.');
+      } catch(error) { if (alive && token === loadRevision) status(error.message || 'Image changes could not be applied.', true); }
+      finally { bitmap?.close(); if (workCanvas) { workCanvas.width = 1; workCanvas.height = 1; } if (alive && token === loadRevision) { setBusy(false); historyState(); } }
     }
     async function prepareOutput() {
       if (busy || !source) return false;
@@ -400,15 +547,36 @@
     }
     async function action(name) {
       if (busy && name!=='close-signature') return;
-      if (name==='undo' && undo.length) { clearOutput(); redo.push(cloneState(data)); data=undo.pop(); selectedId=null; changed('Last edit undone.'); renderFields(); await renderPage(); }
-      if (name==='redo' && redo.length) { clearOutput(); undo.push(cloneState(data)); data=redo.pop(); selectedId=null; changed('Edit restored.'); renderFields(); await renderPage(); }
+      if (name.startsWith('page-')) { await changePage(name); return; }
+      if ((name==='undo' && undo.length) || (name==='redo' && redo.length)) {
+        const from = name === 'undo' ? undo : redo, to = name === 'undo' ? redo : undo;
+        const next = from.at(-1);
+        setBusy(true, 'Restoring edit state…');
+        try {
+          if (JSON.stringify(next.pagePlan) !== JSON.stringify(data.pagePlan) && !await rebuildPages(next)) return;
+          clearOutput(); to.push(cloneState(data)); data = from.pop(); selectedId = null;
+          renderPages(); changed(name === 'undo' ? 'Last edit undone.' : 'Edit restored.'); renderFields(); await renderPage();
+        } finally { if (alive) { setBusy(false); historyState(); } }
+      }
+      if (['layer-front','layer-back','duplicate-element'].includes(name) && selectedId && !preview) {
+        const index = data.overlays.findIndex(item => item.id === selectedId);
+        if (index < 0) return;
+        if (name === 'duplicate-element' && data.overlays.length >= 300) { status('This editor supports up to 300 added elements.', true); return; }
+        remember();
+        const item = data.overlays[index];
+        if (name === 'duplicate-element') { const copy = { ...item, id: `overlay-${crypto.randomUUID()}`, x: item.x + 12, y: item.y + 12 }; clampOverlay(copy); data.overlays.push(copy); selectedId = copy.id; }
+        else { data.overlays.splice(index, 1); if (name === 'layer-front') data.overlays.push(item); else data.overlays.unshift(item); }
+        changed('Overlay order updated. Original page content remains below added overlays.');
+      }
       if (name==='delete') selectedDelete();
       if (name==='previous' || name==='next') { pageIndex=Math.max(0,Math.min(info.pages.length-1,pageIndex+(name==='next'?1:-1))); selectedId=null; renderProperties(); await renderPage(); }
       if (['zoom-in','zoom-out','fit-width','fit-page','actual-size'].includes(name)) { zoomMode=name==='fit-width'?'width':name==='fit-page'?'page':'manual'; scale=name==='actual-size'?1:Math.max(.05,Math.min(4,scale*(name==='zoom-in'?1.25:name==='zoom-out'?.8:1))); await renderPage(); }
       if (name==='place-center') { const p=info.pages[pageIndex]; place(p.visualWidth*.3,p.visualHeight*.35); }
       if (name==='image') imageInput.click();
+      if (name==='replace-image' && !preview) { replaceImageInput.dataset.overlay = selectedId || ''; replaceImageInput.click(); }
+      if (name==='apply-image-edit' || name==='reset-image-edit') await editImage(name==='reset-image-edit');
       if (name==='clear-page' && data.overlays.some(item=>item.pageIndex===pageIndex) && window.confirm('Clear all added overlays on this page? Original artwork and form values will remain.')) { remember(); data.overlays=data.overlays.filter(item=>item.pageIndex!==pageIndex); selectedId=null; changed('Page overlays cleared.'); }
-      if (name==='reset' && window.confirm('Discard this document and all unsaved edits?')) { ++loadRevision; ++revision; renderTask?.cancel(); pdf?.destroy(); pdf=null; clearOutput(); source=null; info=null; data={fieldValues:{},overlays:[]}; undo=[]; redo=[]; pendingImage=null; editingInput=null; sourceName=''; selectedId=null; signatureContext.clearRect(0,0,600,200);signatureHasInk=false;canvas.width=1;canvas.height=1;layer.replaceChildren();renderProperties();$('.pdf-edit-field-list').replaceChildren();$('.pdf-edit-pages').replaceChildren();$('#pdf-edit-filename').textContent='';$('#pdf-edit-info').textContent='';$('.pdf-edit-document').hidden=true;status('Choose a PDF to begin.');fileInput.focus(); }
+      if (name==='reset' && window.confirm('Discard this document and all unsaved edits?')) { thumbnailObserver?.disconnect(); thumbnailTask?.cancel(); ++thumbnailRevision; ++loadRevision; ++revision; renderTask?.cancel(); pdf?.destroy(); pdf=null; clearOutput(); source=null; info=null; data={fieldValues:{},overlays:[]}; undo=[]; redo=[]; pendingImage=null; editingInput=null; sourceName=''; selectedId=null; signatureContext.clearRect(0,0,600,200);signatureHasInk=false;canvas.width=1;canvas.height=1;layer.replaceChildren();renderProperties();$('.pdf-edit-field-list').replaceChildren();$('.pdf-edit-pages').replaceChildren();$('#pdf-edit-filename').textContent='';$('#pdf-edit-info').textContent='';$('.pdf-edit-document').hidden=true;status('Choose a PDF to begin.');fileInput.focus(); }
       if (name==='preview' && await prepareOutput()) { preview=true; $('[data-action="back"]').hidden=false; await renderPage(); global.GxaWorkspace.scrollToResult(stage); }
       if (name==='back') { preview=false; $('[data-action="back"]').hidden=true; await renderPage(); }
       if (name==='download' && await prepareOutput()) { const link=document.createElement('a');link.href=previewUrl;link.download=`edited_${window.GxaWorkspace.safeFileName(sourceName)}`;document.body.append(link);link.click();link.remove();event('tool_download','downloaded'); }
@@ -423,6 +591,7 @@
     }
     on(fileInput,'change',()=>loadFile(fileInput.files[0]));
     on(imageInput,'change',()=>readImage(imageInput.files[0]));
+    on(replaceImageInput,'change',()=>readImage(replaceImageInput.files[0], replaceImageInput.dataset.overlay));
     on(root,'focusin',()=>{editingInput=null;});
     function updateField(event) {
       const input=event.target;
@@ -454,11 +623,14 @@
     function updateProperty(event) {
       const input=event.target; const prop=input.dataset.property; const selected=data.overlays.find(item=>item.id===selectedId);
       if(!selected || !prop || busy || preview)return;
-      const value=['x','y','width','height','fontSize'].includes(prop)?Number(input.value):input.value;
+      const value=input.type==='checkbox'?input.checked:['x','y','width','height','fontSize','opacity','lineSpacing','strokeWidth'].includes(prop)?Number(input.value):input.value;
       if(typeof value==='number'&&(!Number.isFinite(value)||input.value===''))return;
+      if (typeof value === 'number' && !input.checkValidity()) { status('Choose a value within the displayed limits.', true); return; }
       if(selected[prop]===value)return;
       if(editingInput!==input){remember();editingInput=input;}
       selected[prop]=prop==='fontSize'?Math.max(6,Math.min(144,value)):value;
+      if (prop === 'filled') selected.fill = value ? $('[data-property="fill"]').value : null;
+      if (prop === 'fill') { selected.filled = true; $('[data-property="filled"]').checked = true; }
       if(selected.type==='image' && prop==='width')selected.height=selected.width/selected.ratio;
       if(selected.type==='image' && prop==='height')selected.width=selected.height*selected.ratio;
       clampOverlay(selected);historyState();renderLayers();status('Edits updated. Preview the PDF to check the exported result.');
@@ -498,7 +670,7 @@
     on(signatureCanvas,'pointermove',event=>{if(!drawing)return;const rect=signatureCanvas.getBoundingClientRect();signatureContext.lineWidth=3;signatureContext.lineCap='round';signatureContext.lineJoin='round';signatureContext.strokeStyle='#172554';signatureContext.lineTo((event.clientX-rect.left)*600/rect.width,(event.clientY-rect.top)*200/rect.height);signatureContext.stroke();signatureHasInk=true;});
     on(signatureCanvas,'pointerup',()=>{drawing=false;});on(signatureCanvas,'pointercancel',()=>{drawing=false;});
     const observer=new ResizeObserver(()=>{window.clearTimeout(resizeTimer);resizeTimer=window.setTimeout(()=>{if(info&&zoomMode!=='manual')renderPage();},100);});observer.observe(viewport);
-    active={destroy(){alive=false;++loadRevision;++revision;abort.abort();observer.disconnect();window.clearTimeout(resizeTimer);renderTask?.cancel();pdf?.destroy();clearOutput();signatureDialog.close();source=null;data={fieldValues:{},overlays:[]};undo=[];redo=[];pendingImage=null;root.replaceChildren();}};
+    active={destroy(){alive=false;++loadRevision;++revision;++thumbnailRevision;thumbnailObserver?.disconnect();thumbnailTask?.cancel();abort.abort();observer.disconnect();window.clearTimeout(resizeTimer);renderTask?.cancel();pdf?.destroy();clearOutput();signatureDialog.close();source=null;data={fieldValues:{},overlays:[]};undo=[];redo=[];pendingImage=null;root.replaceChildren();}};
   }
   window.GxaPdfEditor=Object.freeze({mount,dispose});
 })();

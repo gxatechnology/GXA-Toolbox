@@ -12,6 +12,7 @@ type ToolContent = {
   tips: string[];
   faqs: Array<{ question: string; answer: string }>;
   relatedTools: string[];
+  relatedGuides?: Array<{ id: string; label: string }>;
 };
 
 declare global {
@@ -39,5 +40,6 @@ export function ToolContentGuide() {
     <section><h2>Helpful Tips</h2><ul>{content.tips.map(item => <li key={item}>{item}</li>)}</ul></section>
     <section><h2>Frequently Asked Questions</h2><div className="tool-faq-list">{content.faqs.map(item => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div></section>
     <section><h2>Related Tools</h2><div className="tool-related-links">{content.relatedTools.map(id => <a key={id} href={`/${id}/`}>{names[id] || id.replace(/-/g, ' ')}</a>)}</div></section>
+    {!!content.relatedGuides?.length && <section><h2>Related Guides</h2><div className="tool-related-links">{content.relatedGuides.map(link => <a key={link.id} href={`/${link.id}/`}>{link.label}</a>)}</div></section>}
   </article>;
 }

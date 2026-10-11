@@ -62,9 +62,10 @@
         <button class="nav-item" type="button" data-section="support"><span aria-hidden="true">✉</span>Support Messages</button>
         <button class="nav-item" type="button" data-section="system"><span aria-hidden="true">◇</span>System</button>
       </nav>
+      <button id="collapse-sidebar" class="sidebar-collapse" type="button" aria-expanded="true" aria-label="Collapse sidebar"><span aria-hidden="true">⇤</span><span class="nav-label">Collapse sidebar</span></button>
       <div class="sidebar-account">
-        <div class="administrator-mark" aria-hidden="true">A</div>
-        <div><strong>Administrator</strong><span>Secure session</span></div>
+        <div class="administrator-mark" data-avatar aria-hidden="true">A</div>
+        <div><strong data-admin-name>Administrator</strong><span>Secure session</span></div>
         <button id="admin-logout" class="logout-button" type="button">Logout</button>
       </div>
     </aside>
@@ -73,9 +74,30 @@
       <header class="topbar">
         <button id="open-drawer" class="icon-button menu-button" type="button" aria-label="Open navigation" aria-controls="admin-sidebar" aria-expanded="false">☰</button>
         <div class="topbar-title">
-          <p>GXA Toolbox Dashboard</p>
+          <p id="admin-breadcrumb">Control center / Overview</p>
           <h1 id="section-title">Overview</h1>
         </div>
+        <div class="account-actions">
+          <button id="global-search-toggle" class="icon-button" type="button" aria-label="Search admin resources" aria-expanded="false" aria-controls="global-search-panel">⌕</button>
+          <button id="notifications-toggle" class="icon-button" type="button" aria-label="Notifications" aria-expanded="false" aria-controls="notifications-panel">♧<span id="notification-count" class="notification-count" hidden></span></button>
+          <button id="account-toggle" class="account-toggle" type="button" aria-label="Administrator account menu" aria-expanded="false" aria-controls="account-menu"><span class="administrator-mark" data-avatar aria-hidden="true">A</span><span class="account-name" data-admin-name>Administrator</span><span aria-hidden="true">⌄</span></button>
+          <nav id="account-menu" class="account-menu" aria-label="Administrator account" hidden>
+            <a href="/admin/profile" data-route="profile">My Profile</a>
+            <a href="/admin/settings" data-route="settings">Account Settings</a>
+            <a href="/admin/security" data-route="security">Security</a>
+            <a href="/admin/settings#appearance" data-route="settings">Appearance</a>
+            <button type="button" data-logout>Logout</button>
+          </nav>
+        </div>
+      </header>
+      <section id="global-search-panel" class="utility-panel" aria-labelledby="global-search-title" hidden>
+        <header><h2 id="global-search-title">Search your control center</h2><button type="button" class="icon-button" data-close-utility aria-label="Close search">×</button></header>
+        <form id="global-search-form"><label class="sr-only" for="global-search">Search users, tools and support</label><input id="global-search" type="search" maxlength="120" placeholder="Users, tools or support messages" required><button class="primary-button" type="submit">Search</button></form>
+        <div id="global-search-results" aria-live="polite"><p class="muted">Search authorized records. Results are never shared with public search engines.</p></div>
+      </section>
+      <section id="notifications-panel" class="utility-panel" aria-labelledby="notifications-title" hidden><header><h2 id="notifications-title">Notifications</h2><button type="button" class="icon-button" data-close-utility aria-label="Close notifications">×</button></header><div id="notifications-content" aria-live="polite"></div></section>
+      <div class="report-toolbar">
+        <span class="workspace-label">YOUR WORKSPACE</span>
         <div class="topbar-actions">
           <label class="range-control">Range
             <select id="date-range">
@@ -88,7 +110,7 @@
           </label>
           <button id="refresh-data" class="secondary-button" type="button">Refresh data</button>
         </div>
-      </header>
+      </div>
 
       <main id="admin-main" class="dashboard-main" tabindex="-1">
         <div class="dashboard-heading">
@@ -96,6 +118,7 @@
           <p id="data-timestamp" class="timestamp" aria-live="polite"></p>
         </div>
         <div id="dashboard-status" class="status-message" role="status">Loading protected dashboard data…</div>
+        <div id="action-status" class="status-message" role="status" aria-live="polite" hidden></div>
         <div id="dashboard-content" hidden></div>
       </main>
     </div>

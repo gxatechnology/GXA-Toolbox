@@ -6,6 +6,7 @@
   const scriptLoads = new Map();
   let pdfJsPromise = null;
   let pasteHandler = null;
+  let splitPlanCleanup = null;
 
   // Tool-specific blockers belong here only when a workflow has no safe implementation.
   const blockers = Object.freeze({});
@@ -137,10 +138,10 @@
     if (toolId === 'background-remover') return { kind: 'local', label: 'Runs locally in your browser', detail: 'Background removal runs locally in your browser after the segmentation engine loads. Your image is not uploaded for automatic subject removal.' };
     if (serverTools.has(toolId)) return { kind: 'server', label: 'Secure server processing', detail: 'The selected file is uploaded to the GXA Toolbox server for processing.' };
     if (capabilityTools.has(toolId)) {
-      const supported = 'BarcodeDetector' in window && 'createImageBitmap' in window;
+      const supported = typeof window.Image === 'function' && typeof window.Image.prototype.decode === 'function' && Boolean(document.createElement('canvas').getContext('2d'));
       return supported
-        ? { kind: 'local', label: 'Supported in this browser', detail: 'Barcode detection and image decoding are available and run locally in this browser.' }
-        : { kind: 'capability', label: 'Barcode scanning unavailable', detail: 'This browser does not expose the BarcodeDetector and createImageBitmap features required for local scanning.' };
+        ? { kind: 'local', label: 'Local image decoding', detail: 'Uses the native barcode detector or a local ZXing decoder loaded when needed. No image is uploaded.' }
+        : { kind: 'capability', label: 'Barcode scanning unavailable', detail: 'This browser lacks the image/canvas features required to decode code images.' };
     }
     return { kind: 'local', label: 'Processed in your browser', detail: 'The operation runs locally in this browser unless the tool page states otherwise.' };
   }
@@ -151,6 +152,8 @@
   }
 
   function dispose() {
+    splitPlanCleanup?.();
+    splitPlanCleanup = null;
     revokeObjectUrls();
     if (pasteHandler) {
       document.removeEventListener('paste', pasteHandler);
@@ -346,6 +349,7 @@
   async function renderPdfPreview(file, stage, details) {
     const pdfjsLib = await ensurePdfJs();
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    if (!stage.isConnected) { await pdf.destroy(); return; }
     const activeStudioPage = document.querySelector('.phase-one-studio-page');
     const toolId = activeStudioPage?.dataset.studioMode || document.querySelector('.premium-editor-workspace')?.dataset.toolId || '';
     const pageInputSelector = ({
@@ -364,7 +368,7 @@
     let rotation = 0;
 
     const controls = document.createElement('div');
-    controls.className = 'preview-control-bar';
+    controls.className = 'preview-control-bar pdf-preview-controls';
     controls.innerHTML = `
       <button type="button" data-action="prev" aria-label="Previous PDF page">Previous</button>
       <span id="pdf-page-indicator">Page 1 of ${pdf.numPages}</span>
@@ -398,7 +402,50 @@
     }
     const thumbs = document.createElement('div');
     thumbs.className = 'pdf-thumbnail-strip';
+    if (toolId === 'organize-pdf') thumbs.classList.add('pdf-organize-thumbnails');
     stage.append(controls, canvasWrap, thumbs);
+    if (toolId === 'split-pdf') {
+      const plan = document.createElement('details');
+      plan.className = 'pdf-output-plan';
+      plan.open = true;
+      const heading = document.createElement('summary');
+      heading.textContent = 'Split output plan';
+      const status = document.createElement('p');
+      status.setAttribute('role', 'status');
+      const list = document.createElement('ol');
+      list.setAttribute('aria-label', 'Planned PDF files and source pages');
+      plan.append(heading, status, list);
+      stage.append(plan);
+      const range = document.getElementById('opt-split-range');
+      const everyN = document.getElementById('opt-split-every-n');
+      const refreshPlan = () => {
+        list.replaceChildren();
+        try {
+          const groups = window.getPdfSplitPlan(pdf.numPages);
+          status.textContent = `${groups.length} PDF files · ${groups.reduce((sum, group) => sum + group.length, 0)} copied pages. Tap a file to inspect its first source page. This is a page-order plan, not a rendered result.`;
+          plan.removeAttribute('data-invalid');
+          groups.forEach((group, index) => {
+            const item = document.createElement('li');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = `split_part_${index + 1}.pdf — pages ${group.map(page => page + 1).join(', ')}`;
+            button.addEventListener('click', async () => { currentPage = group[0] + 1; await renderPage(); });
+            item.append(button);
+            list.append(item);
+          });
+        } catch (error) {
+          status.textContent = error.message;
+          plan.dataset.invalid = 'true';
+        }
+      };
+      range?.addEventListener('input', refreshPlan);
+      everyN?.addEventListener('input', refreshPlan);
+      splitPlanCleanup = () => {
+        range?.removeEventListener('input', refreshPlan);
+        everyN?.removeEventListener('input', refreshPlan);
+      };
+      refreshPlan();
+    }
     if (pageSelectionInput) {
       controls.insertAdjacentHTML('beforeend', '<output data-role="pdf-selection" class="preview-selection-output">All pages</output>');
     }
@@ -488,11 +535,12 @@
 
     const renderPage = async () => {
       const page = await pdf.getPage(currentPage);
-      const base = page.getViewport({ scale: 1, rotation });
+      const previewRotation = ['split-pdf', 'organize-pdf'].includes(toolId) ? (page.rotate + rotation) % 360 : rotation;
+      const base = page.getViewport({ scale: 1, rotation: previewRotation });
       const unrotated = page.getViewport({ scale: 1, rotation: 0 });
       currentPdfPageSize = { width: unrotated.width, height: unrotated.height };
       const fitScale = Math.min(1.5, 720 / base.width);
-      const viewport = page.getViewport({ scale: fitScale * zoom, rotation });
+      const viewport = page.getViewport({ scale: fitScale * zoom, rotation: previewRotation });
       const context = canvas.getContext('2d');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
@@ -532,9 +580,21 @@
 
     const syncPageSelection = (useVisualOrder = false) => {
       if (!pageSelectionInput) return;
-      const values = useVisualOrder || (toolId === 'organize-pdf' && selectedPages.size === 0)
-        ? Array.from(thumbs.querySelectorAll('.pdf-thumbnail-button')).map(button => Number(button.dataset.page))
-        : Array.from(selectedPages).sort((a, b) => a - b);
+      const visualOrder = Array.from(thumbs.querySelectorAll('.pdf-thumbnail-button')).map(button => Number(button.dataset.page));
+      // Thumbnails are capped, not the document. Never discard unrendered pages on reorder.
+      for (let page = thumbLimit + 1; page <= pdf.numPages; page += 1) visualOrder.push(page);
+      let values = toolId === 'organize-pdf' && selectedPages.size === 0 ? visualOrder : Array.from(selectedPages).sort((a, b) => a - b);
+      if (useVisualOrder) {
+        try {
+          const retained = window.parsePdfOrderedPages(pageSelectionInput.value, pdf.numPages).map(index => index + 1);
+          const ranks = new Map(visualOrder.map((page, index) => [page, index]));
+          values = retained.sort((a, b) => ranks.get(a) - ranks.get(b));
+        } catch (error) {
+          const output = controls.querySelector('[data-role="pdf-selection"]');
+          if (output) output.textContent = error.message;
+          return;
+        }
+      }
       pageSelectionInput.value = useVisualOrder ? values.join(', ') : compressPageNumbers(values);
       pageSelectionInput.dispatchEvent(new Event('change', { bubbles: true }));
       thumbs.querySelectorAll('.pdf-thumbnail-button').forEach(button => {
@@ -595,6 +655,17 @@
         await renderPage();
       });
       if (toolId === 'organize-pdf') {
+        button.setAttribute('aria-keyshortcuts', 'Alt+ArrowLeft Alt+ArrowRight');
+        button.title = 'Tap to keep selected pages. Alt+Left/Right moves this source page; all its copies move together.';
+        button.addEventListener('keydown', event => {
+          if (!event.altKey || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+          event.preventDefault();
+          const sibling = event.key === 'ArrowLeft' ? button.previousElementSibling : button.nextElementSibling;
+          if (!sibling?.matches('.pdf-thumbnail-button')) return;
+          thumbs.insertBefore(button, event.key === 'ArrowLeft' ? sibling : sibling.nextSibling);
+          syncPageSelection(true);
+          button.focus();
+        });
         button.draggable = true;
         button.addEventListener('dragstart', () => {
           draggedThumbnail = button;
@@ -614,28 +685,45 @@
         });
         button.addEventListener('pointerdown', event => {
           if (event.pointerType === 'mouse') return;
+          thumbs.classList.add('is-reordering');
           button.setPointerCapture(event.pointerId);
-          pointerDrag = { button, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+          pointerDrag = { button, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false, originalOrder: Array.from(thumbs.children) };
         });
         button.addEventListener('pointermove', event => {
           if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
           if (!pointerDrag.moved && Math.hypot(event.clientX - pointerDrag.x, event.clientY - pointerDrag.y) < 10) return;
           pointerDrag.moved = true;
-          button.classList.add('dragging');
+          const dragged = pointerDrag.button;
+          dragged.classList.add('dragging');
           const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.pdf-thumbnail-button');
-          if (!target || target === button || !thumbs.contains(target)) return;
+          if (!target || target === dragged || !thumbs.contains(target)) return;
           const bounds = target.getBoundingClientRect();
           const after = event.clientY > bounds.top + bounds.height / 2
             || (event.clientY >= bounds.top && event.clientY <= bounds.bottom && event.clientX > bounds.left + bounds.width / 2);
-          thumbs.insertBefore(button, after ? target.nextSibling : target);
+          const before = after ? target.nextSibling : target;
+          if (before !== dragged && before !== dragged.nextSibling) {
+            const left = thumbs.scrollLeft, top = thumbs.scrollTop;
+            thumbs.insertBefore(dragged, before);
+            thumbs.scrollLeft = left;
+            thumbs.scrollTop = top;
+            // Reparenting can release capture. Keep subsequent movement tied to
+            // the original dragged page, not whichever thumbnail is underneath.
+            dragged.setPointerCapture(event.pointerId);
+          }
         });
         const finishPointerReorder = event => {
           if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
           if (pointerDrag.moved) {
-            suppressThumbnailClick = true;
-            syncPageSelection(true);
+            if (event.type === 'pointercancel') {
+              pointerDrag.originalOrder.forEach(child => thumbs.appendChild(child));
+            } else {
+              suppressThumbnailClick = true;
+              syncPageSelection(true);
+              setTimeout(() => { suppressThumbnailClick = false; }, 0);
+            }
           }
-          button.classList.remove('dragging');
+          pointerDrag.button.classList.remove('dragging');
+          thumbs.classList.remove('is-reordering');
           pointerDrag = null;
         };
         button.addEventListener('pointerup', finishPointerReorder);
@@ -653,8 +741,14 @@
     }
     if (pdf.numPages > thumbLimit) {
       const note = document.createElement('span');
-      note.textContent = `+${pdf.numPages - thumbLimit} more pages`;
+      note.textContent = `+${pdf.numPages - thumbLimit} more pages. Use Next to preview; enter page numbers in settings for exact selection/order.`;
       thumbs.appendChild(note);
+    }
+    if (toolId === 'organize-pdf') {
+      const help = document.createElement('p');
+      help.className = 'pdf-page-plan-help';
+      help.textContent = 'Tap thumbnails to keep only selected pages. Drag or use Alt+Left/Right to reorder; repeated copies move together. Output order and rotation are controlled in Settings. This preview shows the source, not blank pages or watermarks.';
+      stage.append(help);
     }
     controls.addEventListener('click', async (event) => {
       const action = event.target.closest('button')?.dataset.action;
@@ -797,6 +891,8 @@
   }
 
   async function renderFilePreview(files, selectedIndex) {
+    splitPlanCleanup?.();
+    splitPlanCleanup = null;
     revokeObjectUrls();
     const queue = document.getElementById('file-queue-container');
     if (!queue || !files || files.length === 0) return;
@@ -1075,19 +1171,8 @@
   }
 
   async function detectBarcode(file, formats) {
-    if (!('BarcodeDetector' in window)) throw new Error('This browser does not support local barcode detection. Try a current Chromium-based browser.');
-    const supported = await window.BarcodeDetector.getSupportedFormats();
-    const selected = formats.filter((format) => supported.includes(format));
-    if (!selected.length) throw new Error('The requested barcode format is not supported by this browser.');
-    const detector = new window.BarcodeDetector({ formats: selected });
-    const bitmap = await createImageBitmap(file);
-    try {
-      const results = await detector.detect(bitmap);
-      if (!results.length) throw new Error('No readable code was found. Try a sharper, well-lit image with the complete code visible.');
-      return results[0];
-    } finally {
-      bitmap.close();
-    }
+    await loadScriptOnce('/assets/barcode-reader.js', 'GxaBarcodeReader');
+    return window.GxaBarcodeReader.decode(file, formats);
   }
 
   async function readExif(file) {

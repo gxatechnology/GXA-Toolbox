@@ -1,5 +1,7 @@
 const productLinks = [
   ['/help/', 'Help Center'],
+  ['/guides/', 'Practical guides'],
+  ['/editorial-standards/', 'Editorial standards'],
   ['/merge-pdf/', 'Merge PDF'],
   ['/compress-image/', 'Compress Image'],
   ['/color-extractor/', 'Color Extractor'],

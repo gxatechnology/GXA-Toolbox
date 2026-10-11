@@ -20,6 +20,7 @@ const browser = await chromium.launch({ headless: true, ...(process.env.GXA_BROW
 const context = await browser.newContext({ viewport: { width: 1366, height: 900 }, acceptDownloads: true, hasTouch: true });
 // Prevent local QA from sending real analytics or ad impressions. Production sources are untouched.
 await context.route(/googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net/, route => route.abort());
+await context.route(/bauval\.org|abscloud\.org/, route => route.abort());
 const page = await context.newPage();
 page.setDefaultTimeout(15000);
 const failures = [];

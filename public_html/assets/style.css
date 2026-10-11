@@ -1281,7 +1281,7 @@ body {
   width: 100%;
   max-width: 440px;
   height: auto;
-  animation: floatHub 5s ease-in-out infinite;
+  animation: none;
 }
 
 @keyframes floatHub {
@@ -1291,7 +1291,7 @@ body {
 }
 
 .pulse-circle {
-  animation: pulseHub 3s ease-in-out infinite;
+  animation: none;
 }
 
 @keyframes pulseHub {
@@ -4485,7 +4485,7 @@ kbd {
 .mini-file-row > svg:last-child { color: var(--color-accent); }
 .mini-file-row span { display: flex; flex-direction: column; }
 .mini-file-row strong { font-size: 10px; }
-.floating-tool { position: absolute; display: flex; align-items: center; gap: 6px; padding: 9px 11px; border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-text-primary); background: color-mix(in srgb, var(--color-surface) 88%, transparent); backdrop-filter: blur(12px); box-shadow: var(--shadow-md); font-size: 10px; font-weight: 800; animation: tool-float 5s ease-in-out infinite; }
+.floating-tool { position: absolute; display: flex; align-items: center; gap: 6px; padding: 9px 11px; border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-text-primary); background: color-mix(in srgb, var(--color-surface) 88%, transparent); backdrop-filter: blur(12px); box-shadow: var(--shadow-md); font-size: 10px; font-weight: 800; animation: none; }
 .floating-tool svg { width: 15px; }
 .floating-pdf { left: -34px; top: 82px; color: #ef4444; }
 .floating-image { right: -24px; top: 154px; color: #8b5cf6; animation-delay: -1.6s; }
@@ -8005,3 +8005,58 @@ html { scroll-padding-top: var(--header-clearance); }
   .watermark-image-dimensions { grid-template-columns: 1fr; }
   .watermark-image-dimensions .watermark-lock-control { grid-column: auto; }
 }
+
+/* Upload-first disclosure: the existing engine, not CSS, owns validity. */
+[data-disclosure] [hidden] { display: none !important; }
+[data-disclosure="upload"] .tool-workspace,
+[data-disclosure="upload"] .crop-editor-grid,
+[data-disclosure="upload"] .image-converter__grid { grid-template-columns: minmax(0, 1fr); }
+[data-disclosure="upload"] #tool-upload-mount,
+[data-disclosure="upload"] .crop-editor-main,
+[data-disclosure="upload"] .image-converter__grid { width: 100%; max-width: 760px; margin-inline: auto; }
+[data-disclosure="upload"] .crop-canvas-stage { min-height: 300px; height: auto; background: var(--color-surface); }
+.tool-content-guide { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--color-border); }
+.tool-ad-placement[hidden], .tool-ad-placement:empty { display: none !important; margin: 0; padding: 0; min-height: 0; }
+@media (max-width: 767px) {
+  [data-disclosure] .tool-workspace { display: flex; flex-direction: column; gap: 16px; }
+  [data-disclosure] .tool-interactive-area { display: contents; }
+  [data-disclosure] #tool-upload-mount { order: 1; }
+  [data-disclosure] #premium-editor-toolbar { order: 2; }
+  [data-disclosure] #tool-queue-mount { order: 3; }
+  [data-disclosure] #tool-queue-mount { width: 100%; min-width: 0; box-sizing: border-box; }
+  [data-disclosure] .file-queue { grid-template-columns: minmax(0, 1fr); }
+  [data-disclosure] .file-card { min-width: 0; gap: 8px; padding: 10px; }
+  [data-disclosure] .file-card-info { min-width: 0; }
+  [data-disclosure] .tool-sidebar-settings { order: 4; }
+  [data-disclosure] #tool-processing-mount { order: 5; }
+  [data-disclosure] #tool-complete-mount { order: 6; }
+  [data-disclosure] .tool-interactive-area,
+  [data-disclosure] .tool-sidebar-settings { width: 100%; min-width: 0; }
+  [data-disclosure="upload"] .crop-canvas-stage { min-height: 280px; }
+  .tool-content-guide { margin-top: 32px; padding-top: 24px; }
+}
+/* Merge-only progressive controls; shared file cards and previews retain their layout. */
+.file-card--merge { flex-wrap: wrap; }
+.merge-pdf-file-options { flex: 1 0 100%; min-width: 0; max-width: 100%; }
+.merge-pdf-file-options summary { min-height: 44px; padding-block: 12px; cursor: pointer; font-weight: 600; }
+.merge-pdf-file-options > div { display: grid; gap: 12px; padding-block: 8px; }
+.merge-pdf-file-options label { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.merge-pdf-file-options input, .merge-pdf-file-options select { min-width: 0; width: 100%; min-height: 44px; font: inherit; }
+.merge-pdf-file-options p, .merge-pdf-help { font-size: 13px; line-height: 1.6; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+/* The scrollable PDF toolbar must not shrink labels into neighboring controls. */
+.file-preview-shell .pdf-preview-controls { align-items: center; overflow-x: auto; }
+.file-preview-shell .pdf-preview-controls > * { flex: 0 0 auto; white-space: nowrap; }
+.file-preview-shell .pdf-preview-controls button { min-width: 44px; min-height: 44px; }
+.pdf-page-plan-help { font-size: 13px; line-height: 1.6; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.pdf-output-plan { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); text-align: left; }
+.pdf-output-plan summary { min-height: 44px; align-content: center; cursor: pointer; font-weight: 600; }
+.pdf-output-plan p { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.pdf-output-plan ol { margin: 8px 0 0; padding: 0; list-style: none; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
+.pdf-output-plan button { display: block; width: 100%; min-height: 44px; margin: 4px 0; padding: 8px; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-primary); background: var(--color-bg); text-align: left; font: inherit; font-size: 13px; overflow-wrap: anywhere; cursor: pointer; }
+.pdf-output-plan button:focus-visible, .pdf-output-plan summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.pdf-output-plan[data-invalid] p { color: var(--color-text-primary); font-weight: 600; }
+.file-preview-shell .pdf-organize-thumbnails .pdf-thumbnail-button { touch-action: pan-y; }
+.pdf-organize-thumbnails { overflow-anchor: none; }
+.pdf-organize-thumbnails.is-reordering { scroll-snap-type: none; }
+.premium-editor-workspace[data-tool-id="split-pdf"] .preset-btn,
+.premium-editor-workspace[data-tool-id="organize-pdf"] .preset-btn { min-height: 44px; }

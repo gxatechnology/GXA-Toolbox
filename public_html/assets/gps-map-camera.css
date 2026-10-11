@@ -54,6 +54,45 @@
 .gps-studio__result-meta { margin: 0; color: var(--color-text-secondary, #64748b); font-size: .86rem; }
 .mega-col-title-spaced { margin-top: 18px; }
 
+/* Photo-first studio and original, locally rendered export templates. */
+.gps-studio__preview-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.gps-studio__template-name { font-size: .8rem; font-weight: 750; color: var(--gps-accent); padding: 7px 11px; border-radius: 8px; background: color-mix(in srgb, var(--gps-accent) 8%, transparent); }
+.gps-studio__preview-bar .gps-studio__check { min-height: 44px; align-items: center; font-size: .8rem; }
+.gps-studio__preview { background: #102034; padding: 12px; border-radius: 16px; }
+.gps-studio__detail { padding: 8px; background: #102034; border-radius: 14px; max-width: 100%; min-width: 0; overflow: auto; touch-action: pan-x pan-y; overscroll-behavior-x: contain; }
+.gps-studio__detail canvas { display: block; width: var(--gps-detail-zoom, 100%); height: auto; max-width: none; }
+.gps-studio__detail-zoom output { float: right; color: var(--gps-accent); }
+.gps-studio__detail:focus-visible { outline: 3px solid var(--gps-accent); outline-offset: 3px; }
+.gps-studio [hidden] { display: none !important; }
+.gps-studio__resolved { display: grid; gap: 8px; padding: 18px; border: 1px solid color-mix(in srgb, var(--gps-accent) 24%, var(--color-border)); border-radius: 14px; background: color-mix(in srgb, var(--gps-accent) 6%, var(--color-surface)); overflow-wrap: anywhere; }
+.gps-studio__resolved-title { font-family: var(--font-display); font-size: clamp(1.2rem, 2.2vw, 1.6rem); color: var(--color-text-primary); line-height: 1.25; }
+.gps-studio__resolved-address { margin: 0; color: var(--color-text-secondary); font-size: .9rem; line-height: 1.6; }
+.gps-studio__lookup-state { display: block; padding-top: 9px; border-top: 1px solid var(--color-border); font-size: .78rem; line-height: 1.5; color: var(--color-text-secondary); }
+.gps-studio__resolved[aria-busy="true"] { border-style: dashed; }
+.gps-studio__map-option { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--color-border); border-radius: 12px; }
+.gps-studio__map-option .btn { min-height: 44px; }
+.gps-studio__map-status { margin: 0; line-height: 1.5; font-size: .85rem; color: var(--color-text-secondary); }
+.gps-studio__map-option small { line-height: 1.6; overflow-wrap: anywhere; }
+.gps-studio__metadata { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; min-width: 0; padding: 12px; border: 1px solid var(--color-border); border-radius: 12px; }
+.gps-studio__metadata legend { padding: 0 6px; font-size: .85rem; font-weight: 700; }
+.gps-studio__metadata .gps-studio__check { align-items: center; min-height: 44px; font-size: .82rem; }
+.gps-studio__metadata input { margin: 0; accent-color: var(--gps-accent); }
+.gps-studio__field, .gps-studio__field input, .gps-studio__field textarea, .gps-studio__field select, .gps-studio__search-result { color: var(--color-text-primary); }
+.gps-studio__field > span { font-size: .86rem; }
+.gps-studio__field input[type="range"] { padding: 0; accent-color: var(--gps-accent); cursor: pointer; }
+.gps-studio__opacity-value { float: right; color: var(--gps-accent); }
+.gps-studio__panel h2 { font-size: clamp(1.25rem, 2vw, 1.6rem); line-height: 1.3; }
+.gps-studio__panel h3 { font-size: 1.05rem; }
+.gps-studio__section { gap: 14px; }
+.gps-studio__exif-box, .gps-studio__authenticity { background: var(--color-bg); }
+.gps-studio__status.is-error { color: var(--color-danger); }
+@media (min-width: 961px) and (min-height: 850px) {
+  .gps-studio__grid > .gps-studio__panel:first-child { position: sticky; top: calc(var(--header-clearance, 72px) + 12px); }
+  .gps-studio__preview, .gps-studio__preview canvas { max-height: 44dvh; }
+}
+@media (max-width: 430px) { .gps-studio__metadata { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .gps-studio * { scroll-behavior: auto; } }
+
 @media (max-width: 960px) {
   .gps-studio__grid { grid-template-columns: 1fr; }
   .gps-studio__settings { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }

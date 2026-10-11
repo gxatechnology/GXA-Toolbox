@@ -3,7 +3,7 @@ import { ADSENSE_PUBLISHER_ID } from '../config/adsense-config.mjs';
 import { readFile, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadToolRegistry } from '../scripts/tool-registry.mjs';
+import { loadToolRegistry, loadToolQuality } from '../scripts/tool-registry.mjs';
 
 const projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const read = path => readFile(join(projectRoot, path), 'utf8');
@@ -194,9 +194,11 @@ assert.match(packageJson, /admin-panel-contract\.mjs/);
 const tools = await loadToolRegistry();
 assert.ok(tools.length >= 90, 'The admin build audit unexpectedly lost registered tools.');
 assert.equal(ADMIN_BUILD_STATE.registeredTools, tools.length);
-assert.equal(ADMIN_BUILD_STATE.indexableToolPages, tools.length);
+const publicationQuality = await loadToolQuality();
+const indexableCount = Object.values(publicationQuality).filter(state => state.indexable).length;
+assert.equal(ADMIN_BUILD_STATE.indexableToolPages, indexableCount);
 assert.equal(ADMIN_BUILD_STATE.sitemapUrls, (sitemap.match(/<url>/g) || []).length);
-assert.equal(ADMIN_BUILD_STATE.noindexPages, 2);
+assert.equal(ADMIN_BUILD_STATE.noindexPages, tools.length - indexableCount + 2);
 assert.equal(ADMIN_BUILD_STATE.canonicalIssues, 0);
 assert.equal(ADMIN_BUILD_STATE.brokenInternalLinks, 0);
 

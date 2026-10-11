@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const appUrl = new URL('../public_html/assets/app.js', import.meta.url);
-const workspaceUrl = new URL('../public_html/assets/tool-workspace.js', import.meta.url);
 const contentPagesUrl = new URL('../public_html/assets/content-pages.js', import.meta.url);
 const toolContentUrl = new URL('../public_html/assets/tool-content.js', import.meta.url);
 
@@ -31,20 +30,33 @@ export async function loadToolRegistry() {
 }
 
 export async function loadBlockedToolIds() {
-  const source = await readFile(workspaceUrl, 'utf8');
-  const start = source.indexOf('const blockers');
-  const end = source.indexOf('const serverTools');
-  if (start < 0 || end < 0 || end <= start) throw new Error('Unable to locate the tool blocker registry.');
-  return new Set([...source.slice(start, end).matchAll(/^\s*'([^']+)':\s*'[^']+'/gm)].map(match => match[1]));
+  // Compatibility export: SEO exclusions are publication decisions, not engine blockers.
+  const quality = await loadToolQuality();
+  return new Set(Object.entries(quality).filter(([, state]) => !state.indexable).map(([id]) => id));
+}
+
+export async function loadToolQuality() {
+  const [source, tools] = await Promise.all([
+    readFile(new URL('../public_html/assets/tool-quality.js', import.meta.url), 'utf8'),
+    loadToolRegistry()
+  ]);
+  const context = vm.createContext({});
+  vm.runInContext(source, context);
+  const policy = context.GxaToolQuality;
+  for (const id of Object.keys(policy.review)) {
+    if (!tools.some(tool => tool.id === id)) throw new Error(`Unknown publication-review tool: ${id}`);
+  }
+  return Object.fromEntries(tools.map(tool => [tool.id, JSON.parse(JSON.stringify(policy.forTool(tool.id)))]));
 }
 
 export async function loadContentPageRegistry() {
   const source = await readFile(contentPagesUrl, 'utf8');
   const context = {};
   vm.createContext(context);
+  vm.runInContext(await readFile(new URL('../public_html/assets/editorial-pages.js', import.meta.url), 'utf8'), context);
   vm.runInContext(source, context);
   const pages = JSON.parse(JSON.stringify(context.GXA_CONTENT_PAGES));
-  const expectedIds = ['help', 'about', 'careers', 'security', 'privacy-policy', 'terms', 'gdpr'];
+  const expectedIds = ['help', 'about', 'careers', 'security', 'privacy-policy', 'terms', 'gdpr', ...context.GXA_EDITORIAL_PAGES.map(page => page.id)];
 
   if (!Array.isArray(pages) || pages.length !== expectedIds.length) {
     throw new Error(`Expected exactly ${expectedIds.length} documentation/company/legal pages, found ${Array.isArray(pages) ? pages.length : 0}.`);
@@ -97,5 +109,5 @@ export function toolTitle(tool) {
 
 export function toolDescription(tool) {
   if (tool.id === 'image-ocr') return 'Extract text from JPG, JPEG, PNG, and WEBP images using browser-based OCR with GXA Toolbox.';
-  return `${tool.desc} Use it with GXA Toolbox.`;
+  return tool.desc;
 }

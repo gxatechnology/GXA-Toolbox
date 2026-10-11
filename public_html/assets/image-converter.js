@@ -10,7 +10,7 @@
         <section class="image-converter__panel" aria-labelledby="image-converter-original-title">
           <div class="image-converter__panel-head"><div><p class="image-converter__eyebrow">Step 1</p><h2 id="image-converter-original-title">Original image</h2></div><button type="button" class="btn btn-ghost image-converter__reset" hidden>Convert another</button></div>
           <div class="image-converter__drop" tabindex="0" role="button" aria-label="Choose an image to convert">
-            <i data-lucide="image-up" aria-hidden="true"></i><strong>Upload Image</strong><span>Choose a supported image. Drag and drop is optional.</span><button type="button" class="btn btn-primary image-converter__choose">Choose Image</button>
+            <i data-lucide="image-up" aria-hidden="true"></i><strong>Choose an image</strong><span>JPG, PNG, WebP, GIF, BMP, TIFF, ICO or SVG · up to 50 MB. Format-specific limits apply.</span><button type="button" class="btn btn-primary image-converter__choose">Select image</button>
             <input class="image-converter__input" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/bmp,image/tiff,image/x-icon,image/svg+xml,.jpg,.jpeg,.jfif,.png,.webp,.avif,.gif,.bmp,.dib,.tif,.tiff,.ico,.cur,.svg,.heic,.heif,.psd,.psb,.hdr,.exr,.jp2,.jxl,.raw,.dng" hidden>
           </div>
           <div class="image-converter__original" hidden>

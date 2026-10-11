@@ -14,6 +14,7 @@
   }
 
   function validateCoordinates(latitude, longitude) {
+    if ([latitude, longitude].some(value => value === null || value === undefined || String(value).trim() === '')) throw new Error('Choose both latitude and longitude.');
     const lat = Number(latitude); const lon = Number(longitude);
     if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error('Latitude must be a number from -90 to 90.');
     if (!Number.isFinite(lon) || lon < -180 || lon > 180) throw new Error('Longitude must be a number from -180 to 180.');

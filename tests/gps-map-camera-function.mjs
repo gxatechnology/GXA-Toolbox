@@ -6,7 +6,7 @@ const previousFetch = global.fetch;
 const request = query => new Request(`https://gxatoolbox.in/api/location-geocode?${query}`, { headers: { Origin: 'https://gxatoolbox.in' } });
 
 try {
-  assert.deepEqual(normalizeGeoapifyResult({ lat: 28.61, lon: 77.2, name: 'Site', formatted: 'Site, New Delhi', suburb: 'Area', city: 'New Delhi', state: 'Delhi', postcode: '110001', country: 'India' }), { latitude: 28.61, longitude: 77.2, place: 'Site', address: 'Site, New Delhi', locality: 'Area', city: 'New Delhi', state: 'Delhi', postal: '110001', country: 'India' });
+  assert.deepEqual(normalizeGeoapifyResult({ lat: 28.61, lon: 77.2, name: 'Site', formatted: 'Site, New Delhi', suburb: 'Area', city: 'New Delhi', state: 'Delhi', postcode: '110001', country: 'India' }), { latitude: 28.61, longitude: 77.2, place: 'Site', address: 'Site, New Delhi', locality: 'Area', city: 'New Delhi', state: 'Delhi', postal: '110001', country: 'India', house: '', street: '', timezone: '', plusCode: '' });
   assert.equal(normalizeGeoapifyResult({ lat: 'bad', lon: 1 }), null);
   delete process.env.GEOAPIFY_API_KEY;
   assert.equal((await handler(request('action=search&q=Delhi'))).status, 503);

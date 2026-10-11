@@ -2,7 +2,7 @@
     'use strict';
 
     const MAX_BYTES = 25 * 1024 * 1024;
-    const FONT_NAMES = { Helvetica: 'Helvetica', TimesRoman: 'Times-Roman', Courier: 'Courier', TimesRomanItalic: 'Times-Italic' };
+    const FONT_NAMES = { Helvetica: 'Helvetica', HelveticaBold: 'Helvetica-Bold', HelveticaItalic: 'Helvetica-Oblique', HelveticaBoldItalic: 'Helvetica-BoldOblique', TimesRoman: 'Times-Roman', TimesRomanBold: 'Times-Bold', TimesRomanItalic: 'Times-Italic', TimesRomanBoldItalic: 'Times-BoldItalic', Courier: 'Courier', CourierBold: 'Courier-Bold', CourierItalic: 'Courier-Oblique', CourierBoldItalic: 'Courier-BoldOblique' };
     const fontCaches = new WeakMap();
     class EditError extends Error {}
     const fail = message => { throw new EditError(message); };
@@ -164,7 +164,9 @@
         const height = Number(options.height);
         const align = options.align || 'left';
         if (!Number.isFinite(fontSize) || fontSize < 6 || fontSize > 144 || !Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0 || !['left', 'center', 'right'].includes(align)) fail('Choose a text size from 6 to 144 points and a valid text box.');
-        const lineHeight = fontSize * 1.2;
+        const lineSpacing = Number(options.lineSpacing ?? 1.2);
+        if (!Number.isFinite(lineSpacing) || lineSpacing < 1 || lineSpacing > 3) fail('Line spacing must be between 1 and 3.');
+        const lineHeight = fontSize * lineSpacing;
         const ascent = font.heightAtSize(fontSize, { descender: false });
         const rawLines = [];
         for (const paragraph of text.replace(/\r\n?/g, '\n').replace(/\t/g, '    ').split('\n')) {
@@ -319,14 +321,33 @@
         return page;
     }
 
+    function imageEditGeometry(sourceWidth, sourceHeight, settings = {}) {
+        if (![sourceWidth, sourceHeight].every(value => Number.isInteger(value) && value > 0) || sourceWidth * sourceHeight > 16_000_000) fail('Use an image below 16 megapixels.');
+        const { left = 0, top = 0, width = 100, height = 100, rotation = 0 } = settings;
+        if (![left, top, width, height].every(Number.isFinite) || left < 0 || top < 0 || width <= 0 || height <= 0 || left + width > 100 || top + height > 100) fail('Crop percentages must select a non-empty area inside the original image.');
+        if (![0, 90, 180, 270].includes(rotation)) fail('Image rotation must be 0, 90, 180 or 270 degrees clockwise.');
+        const x = Math.round(sourceWidth * left / 100), y = Math.round(sourceHeight * top / 100);
+        const cropWidth = Math.round(sourceWidth * (left + width) / 100) - x;
+        const cropHeight = Math.round(sourceHeight * (top + height) / 100) - y;
+        if (cropWidth < 1 || cropHeight < 1) fail('The crop must contain at least one image pixel in each direction.');
+        return { x, y, cropWidth, cropHeight, rotation, outputWidth: rotation % 180 ? cropHeight : cropWidth, outputHeight: rotation % 180 ? cropWidth : cropHeight };
+    }
+
     async function drawOverlay(doc, overlay, pages, fonts, lib) {
-        if (!['text', 'check', 'cross', 'rectangle', 'image'].includes(overlay.type)) fail('This edit type is not supported.');
+        if (!['text', 'check', 'cross', 'rectangle', 'ellipse', 'line', 'arrow', 'highlight', 'underline', 'strike', 'image'].includes(overlay.type)) fail('This edit type is not supported.');
         const view = overlayBox(overlay, pages);
         const page = doc.getPage(overlay.pageIndex);
         const { width, height } = overlay;
         const color = overlay.color || '#111827';
         if (!/^#[0-9a-f]{6}$/i.test(color)) fail('Choose a valid text or shape color.');
         const rgb = lib.rgb(...[1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16) / 255));
+        const opacity = Number(overlay.opacity ?? 1);
+        const strokeWidth = Number(overlay.strokeWidth ?? 1.5);
+        if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) fail('Opacity must be between 0 and 1.');
+        if (!Number.isFinite(strokeWidth) || strokeWidth < .25 || strokeWidth > 20) fail('Stroke width must be between 0.25 and 20 points.');
+        if (!['text', 'image', 'highlight'].includes(overlay.type) && strokeWidth >= Math.min(width, height)) fail('Reduce the stroke width or enlarge the shape so the outline stays inside its box.');
+        if (overlay.fill && !/^#[0-9a-f]{6}$/i.test(overlay.fill)) fail('Choose a valid fill color.');
+        const fill = overlay.fill ? lib.rgb(...[1, 3, 5].map(offset => parseInt(overlay.fill.slice(offset, offset + 2), 16) / 255)) : undefined;
         const origin = visualToPdf(view, overlay.x, overlay.y + height);
         const basisX = visualToPdf(view, overlay.x + 1, overlay.y + height);
         const basisY = visualToPdf(view, overlay.x, overlay.y + height - 1);
@@ -338,7 +359,10 @@
             const font = fonts.get(name);
             const layout = layoutWithFont(overlay.text || '', overlay, font);
             if (layout.overflow) fail('Some added text does not fit its box. Enlarge the box or reduce the font size before exporting.');
-            for (const line of layout.lines) if (line.text) page.drawText(line.text, { x: line.x, y: height - line.y, size: layout.fontSize, font, color: rgb });
+            for (const line of layout.lines) if (line.text) {
+                page.drawText(line.text, { x: line.x, y: height - line.y, size: layout.fontSize, font, color: rgb, opacity });
+                if (overlay.underline) page.drawLine({ start: { x: line.x, y: height - line.y - 1 }, end: { x: line.x + line.width, y: height - line.y - 1 }, thickness: Math.max(.5, layout.fontSize / 18), color: rgb, opacity });
+            }
         } else if (overlay.type === 'image') {
             const bytes = overlay.imageBytes;
             if (!bytes || !ArrayBuffer.isView(bytes) || !bytes.byteLength || bytes.byteLength > 5 * 1024 * 1024) fail('Choose a PNG or JPEG image smaller than 5 MB.');
@@ -348,14 +372,61 @@
                 else if (overlay.imageType === 'image/jpeg') image = await doc.embedJpg(bytes);
                 else fail('Only PNG and JPEG images can be added to the PDF.');
             } catch { fail('This image could not be read. Choose a valid PNG or JPEG image.'); }
-            page.drawImage(image, { x: 0, y: 0, width, height });
+            page.drawImage(image, { x: 0, y: 0, width, height, opacity });
         } else if (overlay.type === 'rectangle') {
-            page.drawRectangle({ x: 1, y: 1, width: Math.max(0, width - 2), height: Math.max(0, height - 2), borderColor: rgb, borderWidth: 1.5 });
+            page.drawRectangle({ x: strokeWidth / 2, y: strokeWidth / 2, width: Math.max(0, width - strokeWidth), height: Math.max(0, height - strokeWidth), borderColor: rgb, borderWidth: strokeWidth, color: fill, opacity, borderOpacity: opacity });
+        } else if (overlay.type === 'ellipse') {
+            page.drawEllipse({ x: width / 2, y: height / 2, xScale: Math.max(.1, (width - strokeWidth) / 2), yScale: Math.max(.1, (height - strokeWidth) / 2), color: fill, borderColor: rgb, borderWidth: strokeWidth, opacity, borderOpacity: opacity });
+        } else if (overlay.type === 'highlight') {
+            page.drawRectangle({ x: 0, y: 0, width, height, color: rgb, opacity });
+        } else if (['line', 'arrow', 'underline', 'strike'].includes(overlay.type)) {
+            const y = overlay.type === 'underline' ? strokeWidth / 2 : height / 2;
+            const start = { x: strokeWidth / 2, y }, end = { x: Math.max(strokeWidth / 2, width - strokeWidth / 2), y };
+            page.drawLine({ start, end, color: rgb, thickness: strokeWidth, opacity });
+            if (overlay.type === 'arrow') {
+                const head = Math.min(12, (width - strokeWidth) / 3, (height - strokeWidth) / 2);
+                for (const direction of [-1, 1]) page.drawLine({ start: end, end: { x: end.x - head, y: y + direction * head }, color: rgb, thickness: strokeWidth, opacity });
+            }
         } else {
             const points = overlay.type === 'check' ? [[0.12, 0.48], [0.39, 0.18], [0.9, 0.87]] : [[0.15, 0.15], [0.85, 0.85], null, [0.15, 0.85], [0.85, 0.15]];
-            for (let index = 1; index < points.length; index += 1) if (points[index] && points[index - 1]) page.drawLine({ start: { x: width * points[index - 1][0], y: height * points[index - 1][1] }, end: { x: width * points[index][0], y: height * points[index][1] }, thickness: Math.max(1.5, Math.min(width, height) * 0.085), color: rgb });
+            const at = point => ({ x: strokeWidth / 2 + (width - strokeWidth) * point[0], y: strokeWidth / 2 + (height - strokeWidth) * point[1] });
+            for (let index = 1; index < points.length; index += 1) if (points[index] && points[index - 1]) page.drawLine({ start: at(points[index - 1]), end: at(points[index]), thickness: strokeWidth, color: rgb, opacity });
         }
         page.pushOperators(lib.popGraphicsState());
+    }
+
+    async function applyPagePlan(doc, plan, lib) {
+        if (plan === undefined) return;
+        if (!Array.isArray(plan) || !plan.length || plan.length > 500) fail('Keep between 1 and 500 pages in the edited PDF.');
+        const originals = doc.getPages();
+        const uses = new Map();
+        for (const item of plan) {
+            if (!item || ![0, 90, 180, 270].includes(item.rotation ?? 0)) fail('Page rotations must be quarter turns.');
+            if (item.sourceIndex === null) {
+                if (![item.width, item.height].every(value => Number.isFinite(value) && value >= 36 && value <= 14400)) fail('Blank page dimensions must be between 36 and 14,400 points.');
+            } else {
+                if (!Number.isInteger(item.sourceIndex) || !originals[item.sourceIndex]) fail('The page plan refers to a missing source page.');
+                uses.set(item.sourceIndex, (uses.get(item.sourceIndex) || 0) + 1);
+            }
+        }
+        // Retain live field trees and annotation destinations rather than silently orphaning them.
+        for (let index = 0; index < originals.length; index++) {
+            if ((uses.get(index) || 0) !== 1 && originals[index].node.Annots()?.size()) fail('Pages containing form fields or annotations cannot be duplicated or deleted here. Export a flattened copy first for supported forms.');
+        }
+        const used = new Set(), arranged = [];
+        for (const item of plan) {
+            if (item.sourceIndex === null) { arranged.push(null); continue; }
+            const original = originals[item.sourceIndex];
+            const page = used.has(item.sourceIndex) ? (await doc.copyPages(doc, [item.sourceIndex]))[0] : original;
+            used.add(item.sourceIndex);
+            arranged.push(page);
+        }
+        // Copy before removal and before changing rotations so duplicates are independent.
+        for (let index = doc.getPageCount() - 1; index >= 0; index--) doc.removePage(index);
+        plan.forEach((item, index) => {
+            const page = arranged[index] ? doc.addPage(arranged[index]) : doc.addPage([item.width, item.height]);
+            page.setRotation(lib.degrees((item.baseRotation + (item.rotation || 0) + 360) % 360));
+        });
     }
 
     async function exportPdf(input, edits, lib) {
@@ -364,17 +435,23 @@
             if (!edits || !Array.isArray(edits.overlays || [])) fail('The PDF edit state is invalid.');
             const overlays = edits.overlays || [];
             if (overlays.length > 300) fail('This document has too many edits. Use up to 300 overlay elements.');
-            const pages = doc.getPages().map(geometry);
             await fillFields(doc, edits.fieldValues || {}, Boolean(edits.flatten), lib);
+            const originalRotations = doc.getPages().map(page => page.getRotation().angle);
+            const plan = edits.pagePlan?.map(item => ({ ...item, baseRotation: item.sourceIndex === null ? 0 : originalRotations[item.sourceIndex] }));
+            await applyPagePlan(doc, plan, lib);
+            const pages = doc.getPages().map(geometry);
             const fonts = new Map();
             for (const overlay of overlays) await drawOverlay(doc, overlay, pages, fonts, lib);
             // Prevent save() from rebuilding untouched form appearances or metadata.
-            return await doc.save({ useObjectStreams: true, updateFieldAppearances: false });
+            const output = await doc.save({ useObjectStreams: true, updateFieldAppearances: false });
+            const reopened = await load(output, lib);
+            if (reopened.getPageCount() !== pages.length) fail('The exported page count could not be verified.');
+            return output;
         } catch (error) {
             if (error instanceof EditError) throw error;
             fail('The PDF could not be exported safely. Check the field values and edits, or try a standard PDF.');
         }
     }
 
-    root.GxaPdfEditCore = Object.freeze({ inspect, exportPdf, pdfToVisual, visualToPdf, widgetViewport, layoutText, MAX_BYTES });
+    root.GxaPdfEditCore = Object.freeze({ inspect, exportPdf, pdfToVisual, visualToPdf, widgetViewport, layoutText, imageEditGeometry, MAX_BYTES });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,5 +1,6 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { generateAdminSnapshot } from './generate-admin-snapshot.mjs';
+import { applyAdNetwork } from '../config/ad-network.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -13,6 +14,7 @@ import {
   canonicalContentUrl,
   canonicalToolUrl,
   loadBlockedToolIds,
+  loadToolQuality,
   loadContentPageRegistry,
   loadToolContentRegistry,
   loadToolRegistry,
@@ -151,7 +153,7 @@ function applyMetadata(template, { title, description, canonical, robots, graph,
   html = replaceHeadValue(html, /<link rel="canonical" href="[^"]*">/, `<link rel="canonical" href="${escapeHtml(canonical)}">`, 'canonical');
   html = replaceHeadValue(html, /<script id="gxa-structured-data" type="application\/ld\+json">[\s\S]*?<\/script>/, `<script id="gxa-structured-data" type="application/ld+json">\n${escapeScriptJson(graph)}\n  </script>`, 'structured data');
   html = replaceHeadValue(html, /<main id="main-content" class="main-body" role="main">[\s\S]*?<\/main>/, `<main id="main-content" class="main-body" role="main">\n${staticContent}\n    </main>`, 'static route content');
-  return html;
+  return applyAdNetwork(html);
 }
 
 function toolStaticContent(tool, content, tools) {
@@ -163,9 +165,9 @@ function toolStaticContent(tool, content, tools) {
           <ul>${content.features.slice(0, 3).map(item => `<li><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.description)}</span></li>`).join('')}</ul>
         </section>` : '';
   const guide = content ? `<article class="tool-content-guide" aria-label="${escapeHtml(tool.name)} guide">
+        ${section('How to Use', `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.description)}</p></div></li>`).join('')}</ol>`)}
         ${section('About This Tool', content.about.map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join(''))}
         ${section('What You Can Do', cards(content.features))}
-        ${section('How to Use', `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.description)}</p></div></li>`).join('')}</ol>`)}
         ${section('Practical Use Cases', cards(content.useCases))}
         ${section('Privacy and File Processing', `<div class="tool-info-note"><strong>${escapeHtml(content.privacy.processingMode)}</strong><p>${escapeHtml(content.privacy.description)}</p></div>`)}
         ${section('Supported Inputs and Outputs', `<div class="tool-format-grid"><div><h3>Input</h3><ul>${content.supportedFormats.input.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div><div><h3>Output</h3><ul>${content.supportedFormats.output.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div></div>`)}
@@ -179,6 +181,7 @@ function toolStaticContent(tool, content, tools) {
         ${content.tips?.length ? section('Helpful Tips', `<ul>${content.tips.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`) : ''}
         ${section('Frequently Asked Questions', `<div class="faq-list">${content.faqs.map(item => `<article class="faq-item"><h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer)}</p></article>`).join('')}</div>`)}
         ${section('Related Tools', `<div class="content-related-links">${content.relatedTools.map(id => `<a href="/${escapeHtml(id)}/">${escapeHtml(tools.find(item => item.id === id)?.name || id.replace(/-/g, ' '))}</a>`).join('')}</div>`)}
+        ${section('Related Guides', `<div class="content-related-links">${(content.relatedGuides || []).map(link => `<a href="/${escapeHtml(link.id)}/">${escapeHtml(link.label)}</a>`).join('')}</div>`)}
       </article>` : '';
   return `      <section class="container tool-container static-route-shell" data-static-route-shell>
         <nav class="breadcrumb" aria-label="Breadcrumb"><a class="breadcrumb-link" href="/">Home</a><span aria-hidden="true">&gt;</span><span>${escapeHtml(tool.name)}</span></nav>
@@ -186,6 +189,7 @@ function toolStaticContent(tool, content, tools) {
         <h1 class="tool-page-title">${escapeHtml(tool.name)}</h1>
         <p class="tool-page-description">${escapeHtml(tool.desc)}</p>
         ${intro}
+        <p class="static-workspace-notice">This page’s instructions are available without JavaScript. File selection, calculation and export require JavaScript; no file has been processed in this static view.</p>
         ${guide}
       </section>`;
 }
@@ -194,11 +198,13 @@ function homepageStaticContent() {
   return `      <section class="hero-section premium-hero static-route-shell static-home-shell" data-static-route-shell>
         <div class="container hero-content">
           <h1 class="hero-headline">Your Complete <span>Digital Toolbox</span></h1>
-          <p class="hero-subheadline">Access powerful browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations — all in one place.</p>
+          <p class="hero-subheadline">Work with PDFs, prepare images, convert supported files, create QR codes, package ZIPs and check everyday calculations.</p>
           <p>GXA Toolbox provides focused utilities that open as direct public routes, so you can choose a task, review its real controls and limitations, and create a result without installing a desktop suite. Many file workflows run in browser memory; tools that use another service disclose that boundary on their own page.</p>
           <div class="content-related-links" aria-label="Popular GXA Toolbox tools"><a href="/compress-pdf/">Compress PDF</a><a href="/edit-pdf/">Edit PDF</a><a href="/image-converter/">Image Converter</a><a href="/background-remover/">Background Remover</a><a href="/json-tool/">JSON Formatter</a><a href="/emi-calculator/">EMI Calculator</a></div>
         </div>
         <div class="container tool-content-guide" aria-label="GXA Toolbox categories and approach">
+          <section class="tool-info-section"><h2>Choose a task and understand the output</h2><p>For a profile photo, crop to the required shape, resize proportionally and compare delivery quality. For a report packet, merge documents in reading order and check the joins before considering compression.</p><div class="content-related-links"><a href="/pdf-tools/">PDF tools</a><a href="/image-tools/">Image tools</a><a href="/file-converters/">File converters</a><a href="/developer-tools/">Developer tools</a><a href="/calculators/">Calculators</a></div></section>
+          <section class="tool-info-section"><h2>Read before choosing settings</h2><p>The guides explain format tradeoffs, calculation assumptions and processing boundaries. Their drafting dates do not claim a completed human review.</p><div class="content-related-links"><a href="/guides/image-size/">Reduce image delivery size</a><a href="/guides/pdf-compression/">Choose PDF compression</a><a href="/guides/browser-processing/">Understand processing boundaries</a><a href="/guides/">All guides</a><a href="/editorial-standards/">Editorial standards</a></div></section>
           <section class="tool-info-section"><h2>Tools for documents, images, data, and calculations</h2><div class="tool-info-card-grid">
             <article><h3>PDF workflows</h3><p>Merge, organize, compress, edit, protect, extract, convert, watermark, or number PDFs with page-aware controls and honest format limits.</p></article>
             <article><h3>Image workflows</h3><p>Compress, resize, crop, convert, inspect metadata, extract colors, run English OCR, or create an editable foreground cutout.</p></article>
@@ -252,6 +258,7 @@ function contentPageStaticContent(page, tools) {
             <h2>${escapeHtml(section.title)}</h2>
             ${(section.paragraphs || []).map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('')}
             ${section.bullets?.length ? `<ul>${section.bullets.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
+            ${section.links?.length ? `<div class="content-related-links">${section.links.map(link => `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`).join('')}</div>` : ''}
             ${section.note ? `<div class="content-note"><p>${escapeHtml(section.note)}</p></div>` : ''}
           </section>`).join('');
   const related = page.related?.length ? `
@@ -268,6 +275,7 @@ function contentPageStaticContent(page, tools) {
             <h1>${escapeHtml(page.name)}</h1>
             <p>${escapeHtml(page.intro)}</p>
             ${page.updated ? `<p class="content-page-updated">Last updated: ${escapeHtml(page.updated)}</p>` : ''}
+            ${page.draftDate ? `<p class="content-page-updated">Draft prepared: ${escapeHtml(page.draftDate)}. ${escapeHtml(page.attribution)} ${escapeHtml(page.editorialStatus)}</p>` : ''}
           </div>
         </header>
         <div class="container content-page-layout">
@@ -320,7 +328,7 @@ function routeAuditMarkdown(tools, blockedIds, contentPages) {
     const indexable = !blockedIds.has(tool.id);
     const remarks = indexable
       ? 'Public tool landing; generated static shell hydrates into the existing tool workspace.'
-      : 'Publicly reachable but noindex until the documented presentation-renderer blocker is resolved.';
+      : 'Publicly reachable; publication quality review pending. Noindex and no ads until separately approved.';
     return `| \`/${tool.id}/\` | ${tool.name.replace(/\|/g, '\\|')} | ${tool.category} | ${indexable ? 'Yes' : 'No'} | ${canonicalToolUrl(tool.id)} | ${indexable ? 'Yes' : 'No'} | Unique | Unique | Generated HTML + hydration | Crawlable anchors | ${remarks} |`;
   });
   const contentRows = contentPages.map(page => `| \`/${page.id}/\` | ${page.name.replace(/\|/g, '\\|')} | Yes | ${canonicalContentUrl(page.id)} | Yes | Unique | Unique | Generated HTML + hydration | Global footer | Company/legal information page |`);
@@ -360,6 +368,7 @@ async function main() {
     readFile(join(projectRoot, 'index.html'), 'utf8')
   ]);
   const baseTemplate = injectAdSensePublisherId(baseTemplateSource, 'main public HTML template');
+  const quality = await loadToolQuality();
   for (const id of blockedIds) {
     if (!tools.some(tool => tool.id === id)) throw new Error(`Blocker references an unknown tool: ${id}`);
   }
@@ -370,6 +379,10 @@ async function main() {
   await rm(distRoot, { recursive: true, force: true });
   await mkdir(distRoot, { recursive: true });
   await cp(join(projectRoot, 'public_html', 'assets'), join(distRoot, 'assets'), { recursive: true });
+  const zxingDestination = join(distRoot, 'assets', 'vendor', 'zxing');
+  await mkdir(zxingDestination, { recursive: true });
+  await cp(join(projectRoot, 'node_modules', '@zxing', 'library', 'umd', 'index.min.js'), join(zxingDestination, 'index.min.js'));
+  await cp(join(projectRoot, 'node_modules', '@zxing', 'library', 'LICENSE'), join(zxingDestination, 'LICENSE'));
   const leafletSource = join(projectRoot, 'node_modules', 'leaflet', 'dist');
   const leafletDestination = join(distRoot, 'assets', 'vendor', 'leaflet');
   await mkdir(leafletDestination, { recursive: true });
@@ -408,12 +421,12 @@ async function main() {
   for (const tool of tools) {
     if (tool.id === 'background-remover') continue;
     const description = toolDescription(tool);
-    const toolTemplate = blockedIds.has(tool.id) ? withoutAdSense(baseTemplate) : baseTemplate;
+    const toolTemplate = quality[tool.id].adsEligible ? baseTemplate : withoutAdSense(baseTemplate);
     await writeRoute(tool.id, applyMetadata(toolTemplate, {
       title: toolTitle(tool),
       description,
       canonical: canonicalToolUrl(tool.id),
-      robots: blockedIds.has(tool.id) ? 'noindex, follow' : 'index, follow',
+      robots: quality[tool.id].indexable ? 'index, follow' : 'noindex, follow',
       graph: pageGraph({ name: tool.name, description, url: canonicalToolUrl(tool.id), category: tool.category, content: toolContent[tool.id] }),
       staticContent: toolStaticContent(tool, toolContent[tool.id], tools)
     }));
@@ -437,6 +450,8 @@ async function main() {
     throw new Error('Background Remover build does not contain the canonical AdSense publisher configuration. Run npm run build:bg.');
   }
   const backgroundDescription = toolDescription(background);
+  if (!quality[background.id].adsEligible) backgroundHtml = withoutAdSense(backgroundHtml);
+  backgroundHtml = backgroundHtml.replace('<!-- Google AdSense -->', '<script src="/assets/tool-quality.js"></script>\n<script src="/assets/ad-state.js"></script>\n<!-- Google AdSense -->');
   const backgroundCanonical = canonicalToolUrl(background.id);
   const removableHeadEntries = [
     /\s*<meta\s+name="(?:description|robots|twitter:card|twitter:title|twitter:description|twitter:image|twitter:image:alt)"[^>]*\/>?/gi,
@@ -447,7 +462,7 @@ async function main() {
   for (const pattern of removableHeadEntries) backgroundHtml = backgroundHtml.replace(pattern, '');
   const backgroundHead = `
     <meta name="description" content="${escapeHtml(backgroundDescription)}" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="${quality[background.id].indexable ? 'index, follow' : 'noindex, follow'}" />
     <link rel="canonical" href="${backgroundCanonical}" />
     <meta property="og:site_name" content="GXA Toolbox" />
     <meta property="og:type" content="website" />
@@ -482,7 +497,7 @@ async function main() {
     'Background Remover static route content'
   );
   backgroundHtml = backgroundHtml.replace(/\r\n/g, '\n');
-  await writeFile(backgroundPath, backgroundHtml, 'utf8');
+  await writeFile(backgroundPath, applyAdNetwork(backgroundHtml), 'utf8');
 
   const dashboardHtml = applyMetadata(withoutAdSense(baseTemplate), {
     title: 'Dashboard | GXA Toolbox',
@@ -494,7 +509,7 @@ async function main() {
   });
   await writeRoute('dashboard', dashboardHtml);
 
-  const indexable = tools.filter(tool => !blockedIds.has(tool.id)).sort((a, b) => a.id.localeCompare(b.id));
+  const indexable = tools.filter(tool => quality[tool.id].indexable).sort((a, b) => a.id.localeCompare(b.id));
   const sitemapUrls = [
     `${PRODUCTION_ORIGIN}/`,
     ...indexable.map(tool => canonicalToolUrl(tool.id)),
@@ -506,7 +521,8 @@ async function main() {
     registeredTools: tools.length,
     indexableToolPages: indexable.length,
     noindexToolPages: blockedIds.size,
-    companyLegalPages: contentPages.length,
+    companyLegalPages: contentPages.filter(page => !page.kind).length,
+    editorialPages: contentPages.filter(page => page.kind).length,
     sitemapUrls: sitemapUrls.length,
     generatedPublicDirectRoutes: 1 + tools.length + contentPages.length,
     generatedNoindexPrivateRoutes: 2,
@@ -525,7 +541,7 @@ async function main() {
   await writeFile(join(projectRoot, 'docs', 'SEO_ROUTE_AUDIT.md'), routeAuditMarkdown(tools, blockedIds, contentPages), 'utf8');
   await writeFile(join(projectRoot, 'docs', 'TOOL_CONTENT_INVENTORY.md'), toolContentInventoryMarkdown(tools, toolContent), 'utf8');
 
-  console.log(`Generated ${tools.length} tool routes, ${contentPages.length} company/legal routes, ${sitemapUrls.length} sitemap URLs, protected admin shell, Netlify control files, ads.txt, robots.txt, and a real 404 in dist/.`);
+  console.log(`Generated ${tools.length} tool routes, ${contentPages.filter(page => !page.kind).length} company/legal routes, ${contentPages.filter(page => page.kind).length} editorial/category routes, ${sitemapUrls.length} sitemap URLs, protected admin shell, Netlify control files, ads.txt, robots.txt, and a real 404 in dist/.`);
 }
 
 await main();

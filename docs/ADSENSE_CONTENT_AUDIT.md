@@ -2,7 +2,7 @@
 
 ## A. Executive summary
 
-This audit is generated from the central 95-tool registry, the content registry, and the built HTML in `dist/`. All 95 public tool routes are inventoried below. The build contains 103 sitemap URLs. “Contract-covered” means the route is connected to an existing processing/render path and repository checks; it does not claim testing on every physical device or guarantee AdSense approval.
+This audit is generated from the central 95-tool registry, the content registry, and the built HTML in `dist/`. All 95 public tool routes are inventoried below. The build contains 109 sitemap URLs. “Contract-covered” means the route is connected to an existing processing/render path and repository checks; it does not claim testing on every physical device or guarantee AdSense approval.
 
 The principal content issue was one shared browser-local privacy paragraph across most tools. It has been replaced by tool-specific input/output processing language, while explicit exceptions such as GPS Map Camera keep their specialized disclosure. Compact intros now appear before each tool workspace and are emitted into crawler-facing HTML. Related converter and calculator instructions that crossed the similarity threshold were rewritten around their actual controls and methods.
 
@@ -67,7 +67,7 @@ The principal content issue was one shared browser-local privacy paragraph acros
 | SQL Formatter | `/sql-formatter/` | utility | Contract-covered | PASS | PASS | PASS | Render path | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 | XML to JSON Converter | `/xml-to-json/` | utility | Contract-covered | PASS | PASS | PASS | Render path | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 | UUID Generator | `/uuid-generator/` | utility | Contract-covered | PASS | PASS | PASS | Render path | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| User Agent Parser | `/user-agent/` | utility | Contract-covered | PASS | PASS | PASS | Render path | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| Browser Information | `/user-agent/` | utility | Contract-covered | PASS | PASS | PASS | Render path | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 | Regex Tester | `/regex-tester/` | utility | Contract-covered | PASS | PASS | PASS | Render path | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 | Markdown Editor | `/markdown-editor/` | utility | Contract-covered | PASS | PASS | PASS | Render path | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 | CSS Formatter | `/css-beautifier/` | utility | Contract-covered | PASS | PASS | PASS | Render path | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
@@ -112,107 +112,107 @@ The principal content issue was one shared browser-local privacy paragraph acros
 
 | Route | Unique title | Unique description | Canonical | Structured data | Useful static HTML | Thin risk | Mobile workspace | Desktop workspace | Preview/result clipping | Overall |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `/merge-pdf/` | PASS | PASS | PASS | PASS | PASS (445 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/organize-pdf/` | PASS | PASS | PASS | PASS | PASS (479 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/compress-image/` | PASS | PASS | PASS | PASS | PASS (584 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/resize-image/` | PASS | PASS | PASS | PASS | PASS (555 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/image-converter/` | PASS | PASS | PASS | PASS | PASS (1482 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/gps-map-camera/` | PASS | PASS | PASS | PASS | PASS (1463 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/crop-image/` | PASS | PASS | PASS | PASS | PASS (544 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/image-ocr/` | PASS | PASS | PASS | PASS | PASS (523 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/background-remover/` | PASS | PASS | PASS | PASS | PASS (552 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/password-generator/` | PASS | PASS | PASS | PASS | PASS (599 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/barcode-generator/` | PASS | PASS | PASS | PASS | PASS (627 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/color-extractor/` | PASS | PASS | PASS | PASS | PASS (508 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/zip-manager/` | PASS | PASS | PASS | PASS | PASS (505 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/split-pdf/` | PASS | PASS | PASS | PASS | PASS (424 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/protect-pdf/` | PASS | PASS | PASS | PASS | PASS (451 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/unlock-pdf/` | PASS | PASS | PASS | PASS | PASS (425 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-jpg/` | PASS | PASS | PASS | PASS | PASS (416 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/jpg-to-pdf/` | PASS | PASS | PASS | PASS | PASS (420 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/word-to-pdf/` | PASS | PASS | PASS | PASS | PASS (447 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-word/` | PASS | PASS | PASS | PASS | PASS (413 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/epub-to-pdf/` | PASS | PASS | PASS | PASS | PASS (546 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-epub/` | PASS | PASS | PASS | PASS | PASS (547 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/gif-maker/` | PASS | PASS | PASS | PASS | PASS (689 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/zip-extractor/` | PASS | PASS | PASS | PASS | PASS (502 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/compress-pdf/` | PASS | PASS | PASS | PASS | PASS (695 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/edit-pdf/` | PASS | PASS | PASS | PASS | PASS (1389 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/rotate-pdf/` | PASS | PASS | PASS | PASS | PASS (395 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/watermark-pdf/` | PASS | PASS | PASS | PASS | PASS (441 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pagenumber-pdf/` | PASS | PASS | PASS | PASS | PASS (469 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-metadata/` | PASS | PASS | PASS | PASS | PASS (442 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/excel-to-pdf/` | PASS | PASS | PASS | PASS | PASS (599 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/ppt-to-pdf/` | PASS | PASS | PASS | PASS | PASS (561 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-text/` | PASS | PASS | PASS | PASS | PASS (520 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/html-to-pdf/` | PASS | PASS | PASS | PASS | PASS (573 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-html/` | PASS | PASS | PASS | PASS | PASS (532 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/markdown-to-pdf/` | PASS | PASS | PASS | PASS | PASS (575 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-markdown/` | PASS | PASS | PASS | PASS | PASS (535 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/svg-to-png/` | PASS | PASS | PASS | PASS | PASS (570 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/png-to-svg/` | PASS | PASS | PASS | PASS | PASS (590 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/webp-to-jpg/` | PASS | PASS | PASS | PASS | PASS (573 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/gif-to-png/` | PASS | PASS | PASS | PASS | PASS (608 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/text-to-speech/` | PASS | PASS | PASS | PASS | PASS (645 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/qr-reader/` | PASS | PASS | PASS | PASS | PASS (533 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/barcode-reader/` | PASS | PASS | PASS | PASS | PASS (508 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/base64-tool/` | PASS | PASS | PASS | PASS | PASS (659 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/url-tool/` | PASS | PASS | PASS | PASS | PASS (588 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/json-tool/` | PASS | PASS | PASS | PASS | PASS (579 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/hash-tool/` | PASS | PASS | PASS | PASS | PASS (588 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/case-converter/` | PASS | PASS | PASS | PASS | PASS (549 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/word-counter/` | PASS | PASS | PASS | PASS | PASS (611 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/lorem-ipsum/` | PASS | PASS | PASS | PASS | PASS (592 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/diff-checker/` | PASS | PASS | PASS | PASS | PASS (570 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/sql-formatter/` | PASS | PASS | PASS | PASS | PASS (549 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/xml-to-json/` | PASS | PASS | PASS | PASS | PASS (593 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/uuid-generator/` | PASS | PASS | PASS | PASS | PASS (585 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/user-agent/` | PASS | PASS | PASS | PASS | PASS (582 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/regex-tester/` | PASS | PASS | PASS | PASS | PASS (612 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/markdown-editor/` | PASS | PASS | PASS | PASS | PASS (611 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/css-beautifier/` | PASS | PASS | PASS | PASS | PASS (509 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/js-beautifier/` | PASS | PASS | PASS | PASS | PASS (528 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/html-beautifier/` | PASS | PASS | PASS | PASS | PASS (523 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/cron-generator/` | PASS | PASS | PASS | PASS | PASS (561 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/color-converter/` | PASS | PASS | PASS | PASS | PASS (625 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/exif-viewer/` | PASS | PASS | PASS | PASS | PASS (594 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/timestamp-converter/` | PASS | PASS | PASS | PASS | PASS (619 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/remove-pdf-pages/` | PASS | PASS | PASS | PASS | PASS (432 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/extract-pdf-pages/` | PASS | PASS | PASS | PASS | PASS (433 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/extract-images-pdf/` | PASS | PASS | PASS | PASS | PASS (442 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/crop-pdf/` | PASS | PASS | PASS | PASS | PASS (446 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/header-footer-pdf/` | PASS | PASS | PASS | PASS | PASS (456 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/sign-pdf/` | PASS | PASS | PASS | PASS | PASS (456 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/repair-pdf/` | PASS | PASS | PASS | PASS | PASS (432 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/ocr-pdf/` | PASS | PASS | PASS | PASS | PASS (427 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/image-to-pdf/` | PASS | PASS | PASS | PASS | PASS (655 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/png-to-pdf/` | PASS | PASS | PASS | PASS | PASS (555 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/txt-to-pdf/` | PASS | PASS | PASS | PASS | PASS (526 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-image/` | PASS | PASS | PASS | PASS | PASS (542 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-png/` | PASS | PASS | PASS | PASS | PASS (540 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-excel/` | PASS | PASS | PASS | PASS | PASS (562 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/pdf-to-ppt/` | PASS | PASS | PASS | PASS | PASS (565 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/calculator/` | PASS | PASS | PASS | PASS | PASS (566 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/scientific-calculator/` | PASS | PASS | PASS | PASS | PASS (570 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/percentage-calculator/` | PASS | PASS | PASS | PASS | PASS (703 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/age-calculator/` | PASS | PASS | PASS | PASS | PASS (653 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/date-calculator/` | PASS | PASS | PASS | PASS | PASS (641 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/emi-calculator/` | PASS | PASS | PASS | PASS | PASS (707 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/loan-calculator/` | PASS | PASS | PASS | PASS | PASS (688 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/interest-calculator/` | PASS | PASS | PASS | PASS | PASS (649 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/gst-calculator/` | PASS | PASS | PASS | PASS | PASS (763 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/sip-calculator/` | PASS | PASS | PASS | PASS | PASS (706 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/bmi-calculator/` | PASS | PASS | PASS | PASS | PASS (606 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/discount-calculator/` | PASS | PASS | PASS | PASS | PASS (644 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/unit-converter/` | PASS | PASS | PASS | PASS | PASS (668 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/currency-converter/` | PASS | PASS | PASS | PASS | PASS (601 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/time-calculator/` | PASS | PASS | PASS | PASS | PASS (581 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/merge-pdf/` | PASS | PASS | PASS | PASS | PASS (782 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/organize-pdf/` | PASS | PASS | PASS | PASS | PASS (762 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/compress-image/` | PASS | PASS | PASS | PASS | PASS (642 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/resize-image/` | PASS | PASS | PASS | PASS | PASS (595 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/image-converter/` | PASS | PASS | PASS | PASS | PASS (1112 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/gps-map-camera/` | PASS | PASS | PASS | PASS | PASS (1631 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/crop-image/` | PASS | PASS | PASS | PASS | PASS (683 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/image-ocr/` | PASS | PASS | PASS | PASS | PASS (609 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/background-remover/` | PASS | PASS | PASS | PASS | PASS (671 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/password-generator/` | PASS | PASS | PASS | PASS | PASS (704 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/barcode-generator/` | PASS | PASS | PASS | PASS | PASS (698 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/color-extractor/` | PASS | PASS | PASS | PASS | PASS (548 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/zip-manager/` | PASS | PASS | PASS | PASS | PASS (547 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/split-pdf/` | PASS | PASS | PASS | PASS | PASS (728 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/protect-pdf/` | PASS | PASS | PASS | PASS | PASS (492 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/unlock-pdf/` | PASS | PASS | PASS | PASS | PASS (466 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-jpg/` | PASS | PASS | PASS | PASS | PASS (658 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/jpg-to-pdf/` | PASS | PASS | PASS | PASS | PASS (629 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/word-to-pdf/` | PASS | PASS | PASS | PASS | PASS (487 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-word/` | PASS | PASS | PASS | PASS | PASS (454 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/epub-to-pdf/` | PASS | PASS | PASS | PASS | PASS (586 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-epub/` | PASS | PASS | PASS | PASS | PASS (587 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/gif-maker/` | PASS | PASS | PASS | PASS | PASS (729 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/zip-extractor/` | PASS | PASS | PASS | PASS | PASS (544 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/compress-pdf/` | PASS | PASS | PASS | PASS | PASS (748 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/edit-pdf/` | PASS | PASS | PASS | PASS | PASS (1601 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/rotate-pdf/` | PASS | PASS | PASS | PASS | PASS (435 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/watermark-pdf/` | PASS | PASS | PASS | PASS | PASS (482 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pagenumber-pdf/` | PASS | PASS | PASS | PASS | PASS (510 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-metadata/` | PASS | PASS | PASS | PASS | PASS (483 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/excel-to-pdf/` | PASS | PASS | PASS | PASS | PASS (639 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/ppt-to-pdf/` | PASS | PASS | PASS | PASS | PASS (601 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-text/` | PASS | PASS | PASS | PASS | PASS (561 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/html-to-pdf/` | PASS | PASS | PASS | PASS | PASS (686 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-html/` | PASS | PASS | PASS | PASS | PASS (572 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/markdown-to-pdf/` | PASS | PASS | PASS | PASS | PASS (687 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-markdown/` | PASS | PASS | PASS | PASS | PASS (576 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/svg-to-png/` | PASS | PASS | PASS | PASS | PASS (610 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/png-to-svg/` | PASS | PASS | PASS | PASS | PASS (630 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/webp-to-jpg/` | PASS | PASS | PASS | PASS | PASS (613 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/gif-to-png/` | PASS | PASS | PASS | PASS | PASS (648 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/text-to-speech/` | PASS | PASS | PASS | PASS | PASS (685 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/qr-reader/` | PASS | PASS | PASS | PASS | PASS (617 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/barcode-reader/` | PASS | PASS | PASS | PASS | PASS (604 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/base64-tool/` | PASS | PASS | PASS | PASS | PASS (684 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/url-tool/` | PASS | PASS | PASS | PASS | PASS (628 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/json-tool/` | PASS | PASS | PASS | PASS | PASS (682 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/hash-tool/` | PASS | PASS | PASS | PASS | PASS (629 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/case-converter/` | PASS | PASS | PASS | PASS | PASS (589 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/word-counter/` | PASS | PASS | PASS | PASS | PASS (651 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/lorem-ipsum/` | PASS | PASS | PASS | PASS | PASS (632 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/diff-checker/` | PASS | PASS | PASS | PASS | PASS (610 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/sql-formatter/` | PASS | PASS | PASS | PASS | PASS (593 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/xml-to-json/` | PASS | PASS | PASS | PASS | PASS (633 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/uuid-generator/` | PASS | PASS | PASS | PASS | PASS (692 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/user-agent/` | PASS | PASS | PASS | PASS | PASS (605 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/regex-tester/` | PASS | PASS | PASS | PASS | PASS (652 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/markdown-editor/` | PASS | PASS | PASS | PASS | PASS (651 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/css-beautifier/` | PASS | PASS | PASS | PASS | PASS (555 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/js-beautifier/` | PASS | PASS | PASS | PASS | PASS (577 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/html-beautifier/` | PASS | PASS | PASS | PASS | PASS (572 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/cron-generator/` | PASS | PASS | PASS | PASS | PASS (604 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/color-converter/` | PASS | PASS | PASS | PASS | PASS (665 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/exif-viewer/` | PASS | PASS | PASS | PASS | PASS (636 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/timestamp-converter/` | PASS | PASS | PASS | PASS | PASS (659 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/remove-pdf-pages/` | PASS | PASS | PASS | PASS | PASS (473 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/extract-pdf-pages/` | PASS | PASS | PASS | PASS | PASS (474 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/extract-images-pdf/` | PASS | PASS | PASS | PASS | PASS (483 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/crop-pdf/` | PASS | PASS | PASS | PASS | PASS (487 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/header-footer-pdf/` | PASS | PASS | PASS | PASS | PASS (497 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/sign-pdf/` | PASS | PASS | PASS | PASS | PASS (497 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/repair-pdf/` | PASS | PASS | PASS | PASS | PASS (472 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/ocr-pdf/` | PASS | PASS | PASS | PASS | PASS (468 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/image-to-pdf/` | PASS | PASS | PASS | PASS | PASS (662 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/png-to-pdf/` | PASS | PASS | PASS | PASS | PASS (595 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/txt-to-pdf/` | PASS | PASS | PASS | PASS | PASS (566 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-image/` | PASS | PASS | PASS | PASS | PASS (582 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-png/` | PASS | PASS | PASS | PASS | PASS (580 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-excel/` | PASS | PASS | PASS | PASS | PASS (603 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/pdf-to-ppt/` | PASS | PASS | PASS | PASS | PASS (605 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/calculator/` | PASS | PASS | PASS | PASS | PASS (606 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/scientific-calculator/` | PASS | PASS | PASS | PASS | PASS (610 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/percentage-calculator/` | PASS | PASS | PASS | PASS | PASS (743 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/age-calculator/` | PASS | PASS | PASS | PASS | PASS (786 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/date-calculator/` | PASS | PASS | PASS | PASS | PASS (757 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/emi-calculator/` | PASS | PASS | PASS | PASS | PASS (807 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/loan-calculator/` | PASS | PASS | PASS | PASS | PASS (729 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/interest-calculator/` | PASS | PASS | PASS | PASS | PASS (690 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/gst-calculator/` | PASS | PASS | PASS | PASS | PASS (818 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/sip-calculator/` | PASS | PASS | PASS | PASS | PASS (747 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/bmi-calculator/` | PASS | PASS | PASS | PASS | PASS (646 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/discount-calculator/` | PASS | PASS | PASS | PASS | PASS (684 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/unit-converter/` | PASS | PASS | PASS | PASS | PASS (708 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/currency-converter/` | PASS | PASS | PASS | PASS | PASS (641 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/time-calculator/` | PASS | PASS | PASS | PASS | PASS (621 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
 
 ## C. Thin-content findings
 
 - Indexable tool pages audited: 95.
 - Generated pages containing the required static H1, intro, How to Use, FAQ, canonical, and schema signals: 95.
-- Smallest generated tool response: 395 visible words in its main content extraction.
+- Smallest generated tool response: 435 visible words in its main content extraction.
 - No arbitrary word-count threshold was used. No tool was deleted or mass-noindexed; content gaps are fixed at the shared registry/generator layer.
 
 ## D. Duplicate-content findings
@@ -278,7 +278,7 @@ No manual ad unit was added. Existing post-content placement mounts remain hidde
 ## N. Manual pre-deployment checklist
 
 - Inspect the complete Git diff and confirm no unrelated or secret material is staged.
-- Confirm the central registry still reports 95 tools and the sitemap reports 103 URLs.
+- Confirm the central registry still reports 95 tools and the sitemap reports 109 URLs.
 - Review representative generated files in `dist/`, including Background Remover.
 - Confirm production environment variables and configure `GEOAPIFY_API_KEY` in Netlify if GPS search is intended.
 - Re-run lint, tests, build, browser QA, and `git diff --check` from a clean release environment.

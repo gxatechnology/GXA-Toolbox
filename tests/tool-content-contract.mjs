@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadToolContentRegistry, loadToolRegistry } from '../scripts/tool-registry.mjs';
+import { loadToolContentRegistry, loadToolRegistry, loadToolQuality } from '../scripts/tool-registry.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const quality = await loadToolQuality();
 const [tools, content, app, template, inventory] = await Promise.all([
   loadToolRegistry(),
   loadToolContentRegistry(),
@@ -74,7 +75,7 @@ for (const tool of expected) {
   for (const heading of ['About This Tool', 'What You Can Do', 'How to Use', 'Practical Use Cases', 'Privacy and File Processing', 'Supported Inputs and Outputs', 'Limitations and Important Notes', 'Frequently Asked Questions', 'Related Tools']) assert.ok(html.includes(heading), `${tool.id} is missing ${heading}.`);
   assert.match(html, /"@type": "FAQPage"/, `${tool.id} needs visible FAQ schema.`);
   assert.match(html, new RegExp(`<link rel="canonical" href="https://gxatoolbox\\.in/${tool.id}/"\\s*/?>`));
-  assert.match(html, /<meta name="robots" content="index, follow"\s*\/?>/);
+  assert.match(html, new RegExp(`<meta name="robots" content="${quality[tool.id].indexable ? 'index' : 'noindex'}, follow"\\s*\\/?>`), `${tool.id} must follow the central indexing policy.`);
   if (imageExpectedIds.has(tool.id) || tool.category === 'convert') {
     assert.ok(entry.quality, `${tool.id} needs a truthful quality/fidelity statement.`);
     assert.ok(html.includes('Quality and Fidelity'), `${tool.id} is missing Quality and Fidelity.`);
@@ -90,9 +91,9 @@ for (const tool of expected) {
 }
 assert.ok(content['organize-pdf'].features.length >= 3 && content['organize-pdf'].faqs.length >= 3, 'Organize PDF demonstration must be production-quality.');
 assert.equal((inventory.match(/^\| [^|]+ \| `\/[a-z0-9-]+\/` \|/gm) || []).length, tools.length, 'Developer inventory must contain all registered tools exactly once.');
-assert.match(app, /const emi = p \* r \* Math\.pow\(1\+r, n\) \/ \(Math\.pow\(1\+r, n\) - 1\)/, 'EMI implementation must retain the documented amortizing formula.');
+assert.match(app, /const emi = r === 0 \? p \/ n : p \* r \/ -Math\.expm1\(-n \* Math\.log1p\(r\)\)/, 'EMI implementation must retain the stable amortizing formula and zero-interest branch; numeric regression tests verify outputs.');
 assert.match(app, /interest = \(p \* r \* t\) \/ 100/, 'Simple-interest implementation must retain I = PRT/100.');
-assert.match(app, /futureValue = p \* \(\(Math\.pow\(1 \+ r, m\) - 1\) \/ r\) \* \(1 \+ r\)/, 'SIP implementation must retain beginning-of-period monthly contributions.');
+assert.match(app, /futureValue = r === 0 \? totalInvested : p \* \(Math\.expm1\(m \* Math\.log1p\(r\)\) \/ r\) \* \(1 \+ r\)/, 'SIP implementation must retain beginning-of-period contributions and zero-return branch; numeric regression tests verify outputs.');
 assert.match(app, /bmi = w \/ Math\.pow\(h \/ 100, 2\)/, 'Metric BMI implementation must retain kg/m².');
 assert.match(app, /mi: 1609\.344.*in: 0\.0254/, 'Length conversion constants must retain exact mile and inch factors.');
 console.log(`Tool content contract passed: ${tools.length} inventoried tools and ${expected.length} content-rich routes through Parts 2–7.`);

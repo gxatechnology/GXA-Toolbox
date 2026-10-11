@@ -312,7 +312,7 @@
             'Authentication uses a signed session cookie named gxa_toolbox_session. In production it is configured as HttpOnly, Secure, SameSite=Lax, and has a maximum age of seven days. The cookie supports sign-in and account access and can be cleared by signing out or clearing site data.',
             'Local storage is used for theme preferences, favorites, recent tools, recent searches, local history compatibility, and an email address only when the user selects the remember-email option. Local storage remains on the device until the application or user clears it.',
             'Analytics or other tags managed through Google Tag Manager may use cookies or similar technologies depending on the published container configuration and consent settings.',
-            'GXA Toolbox loads the official Google AdSense site code so the domain can be reviewed for advertising and Auto Ads can be enabled after account approval and configuration. When advertising is active, Google and its advertising partners may use cookies, identifiers, or similar technologies to deliver, limit, measure, and protect ads, subject to applicable consent requirements and the active AdSense settings.'
+            'GXA Toolbox can display Adsterra Native advertising in separate editorial placements on eligible public pages. Loading a placement contacts the advertising provider, which may use cookies, identifiers, and request information to deliver and measure ads. Google AdSense configuration is retained for a future switch; its site loader is disabled while Adsterra is selected. Advertising remains subject to applicable consent requirements and the selected provider settings.'
           ]
         },
         {
@@ -327,7 +327,7 @@
           id: 'third-parties',
           title: 'Third-party services',
           paragraphs: [
-            'The current architecture uses Netlify for hosting, functions, and database connectivity; Google Tag Manager, Google AdSense, and Google-hosted fonts; and content-delivery networks such as unpkg, cdnjs, and jsDelivr for selected libraries, workers, fonts, language data, or tool dependencies.',
+            'The current architecture uses Netlify for hosting, functions, and database connectivity; Google Tag Manager and Google-hosted fonts; Adsterra when its public-page advertising is enabled, or Google AdSense when selected instead; and content-delivery networks such as unpkg, cdnjs, and jsDelivr for selected libraries, workers, fonts, language data, or tool dependencies.',
             'These providers may receive network and device information needed to deliver their resources. Their independent processing is governed by their own terms and privacy notices.',
             'GPS Map Camera location search and reverse geocoding send only the entered place query or selected coordinates through a same-origin function to the configured Geoapify service. The photo, logo, EXIF data, and professional stamp fields are not included in that geocoding request. Current location, map selection, existing GPS, and manual coordinates remain available when the optional geocoder is not configured.'
           ]
@@ -339,7 +339,7 @@
             'Provide tools, account access, downloads, preferences, support, and requested service features.',
             'Authenticate users, maintain sessions, display account history, and protect the service from misuse.',
             'Measure usage and diagnose reliability or performance where analytics or logs are enabled.',
-            'Prepare, deliver, measure, secure, and limit advertising when AdSense is approved and advertising is enabled.',
+            'Prepare, deliver, measure, secure, and limit advertising through the selected network when advertising is enabled.',
             'Respond to legal requests, enforce terms, and protect users, GXA Technologies, and the public where required.'
           ]
         },
@@ -609,5 +609,5 @@
     }
   ];
 
-  global.GXA_CONTENT_PAGES = Object.freeze(pages.map(page => Object.freeze(page)));
+  global.GXA_CONTENT_PAGES = Object.freeze([...pages, ...(global.GXA_EDITORIAL_PAGES || [])].map(page => Object.freeze(page)));
 })(typeof window !== 'undefined' ? window : globalThis);

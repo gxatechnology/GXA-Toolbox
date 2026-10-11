@@ -5,6 +5,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createQaServer } from './browser-qa-server.mjs';
 import { createImageConverterFixtures } from './fixtures/image-converter-fixtures.mjs';
+import { cachePublicDependencies } from './tool-functionality-phase4a/cache-public-dependencies.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.GXA_PLAYWRIGHT_MODULE || 'playwright');
@@ -17,6 +18,7 @@ const fixtures = await createImageConverterFixtures();
 const browser = await chromium.launch({ headless: true, ...(process.env.GXA_BROWSER_EXECUTABLE ? { executablePath: process.env.GXA_BROWSER_EXECUTABLE } : {}) });
 const context = await browser.newContext({ viewport: { width: 1366, height: 900 }, acceptDownloads: true, hasTouch: true });
 await context.route(/googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net/, route => route.abort());
+await cachePublicDependencies(context);
 const page = await context.newPage();
 page.setDefaultTimeout(20000);
 const pageErrors = [];
@@ -28,9 +30,8 @@ async function open() {
 }
 
 async function upload(name, fixture = fixtures[name]) {
-  const chooser = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Choose Image', exact: true }).click();
-  await (await chooser).setFiles({ name, mimeType: fixture.mime, buffer: fixture.bytes });
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Select image', exact: true }).click()]);
+  await chooser.setFiles({ name, mimeType: fixture.mime, buffer: fixture.bytes });
   await page.waitForFunction(() => !document.querySelector('.image-converter__format')?.disabled || document.querySelector('.image-converter__status')?.classList.contains('is-error'));
 }
 
@@ -80,7 +81,7 @@ try {
   await open(); await upload('unsupported.heic'); assert.match(await page.locator('.image-converter__status').innerText(), /no verified decoder/i);
   await open(); await upload('unsafe.svg', { mime: 'image/svg+xml', bytes: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><script>alert(1)</script><rect width="20" height="20"/></svg>') }); assert.match(await page.locator('.image-converter__status').innerText(), /not allowed/i);
 
-  for (const width of [320, 360, 375, 390, 412, 430, 768]) { await page.setViewportSize({ width, height: width === 320 ? 568 : 900 }); await open(); const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); assert.ok(overflow <= 1, `${width}px viewport overflows by ${overflow}px.`); const box = await page.getByRole('button', { name: 'Choose Image', exact: true }).boundingBox(); assert.ok(box && box.width >= 44 && box.height >= 44); await page.screenshot({ path: resolve(evidence, `image-converter-${width}.png`), fullPage: true }); }
+  for (const width of [320, 360, 375, 390, 412, 430, 768]) { await page.setViewportSize({ width, height: width === 320 ? 568 : 900 }); await open(); const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); assert.ok(overflow <= 1, `${width}px viewport overflows by ${overflow}px.`); const box = await page.getByRole('button', { name: 'Select image', exact: true }).boundingBox(); assert.ok(box && box.width >= 44 && box.height >= 44); await page.screenshot({ path: resolve(evidence, `image-converter-${width}.png`), fullPage: true }); }
   for (const [width, height] of [[1024, 768], [1280, 720], [1366, 768], [1440, 900], [1536, 864], [1920, 1080]]) { await page.setViewportSize({ width, height }); await open(); assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), `${width} desktop overflow.`); }
   assert.deepEqual(pageErrors, []);
   console.log('Image Converter browser QA passed: 16 real conversions with signature validation and decoder reopen, AVIF, ICO/CUR, alpha flattening controls, animation consent, mismatch detection, HEIC rejection, SVG security, 7 mobile widths, and 6 desktop widths.');

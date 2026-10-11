@@ -7,6 +7,7 @@ import {
   ADSENSE_SELLER_LINE,
   ADSENSE_TEMPLATE_TOKEN
 } from '../config/adsense-config.mjs';
+import { AD_NETWORK } from '../config/ad-network.mjs';
 import {
   PRODUCTION_ORIGIN,
   canonicalContentUrl,
@@ -123,6 +124,14 @@ function assertGoogleTagManager(html, route) {
 }
 
 function assertAdSenseLoader(html, route) {
+  if (AD_NETWORK !== 'adsense') {
+    assert.doesNotMatch(html, /pagead2\.googlesyndication\.com/, `${route}: inactive AdSense must not load.`);
+    for (const asset of ['ad-config.js', 'ad-network.js', 'ad-network.css']) {
+      assert.equal(countOccurrences(html, `/assets/${asset}`), AD_NETWORK === 'adsterra' ? 1 : 0, `${route}: selected network asset ${asset}`);
+    }
+    assert.doesNotMatch(html, /data-ad-slot\s*=|adsbygoogle\s*\.\s*push\s*\(/i);
+    return;
+  }
   const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1];
   assert.notEqual(head, undefined, `${route} has no head element.`);
   const loaderScripts = (head.match(/<script\b[^>]*><\/script>/gi) || [])
@@ -171,8 +180,11 @@ const [tools, blockedIds, contentPages, netlify, robots, manifestSource, rootAds
 assert.equal(ADSENSE_PUBLISHER_ID, 'ca-pub-6705105270847964', 'Canonical AdSense publisher configuration changed unexpectedly.');
 assert.equal(rootAdsText.trim(), ADSENSE_SELLER_LINE, 'Root ads.txt must match the canonical seller authorization.');
 assert.ok(tools.length >= 90, 'SEO generation unexpectedly lost registered tools.');
-assert.equal(contentPages.length, 7, 'Help plus all six company/legal pages must remain registered.');
-assert.deepEqual([...blockedIds], [], 'Every registered public tool is indexable once no blockers remain.');
+assert.equal(contentPages.filter(page => !page.kind).length, 7, 'Help plus all six company/legal pages must remain registered.');
+assert.equal(contentPages.filter(page => page.kind === 'guide').length, 13, 'Phase 4 practical guide registry changed.');
+assert.equal(contentPages.filter(page => page.kind === 'category').length, 5, 'All five substantive category routes must remain registered.');
+assert.equal(contentPages.length, 27, 'Seven established and twenty editorial/category routes must remain registered.');
+assert.deepEqual([...blockedIds].sort(), ['qr-reader', 'barcode-reader', 'base64-tool', 'url-tool', 'case-converter', 'cron-generator', 'css-beautifier', 'js-beautifier', 'html-beautifier', 'sql-formatter', 'xml-to-json', 'user-agent', 'html-to-pdf', 'uuid-generator'].sort(), 'The Phase 2 publication review must exclude the 14 audited routes without deleting them.');
 assert.match(netlify, /publish\s*=\s*["']dist["']/, 'Netlify must publish the generated dist directory.');
 assert.doesNotMatch(netlify, /from\s*=\s*["']\/\*["']/, 'Netlify must not restore a broad SPA catch-all.');
 assertGoogleTagManager(rootTemplate, 'root HTML template');
@@ -201,7 +213,7 @@ for (const [href, pageId, label] of expectedProductLinks) {
   assert.ok(footerSource.includes(`href="${href}"`), `Products footer link changed or disappeared: ${label}.`);
   assert.ok(footerSource.includes(`handleRouteLink(event, '${pageId}')`), `Products footer route handler changed: ${label}.`);
 }
-for (const page of contentPages) {
+for (const page of contentPages.filter(page => !page.kind)) {
   assert.ok(footerSource.includes(`href="/${page.id}/"`), `Footer is missing /${page.id}/.`);
   assert.ok(footerSource.includes(`handleRouteLink(event, 'content-${page.id}')`), `Footer SPA route is missing for ${page.id}.`);
 }
@@ -211,7 +223,8 @@ assert.ok(appSource.includes("get('support') === '1'"), 'Cross-route Contact Sup
 for (const [href, , label] of expectedProductLinks) {
   assert.ok(backgroundFooterSource.includes(`['${href}', '${label}']`), `Background Remover Products footer changed: ${label}.`);
 }
-for (const page of contentPages) assert.ok(backgroundFooterSource.includes(`['/${page.id}/', '${page.name}']`), `Background Remover footer is missing ${page.id}.`);
+for (const page of contentPages.filter(page => !page.kind)) assert.ok(backgroundFooterSource.includes(`['/${page.id}/', '${page.name}']`), `Background Remover footer is missing ${page.id}.`);
+for (const id of ['guides', 'editorial-standards']) assert.ok(footerSource.includes(`href="/${id}/"`), `Editorial hub navigation missing: ${id}`);
 assert.ok(backgroundFooterSource.includes("['/?support=1', 'Contact Support']"), 'Background Remover Contact Support fallback is missing.');
 
 assert.match(robots, /^User-agent:\s*\*/mi);
@@ -319,4 +332,4 @@ for (const file of files) {
   assert.ok(!forbiddenNames.has(path.toLowerCase()), `Repository source leaked into dist: ${path}`);
 }
 
-console.log(`SEO contract passed: ${tools.length} tools, ${contentPages.length} company/legal pages, ${sitemapUrls.length} sitemap URLs, ${generatedPublicPageCount} GTM-verified public pages, ${adSenseVerifiedPublicPageCount} AdSense-verified indexable pages, ads.txt, unique route metadata/JSON-LD, footer links, robots, manifest, and artifact isolation.`);
+console.log(`SEO contract passed: ${tools.length} tools, ${contentPages.length} company/legal pages, ${sitemapUrls.length} sitemap URLs, ${generatedPublicPageCount} GTM-verified public pages, ${adSenseVerifiedPublicPageCount} ${AD_NETWORK}-configuration-verified indexable pages, ads.txt, unique route metadata/JSON-LD, footer links, robots, manifest, and artifact isolation.`);

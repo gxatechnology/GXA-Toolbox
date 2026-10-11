@@ -1,0 +1,10 @@
+/* Dedicated editorial placements only; no fixed/sticky positions or tool overlays. */
+.gxa-ad-network[hidden] { display: none !important; }
+.gxa-ad-network:not([hidden]) { display: block; box-sizing: border-box; width: 100%; max-width: 970px; min-width: 0; min-height: 0; margin: 40px auto; padding: 16px 0; border-block: 1px solid var(--color-border, #dbe2ea); background: transparent; contain: layout; overflow: visible; }
+.gxa-ad-network[data-ad-state="loading"] { margin-block: 0; padding: 0; border: 0; }
+.gxa-ad-network[data-ad-state="loading"] > .tool-ad-label,
+.gxa-ad-network[data-ad-state="loading"] > .gxa-tool-ad-label { display: none; }
+.gxa-ad-network [data-ad-unit-mount] { width: 100%; min-width: 0; min-height: 0; }
+.gxa-ad-network .tool-ad-label, .gxa-ad-network .gxa-tool-ad-label { display: block; margin-bottom: 12px; font-size: 11px; text-align: center; color: var(--color-text-secondary, #64748b); }
+.gxa-ad-sentinel { height: 1px; margin: 0; padding: 0; pointer-events: none; }
+@media (max-width: 767px) { .gxa-ad-network:not([hidden]) { margin-block: 28px; } .gxa-ad-network[data-ad-state="loading"] { margin-block: 0; } }

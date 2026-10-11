@@ -1,4 +1,5 @@
 import { assertSameOrigin, jsonResponse, methodNotAllowed } from './_auth.mjs';
+import geoModel from '../../public_html/assets/gps-geo-model.js';
 
 const MAX_QUERY_LENGTH = 160;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -6,7 +7,7 @@ const cache = new Map();
 
 function coordinate(value, minimum, maximum, label) {
   const number = Number(value);
-  if (!Number.isFinite(number) || number < minimum || number > maximum) {
+  if (value === null || String(value).trim() === '' || !Number.isFinite(number) || number < minimum || number > maximum) {
     const error = new Error(`${label} is outside its valid range.`);
     error.status = 400;
     throw error;
@@ -19,19 +20,16 @@ function clean(value, maximum = 240) {
 }
 
 export function normalizeGeoapifyResult(item) {
+  if ([item?.lat, item?.lon].some(value => value === null || value === undefined || String(value).trim() === '')) return null;
   const latitude = Number(item?.lat);
   const longitude = Number(item?.lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+  const normalized = geoModel.normalizeGeocodeResult(item);
   return {
     latitude,
     longitude,
-    place: clean(item.name || item.address_line1 || item.city || item.town || item.village, 120),
-    address: clean(item.formatted || [item.address_line1, item.address_line2].filter(Boolean).join(', ')),
-    locality: clean(item.suburb || item.district || item.quarter || item.neighbourhood || item.county, 120),
-    city: clean(item.city || item.town || item.village || item.municipality, 120),
-    state: clean(item.state, 120),
-    postal: clean(item.postcode, 30),
-    country: clean(item.country, 120)
+    ...normalized,
+    address: geoModel.buildReadableAddress(normalized)
   };
 }
 

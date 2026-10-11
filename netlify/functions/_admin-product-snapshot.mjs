@@ -278,7 +278,7 @@ export const ADMIN_PRODUCT_SNAPSHOT = Object.freeze({
     },
     {
       "id": "user-agent",
-      "name": "User Agent Parser",
+      "name": "Browser Information",
       "category": "utility"
     },
     {
@@ -478,7 +478,7 @@ export const ADMIN_PRODUCT_SNAPSHOT = Object.freeze({
     }
   ],
   "health": {
-    "auditedPublicPages": 103,
+    "auditedPublicPages": 123,
     "canonicalIssues": 0,
     "missingTitles": 0,
     "missingDescriptions": 0,

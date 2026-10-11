@@ -172,6 +172,7 @@ const resetNodes = {
   '#pdf-edit-info': { textContent: 'PRIVATE document details' }
 };
 const resetContext = runFunction('action', {
+  thumbnailObserver: null, thumbnailTask: null, thumbnailRevision: 0,
   busy: false, loadRevision: 1, revision: 1, renderTask: { cancel() {} },
   pdf: { destroy() {} }, source: new Uint8Array([1, 2]), info: { fields: [] },
   data: { fieldValues: { Answer: 'PRIVATE' }, overlays: [{ text: 'PRIVATE' }] },

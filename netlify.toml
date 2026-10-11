@@ -51,6 +51,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/location-map"
+  to = "/.netlify/functions/location-map"
+  status = 200
+
+[[redirects]]
   from = "/api/contact.php"
   to = "/.netlify/functions/contact-support"
   status = 200

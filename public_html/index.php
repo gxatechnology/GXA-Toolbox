@@ -112,9 +112,13 @@ try {
   <div id="modal-container" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-hidden="true"></div>
 
   <!-- Shared file validation, preview, and processing workspace -->
+  <script defer src="/assets/editorial-pages.js"></script>
   <script defer src="/assets/content-pages.js"></script>
   <script defer src="/assets/image-annotations.js"></script>
   <script defer src="/assets/phase-one-studios.js"></script>
+  <script defer src="/assets/tool-quality.js"></script>
+  <script defer src="/assets/tool-ux.js"></script>
+  <script defer src="/assets/tool-safety.js"></script>
   <script defer src="/assets/tool-workspace.js"></script>
 
   <!-- Core App Controller Script (Routed to Assets) -->

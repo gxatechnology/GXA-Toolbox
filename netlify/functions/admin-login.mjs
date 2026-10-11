@@ -6,6 +6,7 @@ import {
   verifyAdminCredentials
 } from './_admin-auth.mjs';
 import { jsonResponse, methodNotAllowed } from './_auth.mjs';
+import { recordAdminLogin } from './_admin-account.mjs';
 
 export default async function handler(request) {
   if (request.method !== 'POST') return methodNotAllowed(['POST']);
@@ -15,6 +16,7 @@ export default async function handler(request) {
     if (!verifyAdminCredentials(body.email, body.password)) {
       return jsonResponse({ success: false, message: 'Invalid email or password.' }, 401);
     }
+    await recordAdminLogin();
     return jsonResponse(
       { success: true, message: 'Administrator signed in.' },
       200,
