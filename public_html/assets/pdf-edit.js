@@ -5,7 +5,7 @@
   const fonts = Object.fromEntries(['Helvetica', 'TimesRoman', 'Courier'].flatMap(family => ['', 'Bold', 'Italic', 'BoldItalic'].map(style => [family + style, family === 'Helvetica' ? 'Arial, sans-serif' : family === 'TimesRoman' ? '"Times New Roman", serif' : '"Courier New", monospace'])));
   const maxPdfBytes = 25 * 1024 * 1024;
   const escape = text => String(text ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-  const cloneState = data => ({ fieldValues: structuredClone(data.fieldValues), overlays: data.overlays.map(item => ({ ...item })), pagePlan: data.pagePlan?.map(item => ({ ...item })) });
+  const cloneState = data => ({ fieldValues: structuredClone(data.fieldValues), overlays: data.overlays.map(item => ({ ...item })), nativeEdits: (data.nativeEdits || []).map(item => ({ ...item })), pagePlan: data.pagePlan?.map(item => ({ ...item })) });
 
   function dispose() {
     active?.destroy();
@@ -44,6 +44,7 @@
     let thumbnailObserver = null;
     let thumbnailRevision = 0;
     let thumbnailTask = null;
+    let textEditor = null;
     const abort = new AbortController();
     const on = (el, event, fn) => el.addEventListener(event, fn, { signal: abort.signal });
     root.innerHTML = `
@@ -51,10 +52,11 @@
         <div class="pdf-edit-upload"><label for="pdf-edit-file">Choose a PDF</label><input id="pdf-edit-file" type="file" accept=".pdf,application/pdf"><p>One PDF, up to 25 MB. Edits stay in memory and are cleared when you leave or reset.</p></div>
         <p class="pdf-edit-status" role="status" aria-live="polite" id="pdf-edit-status">Choose a PDF to begin.</p>
         <div class="pdf-edit-document" hidden>
-          <p class="pdf-edit-notice">Existing static PDF text is part of the page content and may not be directly editable. You can fill detected form fields or add text and other elements on top of the original page. Rewriting a PDF invalidates existing digital signatures.</p>
+          <p class="pdf-edit-notice">Edit Text can rewrite supported selectable text or offer explicit visual replacement. Scanned pages can use English OCR. Visual covers are not secure redaction; underlying content remains. Rewriting a PDF invalidates existing digital signatures.</p>
           <div class="pdf-edit-file-info"><strong id="pdf-edit-filename"></strong><span id="pdf-edit-info"></span><button type="button" data-action="reset">Reset document</button></div>
           <div class="pdf-edit-toolbar" role="toolbar" aria-label="PDF editing tools">
             <button type="button" data-tool="select" aria-pressed="true">Select / move</button>
+            <button type="button" data-tool="edit-text" aria-pressed="false">Edit Text</button>
             <button type="button" data-tool="text" aria-pressed="false">Add Text</button>
             <button type="button" data-tool="check" aria-pressed="false">Check</button>
             <button type="button" data-tool="cross" aria-pressed="false">Cross</button>
@@ -160,9 +162,10 @@
     function activateTool(next) {
       tool = next;
       root.querySelectorAll('[data-tool]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tool === next)));
-      $('.pdf-edit-placement').hidden = next === 'select';
-      stage.classList.toggle('is-placing', next !== 'select');
-      if (next !== 'select') status('Tap the page to place the element, or use Add at page center.');
+      $('.pdf-edit-placement').hidden = ['select', 'edit-text'].includes(next);
+      stage.classList.toggle('is-placing', !['select', 'edit-text'].includes(next));
+      if (next === 'edit-text') textEditor?.activate(); else textEditor?.deactivate();
+      if (!['select', 'edit-text'].includes(next)) status('Tap the page to place the element, or use Add at page center.');
     }
     async function loadFile(file) {
       if (!file || busy) return;
@@ -183,6 +186,7 @@
         renderTask?.cancel();
         pdf?.destroy();
         clearOutput();
+        textEditor?.reset();
         pdf = loaded; source = bytes; sourceName = file.name; info = detected;
         pendingImage = null; editingInput = null;
         signatureContext.clearRect(0, 0, 600, 200); signatureHasInk = false;
@@ -198,7 +202,7 @@
         renderPages(); renderProperties(); renderFields(); historyState(); activateTool('select');
         await renderPage();
         const supportedCount = info.fields.filter(field => field.type !== 'unsupported' && !field.readOnly).length;
-        status(`${supportedCount ? `Fillable fields detected: ${supportedCount}. Fill them on the page or in the labeled controls.` : 'No supported fillable fields detected. Add text or marks over the original page.'}${info.warnings?.length ? ` ${info.warnings.join(' ')}` : ''}`);
+        status(`${supportedCount ? `Fillable fields detected: ${supportedCount}. Fill them on the page or in the labeled controls.` : 'No supported fillable fields detected. Use Edit Text to select existing text or recognize a scan, or add an overlay.'}${info.warnings?.length ? ` ${info.warnings.join(' ')}` : ''}`);
       } catch (error) {
         if (alive && token === loadRevision) status(error?.name === 'PasswordException' ? 'This PDF is password protected. Use Unlock PDF first, then open the unlocked copy here.' : error.message || 'The PDF could not be opened.', true);
       } finally {
@@ -244,7 +248,7 @@
     }
     async function rebuildPages(nextData) {
       const token = loadRevision;
-      const bytes = await core.exportPdf(source, { pagePlan: nextData.pagePlan }, window.PDFLib);
+      const bytes = await core.exportPdf(source, { pagePlan: nextData.pagePlan, nativeEdits: nextData.nativeEdits }, window.PDFLib);
       const detected = await core.inspect(bytes, window.PDFLib);
       const loaded = await window.pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
       if (!alive || token !== loadRevision) { await loaded.destroy(); return false; }
@@ -274,6 +278,12 @@
         if (newIndex < 0) return [];
         const moved = { ...item, pageIndex: newIndex };
         return name === 'page-duplicate' && item.pageIndex === pageIndex ? [moved, { ...item, pageIndex: target, id: `overlay-${crypto.randomUUID()}` }] : [moved];
+      });
+      next.nativeEdits = (data.nativeEdits || []).flatMap(item => {
+        const newIndex = next.pagePlan.findIndex(entry => entry.id === oldPlan[item.pageIndex].id);
+        if (newIndex < 0) return [];
+        const moved = { ...item, pageIndex: newIndex };
+        return name === 'page-duplicate' && item.pageIndex === pageIndex ? [moved, { ...item, pageIndex: target }] : [moved];
       });
       if (next.overlays.length > 300) { status('Duplicating this page would exceed the 300-overlay limit.', true); return; }
       setBusy(true, 'Updating document pages…');
@@ -315,6 +325,7 @@
       $('.pdf-edit-page-management').hidden = preview;
       if (preview) $('.pdf-edit-placement').hidden = true;
       renderLayers(); renderFields();
+      textEditor?.refresh();
     }
     function makeFieldControl(field, widget, onPage = false) {
       const value = data.fieldValues[field.name] ?? field.value;
@@ -361,6 +372,11 @@
       }
       for (const overlay of data.overlays.filter(item => item.pageIndex === pageIndex)) {
         if (!alive || token !== revision || layerToken !== layerRevision) return;
+        if (overlay.mask) {
+          const mask = document.createElement('div'); mask.className = 'pdf-text-mask';
+          Object.assign(mask.style, { left: `${overlay.mask.x * scale}px`, top: `${overlay.mask.y * scale}px`, width: `${overlay.mask.width * scale}px`, height: `${overlay.mask.height * scale}px`, background: overlay.mask.color });
+          layer.append(mask);
+        }
         const box = document.createElement('div');
         box.className = `pdf-edit-object${overlay.id === selectedId ? ' is-selected' : ''}`;
         box.dataset.overlay = overlay.id;
@@ -426,7 +442,8 @@
       const panel = $('.pdf-edit-selection');
       const selected = data.overlays.find(item => item.id === selectedId);
       if (!selected) { panel.innerHTML = '<h2>Selected element</h2><p>Select an added element to edit it. Arrow keys move a focused element by one point; Shift moves by ten.</p>'; return; }
-      panel.innerHTML = `<h2>Selected ${escape(selected.type)}</h2>
+      panel.innerHTML = `<h2>Selected ${selected.mask ? 'visual replacement' : escape(selected.type)}</h2>
+        ${selected.mask ? '<p>Visual replacement, not secure redaction. The original content remains underneath. The mask stays on its original region when you move the replacement.</p>' : ''}
         ${selected.type === 'text' ? `<label>Text<textarea data-property="text" maxlength="5000" rows="3" placeholder="Enter your text">${escape(selected.text)}</textarea></label><label>Font<select data-property="font">${Object.keys(fonts).map(font => `<option value="${font}"${font === selected.font ? ' selected' : ''}>${font.replace('Roman',' ').replace('Italic',' Italic')}</option>`).join('')}</select></label><label>Font size (pt)<input type="number" data-property="fontSize" min="6" max="144" value="${selected.fontSize}"></label><label>Alignment<select data-property="align">${['left','center','right'].map(align => `<option${align === selected.align ? ' selected' : ''}>${align}</option>`).join('')}</select></label>` : ''}
         ${selected.type !== 'image' ? `<label>Color<input type="color" data-property="color" value="${selected.color}"></label>` : ''}
         <details class="pdf-edit-advanced"><summary>Advanced appearance</summary><div>
@@ -458,7 +475,7 @@
       overlay.y = Math.max(0, Math.min(page.visualHeight-overlay.height, overlay.y));
     }
     function place(x, y) {
-      if (!info || busy || preview || tool === 'select') return;
+      if (!info || busy || preview || ['select','edit-text'].includes(tool)) return;
       if (data.overlays.length >= 300) { status('This editor supports up to 300 added elements.', true); return; }
       const page = info.pages[pageIndex];
       const textTool = ['text','date','signature'].includes(tool);
@@ -553,7 +570,7 @@
         const next = from.at(-1);
         setBusy(true, 'Restoring edit state…');
         try {
-          if (JSON.stringify(next.pagePlan) !== JSON.stringify(data.pagePlan) && !await rebuildPages(next)) return;
+          if ((JSON.stringify(next.pagePlan) !== JSON.stringify(data.pagePlan) || JSON.stringify(next.nativeEdits) !== JSON.stringify(data.nativeEdits)) && !await rebuildPages(next)) return;
           clearOutput(); to.push(cloneState(data)); data = from.pop(); selectedId = null;
           renderPages(); changed(name === 'undo' ? 'Last edit undone.' : 'Edit restored.'); renderFields(); await renderPage();
         } finally { if (alive) { setBusy(false); historyState(); } }
@@ -576,8 +593,8 @@
       if (name==='replace-image' && !preview) { replaceImageInput.dataset.overlay = selectedId || ''; replaceImageInput.click(); }
       if (name==='apply-image-edit' || name==='reset-image-edit') await editImage(name==='reset-image-edit');
       if (name==='clear-page' && data.overlays.some(item=>item.pageIndex===pageIndex) && window.confirm('Clear all added overlays on this page? Original artwork and form values will remain.')) { remember(); data.overlays=data.overlays.filter(item=>item.pageIndex!==pageIndex); selectedId=null; changed('Page overlays cleared.'); }
-      if (name==='reset' && window.confirm('Discard this document and all unsaved edits?')) { thumbnailObserver?.disconnect(); thumbnailTask?.cancel(); ++thumbnailRevision; ++loadRevision; ++revision; renderTask?.cancel(); pdf?.destroy(); pdf=null; clearOutput(); source=null; info=null; data={fieldValues:{},overlays:[]}; undo=[]; redo=[]; pendingImage=null; editingInput=null; sourceName=''; selectedId=null; signatureContext.clearRect(0,0,600,200);signatureHasInk=false;canvas.width=1;canvas.height=1;layer.replaceChildren();renderProperties();$('.pdf-edit-field-list').replaceChildren();$('.pdf-edit-pages').replaceChildren();$('#pdf-edit-filename').textContent='';$('#pdf-edit-info').textContent='';$('.pdf-edit-document').hidden=true;status('Choose a PDF to begin.');fileInput.focus(); }
-      if (name==='preview' && await prepareOutput()) { preview=true; $('[data-action="back"]').hidden=false; await renderPage(); global.GxaWorkspace.scrollToResult(stage); }
+      if (name==='reset' && window.confirm('Discard this document and all unsaved edits?')) { textEditor?.reset(); thumbnailObserver?.disconnect(); thumbnailTask?.cancel(); ++thumbnailRevision; ++loadRevision; ++revision; renderTask?.cancel(); pdf?.destroy(); pdf=null; clearOutput(); source=null; info=null; data={fieldValues:{},overlays:[]}; undo=[]; redo=[]; pendingImage=null; editingInput=null; sourceName=''; selectedId=null; signatureContext.clearRect(0,0,600,200);signatureHasInk=false;canvas.width=1;canvas.height=1;layer.replaceChildren();renderProperties();$('.pdf-edit-field-list').replaceChildren();$('.pdf-edit-pages').replaceChildren();$('#pdf-edit-filename').textContent='';$('#pdf-edit-info').textContent='';$('.pdf-edit-document').hidden=true;status('Choose a PDF to begin.');fileInput.focus(); }
+      if (name==='preview' && await prepareOutput()) { preview=true; $('[data-action="back"]').hidden=false; await renderPage(); window.GxaWorkspace.scrollToResult(stage); }
       if (name==='back') { preview=false; $('[data-action="back"]').hidden=true; await renderPage(); }
       if (name==='download' && await prepareOutput()) { const link=document.createElement('a');link.href=previewUrl;link.download=`edited_${window.GxaWorkspace.safeFileName(sourceName)}`;document.body.append(link);link.click();link.remove();event('tool_download','downloaded'); }
       if (name==='draw-signature') { signatureContext.clearRect(0,0,600,200);signatureHasInk=false;signatureDialog.showModal(); }
@@ -669,8 +686,26 @@
     on(signatureCanvas,'pointerdown',event=>{event.preventDefault();drawing=true;signatureCanvas.setPointerCapture(event.pointerId);const rect=signatureCanvas.getBoundingClientRect();signatureContext.beginPath();signatureContext.moveTo((event.clientX-rect.left)*600/rect.width,(event.clientY-rect.top)*200/rect.height);});
     on(signatureCanvas,'pointermove',event=>{if(!drawing)return;const rect=signatureCanvas.getBoundingClientRect();signatureContext.lineWidth=3;signatureContext.lineCap='round';signatureContext.lineJoin='round';signatureContext.strokeStyle='#172554';signatureContext.lineTo((event.clientX-rect.left)*600/rect.width,(event.clientY-rect.top)*200/rect.height);signatureContext.stroke();signatureHasInk=true;});
     on(signatureCanvas,'pointerup',()=>{drawing=false;});on(signatureCanvas,'pointercancel',()=>{drawing=false;});
+    textEditor = window.GxaPdfTextEditor?.mount(root, {
+      state: () => ({ pdf, source, info, data, pageIndex, scale, preview, busy }), status,
+      async native(edits) {
+        const next = cloneState(data); next.nativeEdits = edits;
+        setBusy(true, 'Applying native text replacement…');
+        try {
+          if (!await rebuildPages(next)) return;
+          remember(); data = next; selectedId = null;
+          renderPages(); changed('Native text updated. Preview and reopen the export to inspect layout.'); await renderPage();
+        } finally { if (alive) { setBusy(false); historyState(); } }
+      },
+      visual(overlay) {
+        if (data.overlays.length >= 300) throw new Error('Use up to 300 added elements.');
+        remember(); data.overlays.push(overlay); selectedId = overlay.id;
+        activateTool('select'); changed('Visual replacement added. Adjust its text and appearance in Selected element. Original content remains underneath.');
+        $('[data-property="text"]')?.focus({ preventScroll:true });
+      }
+    });
     const observer=new ResizeObserver(()=>{window.clearTimeout(resizeTimer);resizeTimer=window.setTimeout(()=>{if(info&&zoomMode!=='manual')renderPage();},100);});observer.observe(viewport);
-    active={destroy(){alive=false;++loadRevision;++revision;++thumbnailRevision;thumbnailObserver?.disconnect();thumbnailTask?.cancel();abort.abort();observer.disconnect();window.clearTimeout(resizeTimer);renderTask?.cancel();pdf?.destroy();clearOutput();signatureDialog.close();source=null;data={fieldValues:{},overlays:[]};undo=[];redo=[];pendingImage=null;root.replaceChildren();}};
+    active={destroy(){textEditor?.destroy();alive=false;++loadRevision;++revision;++thumbnailRevision;thumbnailObserver?.disconnect();thumbnailTask?.cancel();abort.abort();observer.disconnect();window.clearTimeout(resizeTimer);renderTask?.cancel();pdf?.destroy();clearOutput();signatureDialog.close();source=null;data={fieldValues:{},overlays:[]};undo=[];redo=[];pendingImage=null;root.replaceChildren();}};
   }
   window.GxaPdfEditor=Object.freeze({mount,dispose});
 })();

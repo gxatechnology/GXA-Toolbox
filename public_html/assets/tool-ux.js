@@ -7,6 +7,13 @@
   function sync() {
     const page = document.querySelector('#main-content .tool-container');
     if (!page || page.hasAttribute('data-static-route-shell')) return;
+    const pdfEditor = page.querySelector('.pdf-edit');
+    if (pdfEditor) {
+      // Presentation only: the editor still owns loading, reset and document state.
+      const state = pdfEditor.querySelector('.pdf-edit-document')?.hidden ? 'upload' : 'ready';
+      if (page.dataset.disclosure !== state) page.dataset.disclosure = state;
+      return;
+    }
     const crop = page.querySelector('#crop-editor-workspace');
     const converter = page.querySelector('.image-converter__grid');
     const shared = page.querySelector('.tool-workspace[data-tool-id]');

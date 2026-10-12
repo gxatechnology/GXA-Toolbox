@@ -1,7 +1,12 @@
 /* Dedicated editorial placements only; no fixed/sticky positions or tool overlays. */
 .gxa-ad-network[hidden] { display: none !important; }
 .gxa-ad-network:not([hidden]) { display: block; box-sizing: border-box; width: 100%; max-width: 970px; min-width: 0; min-height: 0; margin: 40px auto; padding: 16px 0; border-block: 1px solid var(--color-border, #dbe2ea); background: transparent; contain: layout; overflow: visible; }
-.gxa-ad-network[data-ad-state="loading"] { margin-block: 0; padding: 0; border: 0; }
+.gxa-ad-layout-shell { position: relative; }
+.gxa-ad-network[data-ad-state="loading"] { position: absolute; visibility: hidden; height: 0; margin-block: 0; padding: 0; border: 0; pointer-events: none; }
+.gxa-ad-banner-frame { display: block; margin: 0 auto; border: 0; max-width: 100%; }
+.gxa-ad-network.gxa-ad-rail { position: absolute; margin: 0; padding: 12px 0; }
+@media (max-width: 1279px) { .gxa-ad-network.gxa-ad-rail { display: none !important; } }
+@media (max-width: 1599px) { .gxa-ad-network[data-ad-layout-zone="left"] { display: none !important; } }
 .gxa-ad-network[data-ad-state="loading"] > .tool-ad-label,
 .gxa-ad-network[data-ad-state="loading"] > .gxa-tool-ad-label { display: none; }
 .gxa-ad-network [data-ad-unit-mount] { width: 100%; min-width: 0; min-height: 0; }

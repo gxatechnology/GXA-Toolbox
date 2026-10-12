@@ -44,6 +44,15 @@
 .pdf-edit-page { position: relative; margin-inline: auto; flex: none; background: #fff; box-shadow: 0 2px 8px #0002; scroll-margin-top: 110px; }
 .pdf-edit-page > canvas { display: block; width: 100%; height: 100%; }
 .pdf-edit-layer { position: absolute; inset: 0; color: #172554; }
+.pdf-text-targets { position: absolute; inset: 0; pointer-events: none; }
+.pdf-edit .pdf-text-region { position: absolute; min-height: 0; min-width: 0; padding: 0; pointer-events: auto; border: 1px solid #2563eb55; border-radius: 2px; background: #60a5fa15; }
+.pdf-edit .pdf-text-region:hover, .pdf-edit .pdf-text-region:focus-visible, .pdf-edit .pdf-text-region[aria-pressed="true"] { outline: 2px solid #2563eb; background: #60a5fa33; }
+.pdf-text-panel { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--color-primary); border-radius: 10px; scroll-margin-top: 90px; }
+.pdf-text-panel h2 { font-size: 18px; }
+.pdf-text-panel textarea, .pdf-text-panel input, .pdf-text-panel select { width: 100%; min-width: 0; padding: 8px; }
+.pdf-text-visual-options { display: grid; gap: 8px; }
+.pdf-text-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pdf-text-mask { position: absolute; pointer-events: none; }
 .pdf-edit-page.is-placing .pdf-edit-layer { cursor: crosshair; }
 .pdf-edit-object { position: absolute; border: 1px dashed transparent; cursor: move; touch-action: none; outline: none; }
 .pdf-edit-object:hover { border-color: #64748b; }

@@ -165,6 +165,7 @@ function toolStaticContent(tool, content, tools) {
           <ul>${content.features.slice(0, 3).map(item => `<li><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.description)}</span></li>`).join('')}</ul>
         </section>` : '';
   const guide = content ? `<article class="tool-content-guide" aria-label="${escapeHtml(tool.name)} guide">
+        ${tool.id === 'edit-pdf' ? intro : ''}
         ${section('How to Use', `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.description)}</p></div></li>`).join('')}</ol>`)}
         ${section('About This Tool', content.about.map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join(''))}
         ${section('What You Can Do', cards(content.features))}
@@ -188,7 +189,7 @@ function toolStaticContent(tool, content, tools) {
         <span class="tool-category-label">${escapeHtml(tool.category)} tool</span>
         <h1 class="tool-page-title">${escapeHtml(tool.name)}</h1>
         <p class="tool-page-description">${escapeHtml(tool.desc)}</p>
-        ${intro}
+        ${tool.id === 'edit-pdf' ? '' : intro}
         <p class="static-workspace-notice">This page’s instructions are available without JavaScript. File selection, calculation and export require JavaScript; no file has been processed in this static view.</p>
         ${guide}
       </section>`;

@@ -1,5 +1,7 @@
 # Adsterra integration — local implementation
 
+Historical native-only rollout below. The current multi-zone policy, banner adapter, density limits, and validation are documented in [AD_LAYOUT_EXPANSION.md](AD_LAYOUT_EXPANSION.md); its configuration supersedes the original one-placement limits.
+
 Date: 2026-10-06. No commit, push or deployment. No live ad requests were made during QA. This is not a promise of future Google AdSense approval.
 
 ## Architecture and switch

@@ -22,6 +22,16 @@ assert.equal(find('#btn-process-action').hidden, true, 'Do not offer a second ac
 dom.window.appState.activeFiles = []; sync();
 assert.equal(find('.tool-sidebar-settings').hidden, true, 'Reset returns to upload-first state');
 dom.window.close();
+const editorDom = new JSDOM('<main id="main-content"><section class="tool-container edit-pdf-page"><div class="pdf-edit"><div class="pdf-edit-document" hidden></div></div><article class="tool-content-guide"><section class="tool-preworkspace-intro">Technical explanation</section></article></section></main>', { runScripts: 'outside-only' });
+editorDom.window.requestAnimationFrame = callback => editorDom.window.setTimeout(callback, 0);
+editorDom.window.eval(await read('public_html/assets/tool-ux.js'));
+editorDom.window.GxaToolUx.sync();
+assert.equal(editorDom.window.document.querySelector('.tool-container').dataset.disclosure, 'upload');
+editorDom.window.document.querySelector('.pdf-edit-document').hidden = false;
+editorDom.window.GxaToolUx.sync();
+assert.equal(editorDom.window.document.querySelector('.tool-container').dataset.disclosure, 'ready');
+assert.equal(editorDom.window.document.querySelector('.tool-preworkspace-intro').hidden, false);
+editorDom.window.close();
 const quality = await loadToolQuality();
 assert.equal(Object.values(quality).filter(q => q.indexable).length, 81);
 assert.equal(Object.values(quality).filter(q => !q.adsEligible).length, 14);

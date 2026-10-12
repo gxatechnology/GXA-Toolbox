@@ -494,7 +494,7 @@ const toolsList = [
 // Append additional concrete tools to toolsList (total 75 tools)
 const extraTools = [
   { id: 'compress-pdf', name: 'Compress PDF', category: 'pdf', desc: 'Reduce PDF size locally with lossless structural compression or optional image recompression.', icon: 'file-archive' },
-  { id: 'edit-pdf', name: 'Edit PDF', category: 'pdf', desc: 'Fill PDF forms and add text, checks, dates, images, or visual signatures over the original pages.', icon: 'file-pen-line' },
+  { id: 'edit-pdf', name: 'Edit PDF', category: 'pdf', desc: 'Edit selectable PDF text where supported, replace text visually, or fill forms and add marks to original pages.', icon: 'file-pen-line' },
   { id: 'rotate-pdf', name: 'Rotate PDF', category: 'pdf', desc: 'Rotate individual or all pages inside your PDF document.', icon: 'rotate-cw' },
   { id: 'watermark-pdf', name: 'Add Watermark', category: 'pdf', desc: 'Add text, logos, images, icons, symbols, or custom watermarks to selected PDF pages.', icon: 'stamp' },
   { id: 'pagenumber-pdf', name: 'Add Page Numbers', category: 'pdf', desc: 'Insert dynamic page numbering headers or footers.', icon: 'binary' },
@@ -2866,7 +2866,7 @@ function renderToolPreworkspaceIntro(toolId) {
   const tool = toolsList.find(item => item.id === toolId);
   if (!content || !tool) return '';
   return `<section class="tool-preworkspace-intro" aria-labelledby="${toolId}-overview-title">
-    <h2 id="${toolId}-overview-title" class="sr-only">${escapeHTML(tool.name)} overview</h2>
+    <h2 id="${toolId}-overview-title" class="${toolId === 'edit-pdf' ? 'tool-info-title' : 'sr-only'}">${toolId === 'edit-pdf' ? 'How PDF editing works' : `${escapeHTML(tool.name)} overview`}</h2>
     <p>${escapeHTML(content.about[0])}</p>
   </section>`;
 }
@@ -2879,6 +2879,7 @@ function renderToolContentSections(toolId) {
   const section = (id, title, body) => body ? `<section class="tool-info-section" id="${id}"><h2>${title}</h2>${body}</section>` : '';
   const toolName = toolsList.find(tool => tool.id === toolId)?.name || 'Tool';
   return `<article class="tool-content-guide" aria-label="${escapeHTML(toolName)} guide">
+    ${toolId === 'edit-pdf' ? renderToolPreworkspaceIntro(toolId) : ''}
     ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.description)}</p></div></li>`).join('')}</ol>` : '')}
     ${section(`${toolId}-about`, 'About This Tool', content.about?.map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join(''))}
     ${section(`${toolId}-features`, 'What You Can Do', cards(content.features, 'tool-info-card-grid'))}
@@ -4818,12 +4819,12 @@ function renderToolPage(container, toolId) {
         </div>
       </div>
 
-      ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${needsFiles ? `<section class="premium-session-panel" aria-labelledby="premium-session-title">
         <div><span class="tool-category-label">This browser session</span><h3 id="premium-session-title">Recent results</h3></div>
         <div id="premium-session-history" class="premium-session-history"><span>No results created in this session yet.</span></div>
       </section>` : ''}
 
+      ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${renderToolContentSections(tool.id)}
       ${renderToolAdPlacementPlaceholder()}
 
@@ -5123,8 +5124,8 @@ async function renderEditPdfPage(container, tool) {
     <section class="container tool-container edit-pdf-page">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span>Edit PDF</span></nav>
       <header class="tool-header"><h1 class="tool-page-title">Edit PDF</h1><p class="section-desc">${escapeHTML(tool.desc)}</p></header>
-      ${renderToolPreworkspaceIntro(tool.id)}
       <div id="edit-pdf-mount"><p role="status">Loading PDF editor…</p></div>
+      ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${renderToolContentSections(tool.id)}
       ${renderToolAdPlacementPlaceholder()}
       <section class="related-tools-section"><h2>Related Tools</h2><div class="tools-grid" id="related-tools-grid"></div></section>
@@ -5135,6 +5136,8 @@ async function renderEditPdfPage(container, tool) {
   const mount = container.querySelector('#edit-pdf-mount');
   try {
     await window.GxaWorkspace.loadScriptOnce('/assets/pdf-edit-core.js', 'GxaPdfEditCore');
+    await window.GxaWorkspace.loadScriptOnce('/assets/pdf-text-core.js', 'GxaPdfTextCore');
+    await window.GxaWorkspace.loadScriptOnce('/assets/pdf-text-editor.js', 'GxaPdfTextEditor');
     await window.GxaWorkspace.loadScriptOnce('/assets/pdf-edit.js', 'GxaPdfEditor');
     if (!mount.isConnected || appState.currentPage !== 'tool-edit-pdf') return;
     window.GxaPdfEditor.mount(mount, {
@@ -5161,6 +5164,7 @@ async function renderImageConverterPage(container, tool) {
       <header class="tool-header"><h1 class="tool-page-title">Universal Image Converter</h1><p class="section-desc">${escapeHTML(tool.desc)}</p></header>
       ${renderToolPreworkspaceIntro(tool.id)}
       <div id="image-converter-mount" aria-busy="true"><p role="status">Loading image converter…</p></div>
+      ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${renderToolContentSections(tool.id)}
       ${renderToolAdPlacementPlaceholder()}
       <section class="related-tools-section"><h2>Related Tools</h2><div class="tools-grid" id="related-tools-grid"></div></section>

@@ -435,13 +435,24 @@
             if (!edits || !Array.isArray(edits.overlays || [])) fail('The PDF edit state is invalid.');
             const overlays = edits.overlays || [];
             if (overlays.length > 300) fail('This document has too many edits. Use up to 300 overlay elements.');
-            await fillFields(doc, edits.fieldValues || {}, Boolean(edits.flatten), lib);
+            // Flattening adds transformed appearance streams. Rewrite original
+            // text before those new streams, rather than weakening native guards.
+            const flattenAfterText = Boolean(edits.flatten && edits.nativeEdits?.length);
+            await fillFields(doc, edits.fieldValues || {}, Boolean(edits.flatten) && !flattenAfterText, lib);
             const originalRotations = doc.getPages().map(page => page.getRotation().angle);
             const plan = edits.pagePlan?.map(item => ({ ...item, baseRotation: item.sourceIndex === null ? 0 : originalRotations[item.sourceIndex] }));
             await applyPagePlan(doc, plan, lib);
+            if (edits.nativeEdits?.length) {
+                if (!root.GxaPdfTextCore) fail('The text editing engine is unavailable. Reload the editor.');
+                await root.GxaPdfTextCore.apply(doc, edits.nativeEdits, lib);
+            }
+            if (flattenAfterText) await fillFields(doc, {}, true, lib);
             const pages = doc.getPages().map(geometry);
             const fonts = new Map();
-            for (const overlay of overlays) await drawOverlay(doc, overlay, pages, fonts, lib);
+            for (const overlay of overlays) {
+                if (overlay.mask) await drawOverlay(doc, { ...overlay.mask, pageIndex: overlay.pageIndex, type: 'rectangle', color: overlay.mask.color || '#ffffff', fill: overlay.mask.color || '#ffffff', strokeWidth: .25, opacity: 1 }, pages, fonts, lib);
+                await drawOverlay(doc, overlay, pages, fonts, lib);
+            }
             // Prevent save() from rebuilding untouched form appearances or metadata.
             const output = await doc.save({ useObjectStreams: true, updateFieldAppearances: false });
             const reopened = await load(output, lib);

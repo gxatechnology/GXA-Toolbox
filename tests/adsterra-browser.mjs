@@ -18,6 +18,12 @@ const out = resolve('test-results/adsterra'); await mkdir(out, { recursive: true
 const csp = (await readFile('_headers', 'utf8')).match(/Content-Security-Policy: (.+)/)[1];
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
 await cachePublicDependencies(context);
+// Dedicated native lifecycle regression. Default expanded placement is exercised
+// separately by ad-layout-browser.mjs, including every approved banner adapter.
+await context.route('**/assets/ad-config.js', async route => {
+  const source = await readFile('public_html/assets/ad-config.js', 'utf8');
+  await route.fulfill({ contentType: 'application/javascript', body: source.replace('top: true, right: true, left: true, afterTool: true, content: true', 'top: false, right: false, left: false, afterTool: true, content: false') });
+});
 await context.route(/googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net/, route => route.abort());
 let mode = 'filled', requests = 0;
 const unexpected = [], errors = [], rows = [];
@@ -41,14 +47,14 @@ async function open(id = '') {
   else if (!['dashboard', 'not-a-real-route'].includes(id)) await page.waitForFunction(() => typeof window.navigate === 'function' && !document.querySelector('[data-static-route-shell]'));
 }
 async function requestSlot() {
-  await page.locator('.gxa-ad-sentinel').scrollIntoViewIfNeeded();
+  if (await page.locator('.gxa-ad-sentinel').count()) await page.locator('.gxa-ad-sentinel').scrollIntoViewIfNeeded();
   await page.waitForFunction(() => window.GxaAdNetwork.hasRequested());
 }
 try {
   const quality = await loadToolQuality();
   for (const [id] of Object.entries(quality).filter(([, q]) => q.adsEligible)) {
     await open(id);
-    await page.waitForSelector('.gxa-ad-sentinel', { state: 'attached' });
+    await page.waitForSelector('.gxa-ad-network', { state: 'attached' });
     assert.equal(await page.locator('.gxa-ad-network').count(), 1, id);
     assert.equal(await page.locator('.tool-workspace .gxa-ad-network, #crop-editor-workspace .gxa-ad-network, .premium-editor-workspace .gxa-ad-network').count(), 0, `${id}: no interaction-area placement`);
     rows.push({ route: id, status: 'eligible editorial candidate outside workspace' });
@@ -65,7 +71,7 @@ try {
   for (const article of await loadContentPageRegistry()) {
     const before = requests; await open(article.id);
     if (['guide', 'category'].includes(article.kind)) {
-      await page.waitForSelector('.gxa-ad-sentinel', { state: 'attached' });
+      await page.waitForSelector('.gxa-ad-network', { state: 'attached' });
       assert.equal(await page.locator('.gxa-ad-network').count(), 1);
       rows.push({ route: article.id, status: 'one editorial candidate' });
     } else {
@@ -77,7 +83,7 @@ try {
   }
   for (const width of [320, 360, 390, 430, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 }); const before = requests; await open('crop-image');
-    assert.equal(requests, before, 'Above-fold tool must not eagerly load ads'); await requestSlot();
+    await requestSlot(); // The after-tool candidate may already be within the lazy-load margin.
     await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
     assert.equal(requests, before + 1); assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1);
     assert.equal(await page.locator('script[src="' + config.native.src + '"]').count(), 1);
@@ -99,15 +105,35 @@ try {
   assert.equal(await page.locator('script[src="/assets/ad-network.js"]').count(), 0);
   await page.goBack(); await page.waitForFunction(() => typeof navigate === 'function');
   assert.ok(await page.locator(`#${config.native.containerId}`).count() <= 1);
+  for (const id of ['edit-pdf', 'compress-pdf', 'merge-pdf', 'split-pdf', 'image-converter']) {
+    for (const width of [320, 768, 1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 }); await open(id);
+      if (id === 'edit-pdf') await page.locator('.pdf-edit-upload').waitFor();
+      if (id === 'image-converter') await page.locator('.image-converter__drop').waitFor();
+      await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
+      assert.ok(await page.evaluate(() => {
+        const ad = document.querySelector('.gxa-ad-network').getBoundingClientRect();
+        const workspace = document.querySelector('#edit-pdf-mount, #image-converter-mount, .tool-workspace').getBoundingClientRect();
+        return ad.top >= workspace.bottom + 24 && document.documentElement.scrollWidth <= innerWidth + 1;
+      }), `${id} ${width}: filled native must stay below workspace with safe spacing`);
+      rows.push({ route: id, width, status: 'filled native below complete workspace, no rail or overflow' });
+    }
+  }
   for (const id of ['', 'guides/pdf-compression', 'background-remover']) {
-    await open(id); await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
+    await open(id);
+    await page.evaluate(() => { for (let i = 0; i < 8; i++) window.GxaAdNetwork.sync(); });
+    assert.equal(await page.locator('.gxa-ad-network').count(), 1, 'Reuse the editorial candidate before request');
+    await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
     assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1); rows.push({ route: id || '/', status: 'one editorial placement' });
   }
   await open('resize-image');
   await page.evaluate(() => showAuthModal('signup'));
   assert.equal(await page.locator('.gxa-ad-network:not([hidden])').count(), 0);
   await page.evaluate(() => closeModal());
-  await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
+  const suppressedRequests = requests;
+  await page.evaluate(() => GxaAdNetwork.sync());
+  assert.equal(requests, suppressedRequests, 'Closing a dialog must not refresh a requested unit');
+  await open('resize-image'); await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
   await page.evaluate(() => showAuthModal('login'));
   await page.waitForFunction(() => document.querySelector('.gxa-ad-network')?.hidden === true);
   await page.evaluate(() => closeModal());

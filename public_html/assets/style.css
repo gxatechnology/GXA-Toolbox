@@ -8036,6 +8036,23 @@ html { scroll-padding-top: var(--header-clearance); }
   .tool-content-guide { margin-top: 32px; padding-top: 24px; }
 }
 /* Merge-only progressive controls; shared file cards and previews retain their layout. */
+/* Compact empty states only. Loaded editors keep their existing geometry. */
+.tool-container[data-disclosure="upload"] { max-width: 1280px; padding-top: 24px; }
+.tool-container[data-disclosure="upload"] .tool-header { margin-bottom: 20px; }
+.tool-container[data-disclosure="upload"] .tool-interactive-area { padding: 16px; }
+.tool-container[data-disclosure="upload"] .upload-zone {
+  min-height: 280px; padding: 24px 20px; height: auto;
+}
+.tool-container[data-disclosure="upload"] .upload-icon-shell { width: 48px; height: 48px; border-radius: 14px; }
+.tool-container[data-disclosure="upload"] .upload-zone .upload-title { margin-top: 12px; }
+.tool-container[data-disclosure="upload"] .upload-zone .upload-subtitle { margin-bottom: 12px; }
+.edit-pdf-page[data-disclosure="upload"] #edit-pdf-mount { max-width: 760px; margin-inline: auto; }
+.edit-pdf-page .tool-content-guide .tool-preworkspace-intro { margin: 24px 0 0; }
+.tool-container[data-disclosure="upload"] .image-converter__drop { min-height: 280px; padding: 20px; }
+@media (max-width: 767px) {
+  .tool-container[data-disclosure="upload"] { padding-top: 18px; }
+  .tool-container[data-disclosure="upload"] .upload-zone { padding: 20px 12px; }
+}
 .file-card--merge { flex-wrap: wrap; }
 .merge-pdf-file-options { flex: 1 0 100%; min-width: 0; max-width: 100%; }
 .merge-pdf-file-options summary { min-height: 44px; padding-block: 12px; cursor: pointer; font-weight: 600; }

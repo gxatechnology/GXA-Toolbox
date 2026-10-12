@@ -22,13 +22,16 @@ assert.equal(entries[0].category, 'pdf');
 assert.equal(canonicalToolUrl(entries[0].id), 'https://gxatoolbox.in/edit-pdf/');
 assert.equal(tools.filter(tool => tool.category === 'pdf').length, 23);
 for (const id of content['edit-pdf'].relatedTools) assert(tools.some(tool => tool.id === id), `Unknown related route: ${id}`);
-assert.match(content['edit-pdf'].faqs.map(faq => `${faq.question} ${faq.answer}`).join(' '), /existing text already printed[\s\S]*not directly editable/i);
+const textFaqs = content['edit-pdf'].faqs.map(faq => `${faq.question} ${faq.answer}`).join(' ');
+assert.match(textFaqs, /existing text already printed[\s\S]*simple supported standard-font text objects/i);
+assert.match(textFaqs, /replaced visually[\s\S]*not native editing or redaction/i);
+assert.match(textFaqs, /OCR-based visual replacement/);
 
 const integrationStart = app.indexOf('async function renderEditPdfPage');
 const integrationEnd = app.indexOf('// --- FAQs lookup', integrationStart);
 assert(integrationStart >= 0 && integrationEnd > integrationStart, 'The dedicated editor must hydrate through the existing app route.');
 const integration = app.slice(integrationStart, integrationEnd);
-for (const module of ['pdf-edit-core.js', 'pdf-edit.js']) {
+for (const module of ['pdf-edit-core.js', 'pdf-text-core.js', 'pdf-text-editor.js', 'pdf-edit.js']) {
   assert.match(integration, new RegExp(`loadScriptOnce\\(\\s*['"]/assets/${module.replaceAll('.', '\\.')}['"]`));
   assert(!template.includes(`/assets/${module}`), `${module} must remain route-lazy.`);
 }
@@ -158,6 +161,7 @@ assert.match(sourceFunction('clearOutput'), /URL\.revokeObjectURL\(/);
 
 let signatureCleared = 0;
 let layerCleared = 0;
+let textEditorCleared = 0;
 const resetPanel = { hidden: false };
 const retainedNode = () => ({
   children: [{ value: 'PRIVATE' }], textContent: 'PRIVATE', innerHTML: '<input value="PRIVATE">',
@@ -172,6 +176,7 @@ const resetNodes = {
   '#pdf-edit-info': { textContent: 'PRIVATE document details' }
 };
 const resetContext = runFunction('action', {
+  textEditor: { reset() { textEditorCleared++; } },
   thumbnailObserver: null, thumbnailTask: null, thumbnailRevision: 0,
   busy: false, loadRevision: 1, revision: 1, renderTask: { cancel() {} },
   pdf: { destroy() {} }, source: new Uint8Array([1, 2]), info: { fields: [] },
@@ -196,6 +201,7 @@ assert.equal(resetContext.sourceName, '');
 assert.equal(resetContext.signatureHasInk, false);
 assert.equal(signatureCleared, 1, 'Reset must clear retained signature pixels.');
 assert.equal(layerCleared, 1);
+assert.equal(textEditorCleared, 1, 'Reset must discard native/OCR region caches and text drafts.');
 assert.equal(resetPanel.hidden, true);
 assert.doesNotMatch(resetNodes['.pdf-edit-selection'].innerHTML, /PRIVATE/, 'Reset must remove sensitive text from the hidden properties panel.');
 for (const selector of ['.pdf-edit-field-list', '.pdf-edit-pages']) {

@@ -43,8 +43,8 @@ Continuation validation: the fresh production build (including lint and full tes
 
 See `PDF_EDITOR_TECHNICAL_PLAN.md` for installed engines, upstream license references and feasibility.
 
-- Arbitrary original text-stream rewriting, font-subset reuse, recovered text colors and original paragraph reflow: not implemented. Direct changes to supported real AcroForm fields remain supported. No rectangle is presented as direct editing.
-- Explicit selected-text visual replacement, OCR-derived region overlays/searchable layers, editing original embedded images, freehand markup, sticky notes/comments, new form fields and certificate signatures: pending.
+- Edit Text continuation (2026-10-12): supported simple ASCII standard-font text now uses real content-stream replacement preserving its original font/size/color/matrix. Explicit visual replacement and English OCR-region visual replacement are implemented. Direct changes to supported real AcroForm fields remain supported. No rectangle is presented as native editing.
+- Arbitrary original text-stream rewriting, embedded/subset font reuse, paragraph reflow, searchable full-page OCR layers, original embedded images, freehand markup, sticky notes/comments, new form fields and certificate signatures remain pending. See `PDF_TEXT_EDITING_AUDIT.md` for the native allowlist and honest fallback boundaries.
 - Rotate a page before adding overlays on it; this increment refuses to rotate existing overlay geometry rather than silently misplacing it. Other page operations preserve/remap overlay page associations.
 - Existing 25 MB input and 300-overlay limits; now reject more than 500 source/planned pages explicitly. Thumbnails are at most 96×124 pixels and render sequentially, separate from the capped main-page canvas.
 - Inserted image source/edited files are limited to 5 MB and 16 megapixels. Cropping/rotation re-encodes the inserted pixels as PNG. Original-image restore is in-memory only. This is not an arbitrary source-PDF image editor or a secure-redaction workflow.
@@ -89,6 +89,42 @@ Tests/scripts: `tests/edit-pdf-advanced.mjs`, `tests/edit-pdf-advanced-browser.m
 Continuation tests: `tests/pdf-page-tools-advanced.mjs`, `tests/pdf-page-tools-advanced-browser.mjs`; `tests/tool-functionality-phase4a/pdf-output.mjs` adds the shared helper functions to its existing execution harness without removing assertions. The two new suites are included in `test:phase4c` / `test:phase4c:browser`. The matrix generator and both feature/functionality reports reflect four partial upgrades, not full phase completion.
 
 `tests/edit-pdf-advanced-browser.mjs` also waits for editor readiness before its keyboard-undo assertion; the original assertion remains. An initial concurrent regression run sent the shortcut before readiness and failed; the corrected synchronization passed on rerun. No Edit PDF production behavior was changed in this continuation.
+
+## Edit Text continuation validation - 2026-10-12
+
+Scope: Edit PDF only. Earlier uncommitted workspace/ad-layout work was retained. Full changed-file inventory and limitations: `PDF_TEXT_EDITING_AUDIT.md`.
+
+| Capability | Result |
+|---|---|
+| Edit Text toolbar and detected-region selection | YES; page buttons and labeled touch/keyboard selector |
+| Native existing-text editing | PARTIAL; conservative ASCII/standard-Type1 single-show objects |
+| Visual replacement fallback | YES; explicit cover, substitute font and adjustable text |
+| OCR replacement | YES; actual English Tesseract line boxes and visual replacement |
+| Font preservation | PARTIAL; native font/resource/operators unchanged; visual substitute disclosed |
+| Undo/redo | YES; native and visual state preserved |
+| Export/reopen validation | PASS; real files downloaded and reopened |
+
+Commands actually executed locally:
+
+- `npm run lint`: PASS, exit 0.
+- `npm test`: PASS, exit 0; latest production build reran the complete suite with the final cancellation code.
+- `npm run build`: PASS, exit 0. Includes Background Remover TypeScript/Vite, lint and full tests.
+- `node tests/pdf-text-editing.mjs`: PASS; only selected string tokens change, original operators/fonts/matrices preserved, unsafe state rejected, two replacements per stream, shared-page isolation, page-plan changes and native text plus form flattening.
+- `npm run test:pdf-text:browser`: PASS, exit 0 on the final build; native UI/Enter/Escape/undo/redo, actual subset-font fallback, visual styling/move/delete/undo/preview, real OCR, cancellation, failed model download/recovery, download/reopen/extraction/render and reset cleanup. No page errors recorded.
+- `node tests/edit-pdf-advanced-browser.mjs`: PASS, exit 0; 13 groups, existing page management, image edits with pixel comparisons, styling, keyboard, forms, invalid inputs, reset and responsive checks.
+- `npm run test:edit-pdf:browser`: PASS, exit 0; existing forms/flattening, original geometry/UserUnit/rotated widgets, overlays/signatures, touch drag, zoom, errors and reset privacy.
+- `git diff --check`: PASS, exit 0; Git emits existing Windows line-ending conversion warnings, not whitespace errors.
+- All seven relevant source/runtime/CSS assets match `dist/assets/` by SHA-256.
+
+New populated text-editor checks: 320, 360, 375, 390, 412, 430, 768 and 1440 px. Text drafts survive viewport changes, no body-wide overflow, tap Apply and region selection work, and download/reopen is verified at mobile width. Existing editor suite additionally covers 1366 px. This is Chromium touch emulation; physical devices and mobile soft-keyboard behaviour are not certified.
+
+Fixtures cover native text, actual Chromium-produced embedded/subset fonts, four pages, 90-degree text, a raster scan and mixed text/image content. Reopened output retains page count/dimensions, untouched text, an image XObject and link annotation. Native replacement removes the old text from the referenced text layer; visual replacement deliberately leaves the covered original text extractable. No redaction claim.
+
+Artifacts: `test-results/pdf-text-editing/` contains `native.pdf`, `visual.pdf`, `ocr.pdf`, failure-recovery output, corresponding page PNGs, `text-panel-mobile.png`, `visual-mobile.png` and `results.json`. Native, rotated, subset-visual and OCR exports were visually inspected using PDF.js and independent Poppler renders (`poppler-*.png`). Poppler emitted local missing display-font warnings for Symbol/ArialUnicode; the tested Latin text rendered clearly. The PDF skill became available during final verification and guided the independent rendering check; these are QA fixtures, not user-document authoring.
+
+Known check notes: the isolated PostgreSQL integration remains intentionally skipped without its explicit opt-in; no production credentials/services were tested. Existing Vite classic-script warning and expected invalid-input/mock-provider diagnostics remain non-fatal. Ads and tracking are blocked in browser QA; no real impressions or accounts were created.
+
+No backend/schema/environment/configuration migration is required. No commit, push or deploy performed. Overall Phase 4C remains in progress; this does not certify arbitrary PDF text/font editing or the remaining advanced tools.
 
 Documentation: this report, `PDF_EDITOR_TECHNICAL_PLAN.md`, `ADVANCED_TOOL_FEATURE_MATRIX.md`, and `TOOL_FUNCTIONALITY_MATRIX.md`. Existing build-generated audit artifacts refresh normally; many unrelated worktree edits predate this request and are preserved.
 

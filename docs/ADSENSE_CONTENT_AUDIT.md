@@ -137,7 +137,7 @@ The principal content issue was one shared browser-local privacy paragraph acros
 | `/gif-maker/` | PASS | PASS | PASS | PASS | PASS (729 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
 | `/zip-extractor/` | PASS | PASS | PASS | PASS | PASS (544 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
 | `/compress-pdf/` | PASS | PASS | PASS | PASS | PASS (748 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
-| `/edit-pdf/` | PASS | PASS | PASS | PASS | PASS (1601 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
+| `/edit-pdf/` | PASS | PASS | PASS | PASS | PASS (1847 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
 | `/rotate-pdf/` | PASS | PASS | PASS | PASS | PASS (435 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
 | `/watermark-pdf/` | PASS | PASS | PASS | PASS | PASS (482 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |
 | `/pagenumber-pdf/` | PASS | PASS | PASS | PASS | PASS (510 words) | Low | Shared/dedicated contract | Shared/dedicated contract | Shared result contract | PASS |

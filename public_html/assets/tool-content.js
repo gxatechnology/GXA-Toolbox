@@ -16,9 +16,11 @@
   };
 
   add('edit-pdf',
-    'Edit PDF fills supported existing AcroForm fields and adds text or visual marks over the original PDF pages. Fillable forms expose their actual controls; flat forms use positioned overlays, so the original artwork, page dimensions, rotation, order, and alignment remain the document base.',
+    'Edit PDF lets you select existing text and rewrite supported text objects, or choose Replace visually when the original PDF structure cannot be safely rewritten. Use English OCR to detect and replace visible text on scanned pages. Supported AcroForm fields and positioned overlays remain available over the original document pages.',
     [
       ['Detected form fields', 'Fill supported text and multiline fields, checkboxes, radio groups, and dropdowns while viewing the original page.'],
+      ['Edit existing text', 'Select a text region, change its text, then Apply or Cancel. Eligible simple standard-font text is rewritten in the actual page stream; other text uses a clearly labeled visual cover and substitute font.'],
+      ['Scanned text regions', 'Recognize one page with the on-demand English OCR model, proofread detected text, and apply a visual replacement. OCR is not original native text and does not create a complete searchable transcript layer.'],
       ['Text and visual overlays', 'Add text, a date, checkmark, cross, rectangle, image, or drawn/uploaded visual signature, then adjust its placement and appearance.'],
       ['Page-aware editing', 'Use bounded page thumbnails, fit and zoom controls, and Manage pages to reorder, rotate, duplicate, delete or insert blank pages. Unsafe form/annotation duplication and deletion are rejected.'],
       ['Advanced overlay appearance', 'Choose standard bold/italic font variants, underline, line spacing, opacity, shape fill and stroke width. Add ellipses, lines, arrows or visual highlighting and change overlay layer order.'],
@@ -28,7 +30,7 @@
     ],
     [
       'Choose one readable, unencrypted PDF up to 25 MB and wait for the original page preview.',
-      'Fill detected form controls, or choose an overlay tool and tap the intended location on a flat page.',
+      'Choose Edit Text and select a region, or Recognize text (OCR) for a scan. Review whether native or visual replacement is available. Fill detected form controls or add overlays when needed.',
       'Adjust added text, font size, color, alignment, or image dimensions and review each edited page.',
       'Choose whether supported form fields should remain editable or be flattened into their visible appearance.',
       'Download Edited PDF, reopen the saved copy, and check field values and overlay positions before sharing.'
@@ -41,7 +43,9 @@
     ['Unencrypted PDF with supported AcroForm fields', 'Flat or scanned PDF', 'PNG/JPEG overlay or visual-signature image', 'Drawn visual signature'],
     ['Edited PDF with original pages and added content', 'PDF with supported fields kept editable or flattened'],
     [
-      'Existing static PDF text is part of the page content and cannot be directly rewritten by this editor; new text is an overlay, not a replacement of the underlying text.',
+      'Native replacement is limited to uniquely matched, printable ASCII text in simple single-show objects using non-embedded standard Type1 fonts. Subset/custom fonts, complex spacing and transformed content need visual replacement; paragraph reflow is not supported.',
+      'Visual and OCR replacements cover the visible region but leave underlying text or pixels recoverable. Neither visual replacement nor native stream rewriting is secure redaction. Inspect longer replacements for overlap.',
+      'OCR recognizes English on one rendered page at a time and downloads its worker/model on demand. Review recognition errors; low-quality scans, rotated text and complex layouts can need manual adjustment.',
       'Dynamic XFA forms and unsupported field types are not editable here. Complex or unusual form appearances should be checked in a standard PDF reader.',
       'Encrypted or password-protected PDFs must be unlocked separately before editing, and corrupt documents may fail to open.',
       'Editing normally invalidates existing cryptographic digital signatures. A drawn or uploaded signature image is a visual mark and does not create a digital certificate signature.',
@@ -61,7 +65,8 @@
     ],
     ['sign-pdf', 'unlock-pdf', 'protect-pdf', 'organize-pdf', 'watermark-pdf'],
     [
-      ['Can I edit existing text already printed in a PDF?', 'Existing static PDF text is part of the page content and is not directly editable here. You can fill detected form fields or add text and other elements on top of the original page. The editor does not extract and rebuild the document.'],
+      ['Can I edit existing text already printed in a PDF?', 'Choose Edit Text and select a region. Native text replacement is offered for simple supported standard-font text objects and preserves their original position, font, size, color and rotation. Unsupported text can be replaced visually, with an explicit cover and substitute font; this is not native editing or redaction.'],
+      ['Can I change text in a scanned PDF?', 'Choose Recognize text (OCR) on the current page. Review the English text regions, select one and apply an OCR-based visual replacement. The scan remains underneath; recognition is not guaranteed and does not recover original font metadata.'],
       ['How can I tell a fillable form from a flat form?', 'A supported AcroForm contains real field objects that the editor detects and presents as controls. A flat or scanned form may look similar but contains no such fields; use overlays in its blank answer areas.'],
       ['Which form fields can I fill?', 'Supported text and multiline fields, checkboxes, radio groups, and dropdowns can be edited. Unsupported field types and dynamic XFA forms are disclosed instead of being presented as working controls.'],
       ['Will the downloaded form remain editable?', 'Keep fields editable is the default for supported form fields. The flatten option writes their filled appearance into the page, removing their interactive field behavior. Added overlays become page content in either mode.'],
@@ -72,9 +77,9 @@
       ['Can I edit an encrypted PDF?', 'Unlock the document separately with its authorized password, then load the decrypted copy. Edit PDF does not silently bypass encryption.'],
       ['Can I type in any language?', 'The current export uses standard PDF fonts and supports their Latin character repertoire. Arbitrary Unicode scripts and complex shaping are not supported; unsupported characters must be corrected before export.']
     ],
-    'The original PDF pages remain the base. Supported field values and new overlay objects are written without reflowing source paragraphs, changing page dimensions, or rasterizing complete pages. The editor is for filling and overlay editing, not arbitrary modification of existing static text.'
+    'The original PDF pages remain the base. Supported native text objects, field values and overlays are written without paragraph reflow or rasterizing complete pages. Native editing and font preservation are partial, not a promise to edit every PDF. Visual replacement substitutes standard fonts and retains the covered content.'
   );
-  content['edit-pdf'].privacy.description = 'The PDF, form answers, overlay text, and visual-signature images are processed in browser memory. They are not uploaded by this workflow, included in lifecycle analytics, or autosaved to localStorage or server storage. Leaving or resetting the editor discards unsaved edits.';
+  content['edit-pdf'].privacy.description = 'The PDF, form answers, replacement text, OCR page pixels, overlays and visual-signature images are processed in browser memory. They are not uploaded by this workflow, included in lifecycle analytics, or autosaved to localStorage or server storage. OCR downloads its worker/model only when requested. Leaving or resetting the editor discards unsaved edits.';
 
   add('merge-pdf', 'Merge PDF combines PDF files or selected pages into one document in the order you choose. It is useful when reports, scans and appendices arrive as separate files.',
     [['Ordered combining', 'Rearrange source files with drag, move buttons or Alt plus arrow keys before creating the document.'], ['Per-file page selection', 'Include all pages or enter ranges in Pages and rotation. Omit pages to exclude them, repeat a number to duplicate a page, and rotate selected pages by a quarter turn.'], ['Queue visibility', 'Review file names and source previews before processing. Selections follow each file when the queue is reordered.']],
