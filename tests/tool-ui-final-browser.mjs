@@ -7,7 +7,7 @@ import { cachePublicDependencies } from './tool-functionality-phase4a/cache-publ
 const { chromium } = createRequire(import.meta.url)(process.env.GXA_PLAYWRIGHT_MODULE || 'playwright');
 const phase = process.env.GXA_UI_PHASE || 'after';
 if (!['before', 'after'].includes(phase)) throw Error('Invalid phase');
-const output = resolve('test-results/tool-ui-final', phase);
+const output = resolve(process.env.GXA_UI_OUTPUT || 'test-results/tool-ui-final', phase);
 await mkdir(output, { recursive: true });
 const server = createQaServer(); await new Promise(done => server.listen(0, '127.0.0.1', done));
 const browser = await chromium.launch({ executablePath: process.env.GXA_BROWSER_EXECUTABLE || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
@@ -17,7 +17,7 @@ await context.route(/bauval\.org|abscloud\.org|googletagmanager\.com|google-anal
 const page = await context.newPage();
 const rows = [], errors = [];
 page.on('pageerror', e => errors.push({ route: new URL(page.url()).pathname, error: e.message }));
-const representatives = ['png-to-pdf','merge-pdf','crop-image','compress-image','image-converter','edit-pdf','split-pdf','gst-calculator','json-tool','background-remover'];
+const representatives = ['png-to-pdf','merge-pdf','crop-image','compress-image','compress-pdf','svg-to-png','image-converter','edit-pdf','split-pdf','gst-calculator','json-tool','background-remover'];
 try {
   for (const tool of await loadToolRegistry()) {
     for (const width of [320,360,390,430,768,1024,1280,1440,1600,1920]) {
@@ -31,7 +31,7 @@ try {
         const visible = el => el && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden';
         const rect = el => el ? { x: Math.round(el.getBoundingClientRect().x), y: Math.round(el.getBoundingClientRect().y), width: Math.round(el.getBoundingClientRect().width), height: Math.round(el.getBoundingClientRect().height) } : null;
         const h1 = document.querySelector('h1'), header = document.querySelector('.tool-header'), breadcrumb = document.querySelector('.breadcrumb, .tool-breadcrumb');
-        const upload = [...document.querySelectorAll('.upload-zone,.crop-upload-state,.image-converter__drop,.pdf-edit-upload,.upload-page .drop-zone,input[type=file]')].find(visible);
+        const upload = [...document.querySelectorAll('.upload-zone,.crop-upload-state,.image-converter__drop,.pdf-edit-upload,.gps-studio__upload,.upload-page .drop-zone,input[type=file]')].find(visible);
         const navigation = document.querySelector('.header-nav, .gxa-header');
         const headerOverlap = !!(navigation && h1 && h1.getBoundingClientRect().top < navigation.getBoundingClientRect().bottom - 1);
         const duplicates = [...document.querySelectorAll('[role=status]')].filter(visible).map(n=>n.textContent.trim()).filter(t=>/^(select|choose|upload).*(begin|start|continue)/i.test(t));
@@ -42,7 +42,14 @@ try {
         }
         return { title: h1?.textContent.trim(), titleRect: rect(h1), header: rect(header), headerOverlap, breadcrumb: breadcrumb?.textContent.replace(/\s+/g,' ').trim() || '', upload: rect(upload), buttons: [...document.querySelectorAll('main button')].filter(visible).slice(0,20).map(n=>n.textContent.trim() || n.getAttribute('aria-label')), duplicates, overflow: document.documentElement.scrollWidth > innerWidth + 1, category: document.querySelector('.tool-category-label')?.textContent.trim() || '', favorite: !!document.querySelector('.tool-favorite'), disclosure: document.querySelector('[data-disclosure]')?.dataset.disclosure || 'specialized', result: 'Not processed in this layout audit; functional suites separate' };
       });
-      rows.push({ route: tool.id, name: tool.name, categoryName: tool.category, width, ...state });
+      const workspace = await page.evaluate(() => {
+        const visible = el => !!el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden';
+        const inputs = [...document.querySelectorAll('input[type=file]')];
+        const nativeInputs = inputs.filter(el => visible(el) && getComputedStyle(el).opacity !== '0' && el.getBoundingClientRect().width > 2 && getComputedStyle(el).clipPath === 'none' && getComputedStyle(el).clip === 'auto');
+        const controls = [...document.querySelectorAll('.tool-sidebar-settings,.crop-editor-toolbar,.crop-options-panel,.image-converter__settings,.pdf-edit-document,.gps-studio__settings')].filter(visible);
+        return { fileInputs: inputs.map(el => ({accept:el.accept,multiple:el.multiple})), nativeInputs: nativeInputs.map(el=>el.id || el.className), emptyVisibleControls: controls.map(el=>el.className), workspaceState: document.querySelector('[data-workspace-state]')?.dataset.workspaceState || null };
+      });
+      rows.push({ route: tool.id, name: tool.name, categoryName: tool.category, width, ...state, ...workspace });
       if (representatives.includes(tool.id) && [390,1440,1920].includes(width)) await page.screenshot({ path: resolve(output, `${tool.id}-${width}.png`), fullPage: false });
     }
     console.log(`${phase}: ${tool.id} reviewed at 10 widths`);

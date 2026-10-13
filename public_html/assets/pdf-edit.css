@@ -18,7 +18,11 @@
 .pdf-edit .btn-primary { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
 .pdf-edit-upload { padding: clamp(18px, 3vw, 30px); border: 2px dashed var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); display: grid; gap: 12px; }
 .pdf-edit-upload > label { font-size: 18px; font-weight: 700; }
-.pdf-edit-upload input { width: 100%; padding: 6px; }
+.pdf-edit-upload { justify-items: center; text-align: center; }
+.pdf-edit-upload h2, .pdf-edit-upload p { margin: 0; }
+.pdf-edit-upload-button { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 10px 20px; border-radius: 10px; background: var(--color-primary); color: white; cursor: pointer; }
+.pdf-edit-upload-button:focus-within { outline: 3px solid var(--color-primary); outline-offset: 4px; }
+.pdf-edit-upload .pdf-edit-upload-button input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; opacity: 0; cursor: pointer; }
 .pdf-edit-upload input::file-selector-button { min-height: 44px; margin-right: 12px; padding: 8px 16px; border: 0; border-radius: 6px; color: #fff; background: var(--color-primary); cursor: pointer; }
 .pdf-edit p { font-size: 14px; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
 .pdf-edit-upload p, .pdf-edit-info, .pdf-edit-properties p, .pdf-edit-export p { color: var(--color-text-secondary); }

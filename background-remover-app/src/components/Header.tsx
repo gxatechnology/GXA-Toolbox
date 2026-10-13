@@ -18,9 +18,9 @@ export function Header({ editing, onDownload }: HeaderProps) {
           <a href="/#tools">Tools</a>
           <a href="/dashboard">Dashboard</a>
         </nav>
-        <button className="primary-button header-download" type="button" onClick={onDownload} disabled={!editing}>
+        {editing && <button className="primary-button header-download" type="button" onClick={onDownload}>
           <Icon name="download" /><span>Download</span>
-        </button>
+        </button>}
       </div>
     </header>
   );

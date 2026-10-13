@@ -23,12 +23,6 @@ export function UploadScreen({ error, onFile }: UploadScreenProps) {
         <span className="eyebrow">Image tool</span>
         <h1>Background Remover</h1>
         <p>Automatically detect the foreground, refine the alpha mask, create a new composition, and export at the source resolution.</p>
-        <ul className="upload-highlights" aria-label="Background Remover capabilities">
-          <li><strong>Editable cutout</strong><span>Erase, restore, and refine the generated alpha mask.</span></li>
-          <li><strong>Flexible background</strong><span>Keep transparency or add a solid, gradient, or image background.</span></li>
-          <li><strong>Full-resolution export</strong><span>Crop and download the rendered result at its working resolution.</span></li>
-        </ul>
-        <div className="privacy-note"><Icon name="shield" /> Processed privately in your browser</div>
       </section>
       <section
         className={`drop-zone ${dragging ? 'dragging' : ''}`}
@@ -42,13 +36,18 @@ export function UploadScreen({ error, onFile }: UploadScreenProps) {
         aria-label="Choose an image for Background Remover"
       >
         <span className="upload-icon"><Icon name="upload" size={34} /></span>
-        <h2>Choose an image</h2>
-        <p>or drop a JPG, PNG, or WEBP here</p>
+        <h2>Drop your file here</h2>
+        <p>or click to browse from device</p>
         <button type="button" className="primary-button" onClick={(event) => { event.stopPropagation(); choose(); }}>Select image</button>
-        <div className="format-row"><span>JPG</span><span>PNG</span><span>WEBP</span><small>Up to 30 MB</small></div>
+        <div className="format-row"><span>JPG</span><span>PNG</span><span>WEBP</span><span>Single file</span><small>Up to 30 MB</small></div>
         <input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(event) => accept(event.target.files)} />
       </section>
       {error && <div className="error-banner" role="alert"><strong>Could not process that image.</strong><span>{error}</span></div>}
+      <ul className="upload-highlights" aria-label="Background Remover capabilities">
+        <li><strong>Editable cutout</strong><span>Erase, restore, and refine the generated alpha mask.</span></li>
+        <li><strong>Flexible background</strong><span>Keep transparency or add a solid, gradient, or image background.</span></li>
+        <li><strong>Full-resolution export</strong><span>Crop and download the rendered result at its working resolution.</span></li>
+      </ul>
       <section className="flow-cards" aria-label="Background Remover workflow">
         <article><strong>1</strong><span>Upload</span><small>Preview appears immediately</small></article>
         <article><strong>2</strong><span>Auto cutout</span><small>GXA Vision Model processing</small></article>

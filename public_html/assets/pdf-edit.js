@@ -51,11 +51,11 @@
     const on = (el, event, fn) => el.addEventListener(event, fn, { signal: abort.signal });
     root.innerHTML = `
       <div class="pdf-edit" aria-label="PDF form and overlay editor">
-        <div class="pdf-edit-upload"><label for="pdf-edit-file">Select PDF</label><input id="pdf-edit-file" type="file" accept=".pdf,application/pdf"><p>One PDF, up to 25 MB. Edits stay in memory and are cleared when you leave or reset.</p></div>
+        <div class="pdf-edit-upload"><span class="upload-icon-shell" aria-hidden="true">↑</span><h2>Drop your file here</h2><p>or click to browse from device</p><div class="upload-formats"><span class="format-chip">.PDF</span><span class="format-chip subtle">Single file</span></div><label class="pdf-edit-upload-button" for="pdf-edit-file"><span>Select PDF</span><input id="pdf-edit-file" type="file" accept=".pdf,application/pdf"></label><p>One PDF, up to 25 MB. Edits stay in memory and are cleared when you leave or reset.</p></div>
         <p class="pdf-edit-status" role="status" aria-live="polite" id="pdf-edit-status"></p>
         <div class="pdf-edit-document" hidden>
           <p class="pdf-edit-notice">Edit Text can rewrite supported selectable text or offer explicit visual replacement. Scanned pages can use English OCR. Visual covers are not secure redaction; underlying content remains. Rewriting a PDF invalidates existing digital signatures.</p>
-          <div class="pdf-edit-file-info"><strong id="pdf-edit-filename"></strong><span id="pdf-edit-info"></span><button type="button" data-action="reset">Reset document</button></div>
+          <div class="pdf-edit-file-info"><strong id="pdf-edit-filename"></strong><span id="pdf-edit-info"></span><button type="button" data-action="replace">Replace PDF</button><button type="button" data-action="reset">Reset document</button></div>
           <div class="pdf-edit-toolbar" role="toolbar" aria-label="PDF editing tools">
             <button type="button" data-tool="select" aria-pressed="true">Select / move</button>
             <button type="button" data-tool="edit-text" aria-pressed="false">Edit Text</button>
@@ -138,6 +138,7 @@
       if (message) status(message);
     }
     function clearOutput() {
+      root.removeAttribute('data-result-ready');
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = '';
       previewPdf?.destroy();
@@ -576,6 +577,7 @@
         previewPdf=await window.pdfjsLib.getDocument({data:output.slice(),isEvalSupported:false}).promise;
         if (!alive || token!==loadRevision) { previewPdf.destroy(); return false; }
         previewUrl=URL.createObjectURL(blob);
+        root.setAttribute('data-result-ready', 'true');
         callbacks.onComplete?.(blob.size); event('tool_complete','completed');
         status(`Edited PDF ready · ${info.pages.length} pages · ${window.GxaWorkspace.formatBytes(blob.size)}. Check the preview before sharing.`);
         return true;
@@ -584,6 +586,7 @@
     }
     async function action(name) {
       if (busy && name!=='close-signature') return;
+      if (name === 'replace') { fileInput.click(); return; }
       if (name.startsWith('page-')) { await changePage(name); return; }
       if ((name==='undo' && undo.length) || (name==='redo' && redo.length)) {
         const from = name === 'undo' ? undo : redo, to = name === 'undo' ? redo : undo;
@@ -627,6 +630,11 @@
       }
     }
     on(fileInput,'change',()=>loadFile(fileInput.files[0]));
+    on($('.pdf-edit-upload'), 'dragover', event => event.preventDefault());
+    on($('.pdf-edit-upload'), 'drop', event => {
+      event.preventDefault();
+      if (!busy) loadFile(event.dataTransfer?.files?.[0]);
+    });
     on(imageInput,'change',()=>readImage(imageInput.files[0]));
     on(replaceImageInput,'change',()=>readImage(replaceImageInput.files[0], replaceImageInput.dataset.overlay));
     on(root,'focusin',()=>{editingInput=null;});

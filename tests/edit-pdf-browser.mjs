@@ -30,7 +30,9 @@ page.on('pageerror', error => failures.push(error.message));
 page.on('dialog', dialog => dialog.accept());
 const upload = async name => {
   const chooserPromise = page.waitForEvent('filechooser');
-  await page.getByLabel('Select PDF', { exact: true }).press('Enter');
+  if (await page.getByRole('button', {name:'Replace PDF',exact:true}).isVisible()) {
+    await page.getByRole('button', {name:'Replace PDF',exact:true}).press('Enter');
+  } else await page.getByLabel('Select PDF', { exact: true }).press('Enter');
   await (await chooserPromise).setFiles({ name, mimeType: 'application/pdf', buffer: Buffer.from(fixtures[name]) });
   await page.waitForFunction(() => document.querySelector('#edit-pdf-mount')?.getAttribute('aria-busy') === 'false');
   const message = await page.locator('#pdf-edit-status').innerText();
@@ -61,6 +63,11 @@ try {
   assert.equal((await page.goto(`${origin}/edit-pdf/`, { waitUntil: 'domcontentloaded' })).status(), 200);
   await upload('fillable-form.pdf');
   console.log('Synthetic form loaded in Chromium.');
+  await page.waitForFunction(() => document.querySelector('.pdf-edit-upload')?.hidden === true);
+  const replacementPicker = page.waitForEvent('filechooser');
+  await page.getByRole('button', {name:'Replace PDF',exact:true}).click();
+  await (await replacementPicker).setFiles([]);
+  assert.equal(await page.locator('.pdf-edit-document').isVisible(), true, 'Cancelling replacement preserves the loaded document');
   const retainedField = await page.getByLabel('details', { exact: true }).elementHandle();
   const initialFieldValue = await page.getByLabel('details', { exact: true }).inputValue();
   await page.getByLabel('details', { exact: true }).fill('Resize retained draft');

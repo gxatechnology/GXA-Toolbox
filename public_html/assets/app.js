@@ -4723,14 +4723,14 @@ function renderToolPage(container, toolId) {
             <div id="tool-upload-mount">
               <div class="upload-zone" id="drop-zone" role="group" aria-label="Select or drop files for ${tool.name}" onclick="document.getElementById('file-picker').click()">
                 <span class="upload-icon-shell"><i data-lucide="cloud-upload" class="upload-icon"></i></span>
-                <h3 class="upload-title">${t('uploadTitle')}</h3>
+                <h3 class="upload-title">${multiple ? t('uploadTitle') : 'Drop your file here'}</h3>
                 <p class="upload-subtitle">${t('uploadSubtitle')}</p>
                 <div class="upload-formats">
-                  <span class="format-chip">${uploadFormatsLabel || (accepts === '*' ? 'ANY' : accepts.toUpperCase())}</span>
+                  <span class="format-chip">${uploadFormatsLabel || (accepts === '*' ? 'ANY' : accepts.split(',').filter(type => type.startsWith('.')).join(' · ').toUpperCase() || (accepts.startsWith('image/') ? 'Images' : accepts.toUpperCase()))}</span>
                   <span class="format-chip subtle">${multiple ? 'Multiple files' : 'Single file'}</span>
                 </div>
-                <p class="upload-limit"><i data-lucide="info"></i> ${uploadLimitLabel} · Files are validated before processing</p>
-                <button type="button" class="btn btn-primary btn-lg" onclick="event.stopPropagation(); document.getElementById('file-picker').click()">${multiple ? 'Select files' : accepts.includes('pdf') ? 'Select PDF' : accepts.startsWith('image/') ? 'Select image' : 'Select files'}</button>
+                <p class="upload-limit"><i data-lucide="info"></i> ${uploadLimitLabel}</p>
+                <button type="button" class="btn btn-primary btn-lg" onclick="event.stopPropagation(); document.getElementById('file-picker').click()">${multiple ? 'Select files' : accepts === '.svg' ? 'Select SVG' : accepts.includes('pdf') ? 'Select PDF' : accepts.startsWith('image/') ? 'Select image' : 'Select file'}</button>
                 <input type="file" id="file-picker" style="display:none;" accept="${accepts}" ${multiple ? 'multiple' : ''}>
               </div>
             </div>
@@ -6603,6 +6603,7 @@ function premiumPreviewAction(action) {
 }
 
 function resetPremiumEditor() {
+  window.GxaToolUx?.setError();
   disposePremiumToolEditor();
   appState.activeFiles = [];
   appState.activeToolOptions = {};
@@ -6911,6 +6912,7 @@ function setupUploadZoneEvents() {
 }
 
 function handleFileSelection(files) {
+  window.GxaToolUx?.setError();
   if (!files || files.length === 0) return;
   const picker = document.getElementById('file-picker');
   const isMultiple = picker.multiple;
@@ -7146,6 +7148,7 @@ function clearSelectedFiles() {
 }
 
 function resetActiveTool() {
+  window.GxaToolUx?.setError();
   if (['tool-split-pdf', 'tool-organize-pdf'].includes(appState.currentPage)) {
     resetPremiumEditor();
     return;
@@ -7292,6 +7295,7 @@ function renderImageBatchActions(mount, items) {
 }
 
 async function runFileProcessingPipeline() {
+  window.GxaToolUx?.setError();
   if (appState.activeFiles.length === 0) return;
   const toolId = appState.currentPage.replace('tool-', '');
   const blocker = window.GxaWorkspace ? window.GxaWorkspace.getBlocker(toolId) : '';
@@ -7363,6 +7367,7 @@ async function runFileProcessingPipeline() {
     completeMount.classList.add('hidden');
     cancelBtn?.classList.add('hidden');
     document.body.dataset.gxaLastProcessingError = err && err.message ? err.message : String(err);
+    window.GxaToolUx?.setError(err.message || 'Processing could not finish. Check the file and try again.');
     recordToolAnalytics('tool_fail', {
       status: safeFailureCategory(err),
       durationBucket: durationBucket(premiumEditorState.startedAt)

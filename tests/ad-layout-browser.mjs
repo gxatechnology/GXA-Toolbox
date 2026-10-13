@@ -56,7 +56,11 @@ async function loadSlots() {
 try {
   for (const id of ['image-converter', 'compress-image', 'compress-pdf', 'merge-pdf', 'split-pdf', 'edit-pdf', 'crop-image', 'gst-calculator', 'json-tool'].filter(id => !process.env.GXA_AD_QA_ROUTE || id === process.env.GXA_AD_QA_ROUTE)) {
     for (const width of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1600, 1800, 1920, 2400].filter(width => !process.env.GXA_AD_QA_WIDTH || width === Number(process.env.GXA_AD_QA_WIDTH))) {
-      await open(id, width); await loadSlots();
+      await open(id, width);
+      const workspaceWidth = await page.evaluate(() => document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect().width ?? null);
+      await loadSlots();
+      const filledWorkspaceWidth = await page.evaluate(() => document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect().width ?? null);
+      if (workspaceWidth !== null) assert.ok(Math.abs(workspaceWidth-filledWorkspaceWidth) <= 1, `${id} ${width}: ad fill must not resize the upload workspace`);
       const result = await page.evaluate(() => {
         const nodes = [...document.querySelectorAll('.gxa-ad-network[data-ad-state="mounted"]')];
         const controls = [...document.querySelectorAll('.tool-workspace, #edit-pdf-mount, #image-converter-mount, .premium-session-panel')].filter(node => node.getClientRects().length);

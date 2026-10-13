@@ -9,7 +9,7 @@ const { chromium } = createRequire(import.meta.url)(process.env.GXA_PLAYWRIGHT_M
 const server = createQaServer(); await new Promise(done => server.listen(0, '127.0.0.1', done));
 const browser = await chromium.launch({ headless: true, executablePath: process.env.GXA_BROWSER_EXECUTABLE || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
-await context.route(/googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net/, route => route.abort());
+await context.route(/bauval\.org|abscloud\.org|googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net/, route => route.abort());
 const page = await context.newPage(); page.setDefaultTimeout(60000);
 const out = resolve('test-results/tool-functionality-phase4a'); await mkdir(out, { recursive: true });
 const source = resolve('tests/fixtures/background-remover-qa/07-product-white.jpg');
