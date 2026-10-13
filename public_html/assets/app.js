@@ -2880,7 +2880,7 @@ function renderToolContentSections(toolId) {
   const toolName = toolsList.find(tool => tool.id === toolId)?.name || 'Tool';
   return `<article class="tool-content-guide" aria-label="${escapeHTML(toolName)} guide">
     ${toolId === 'edit-pdf' ? renderToolPreworkspaceIntro(toolId) : ''}
-    ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.description)}</p></div></li>`).join('')}</ol>` : '')}
+    ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHTML(item.title)}</h3>${item.description.trim().replace(/[.!?]+$/, '') === item.title.trim().replace(/[.!?]+$/, '') ? '' : `<p>${escapeHTML(item.description)}</p>`}</div></li>`).join('')}</ol>` : '')}
     ${section(`${toolId}-about`, 'About This Tool', content.about?.map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join(''))}
     ${section(`${toolId}-features`, 'What You Can Do', cards(content.features, 'tool-info-card-grid'))}
     ${section(`${toolId}-uses`, 'Practical Use Cases', cards(content.useCases, 'tool-info-card-grid'))}
@@ -4730,7 +4730,7 @@ function renderToolPage(container, toolId) {
                   <span class="format-chip subtle">${multiple ? 'Multiple files' : 'Single file'}</span>
                 </div>
                 <p class="upload-limit"><i data-lucide="info"></i> ${uploadLimitLabel} · Files are validated before processing</p>
-                <button type="button" class="btn btn-primary btn-lg" onclick="event.stopPropagation(); document.getElementById('file-picker').click()">${multiple ? 'Select files' : 'Select file'}</button>
+                <button type="button" class="btn btn-primary btn-lg" onclick="event.stopPropagation(); document.getElementById('file-picker').click()">${multiple ? 'Select files' : accepts.includes('pdf') ? 'Select PDF' : accepts.startsWith('image/') ? 'Select image' : 'Select files'}</button>
                 <input type="file" id="file-picker" style="display:none;" accept="${accepts}" ${multiple ? 'multiple' : ''}>
               </div>
             </div>
@@ -5111,6 +5111,15 @@ function renderToolPage(container, toolId) {
   if (toolId === 'sign-pdf') initializePdfSignaturePad();
 }
 
+// Specialized editors share the public tool identity without sharing engine state.
+function renderEditorToolHeader(tool, title = tool.name) {
+  return `<header class="tool-header">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span class="tool-breadcrumb-category">${escapeHTML(tool.category)}</span><span aria-hidden="true">&gt;</span><span>${escapeHTML(tool.name)}</span></nav>
+    <div class="tool-title-wrapper"><div class="tool-heading-group"><span class="tool-page-icon cat-${tool.category}"><i data-lucide="${tool.icon}"></i></span><div><span class="tool-category-label">${escapeHTML(tool.category)} tool</span><h1 class="tool-page-title">${escapeHTML(title)}</h1></div></div>
+    <div class="tool-heading-actions"><button class="favorite-button tool-favorite ${appState.favorites.includes(tool.id) ? 'active' : ''}" aria-label="Toggle ${escapeHTML(tool.name)} favorite" onclick="toggleFavorite('${tool.id}'); this.classList.toggle('active')"><i data-lucide="star"></i><span>Favorite</span></button></div></div>
+    <p class="section-desc">${escapeHTML(tool.desc)}</p></header>`;
+}
+
 // Edit PDF uses the same route/content system with an in-memory visual workspace.
 async function renderEditPdfPage(container, tool) {
   window.GxaPdfEditor?.dispose();
@@ -5122,8 +5131,7 @@ async function renderEditPdfPage(container, tool) {
   const faqs = getFAQForTool(tool.id, tool.name);
   container.innerHTML = `
     <section class="container tool-container edit-pdf-page">
-      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span>Edit PDF</span></nav>
-      <header class="tool-header"><h1 class="tool-page-title">Edit PDF</h1><p class="section-desc">${escapeHTML(tool.desc)}</p></header>
+      ${renderEditorToolHeader(tool)}
       <div id="edit-pdf-mount"><p role="status">Loading PDF editor…</p></div>
       ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${renderToolContentSections(tool.id)}
@@ -5160,8 +5168,7 @@ async function renderImageConverterPage(container, tool) {
   const faqs = getFAQForTool(tool.id, tool.name);
   container.innerHTML = `
     <section class="container tool-container image-converter-page">
-      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span>Image Converter</span></nav>
-      <header class="tool-header"><h1 class="tool-page-title">Universal Image Converter</h1><p class="section-desc">${escapeHTML(tool.desc)}</p></header>
+      ${renderEditorToolHeader(tool, 'Universal Image Converter')}
       ${renderToolPreworkspaceIntro(tool.id)}
       <div id="image-converter-mount" aria-busy="true"><p role="status">Loading image converter…</p></div>
       ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
@@ -5197,8 +5204,7 @@ async function renderGpsMapCameraPage(container, tool) {
   const faqs = getFAQForTool(tool.id, tool.name);
   container.innerHTML = `
     <section class="container tool-container gps-map-camera-page">
-      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/" class="breadcrumb-link" onclick="handleRouteLink(event, 'home')">Home</a><span aria-hidden="true">&gt;</span><span>GPS Map Camera</span></nav>
-      <header class="tool-header"><h1 class="tool-page-title">GPS Map Camera – Geotag Photo</h1><p class="section-desc">${escapeHTML(tool.desc)}</p></header>
+      ${renderEditorToolHeader(tool, 'GPS Map Camera – Geotag Photo')}
       ${renderToolPreworkspaceIntro(tool.id)}
       <div id="gps-map-camera-mount" aria-busy="true"><p role="status">Loading GPS photo workspace…</p></div>
       ${renderToolContentSections(tool.id)}
@@ -5379,7 +5385,7 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
           </div>
           <input id="crop-file-picker" type="file" accept="image/jpeg,image/png,image/webp" hidden>
           <div class="crop-canvas-footer">
-            <span id="crop-editor-status" role="status" aria-live="polite">Select an image to begin.</span>
+            <span id="crop-editor-status" role="status" aria-live="polite"></span>
             <span class="crop-shortcuts">Wheel/pinch to zoom · Space + drag to pan · Arrow keys to nudge</span>
           </div>
           <div class="crop-mobile-primary-actions" aria-label="Crop actions">

@@ -51,8 +51,10 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .eyebrow { display: inline-block; color: var(--blue); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
 
 .upload-page { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 64px 0 48px; }
-.upload-intro { max-width: 760px; margin: 0 auto 32px; text-align: center; }
-.upload-intro h1 { margin: 8px 0 12px; font: 800 clamp(38px, 6vw, 62px)/1 Outfit, Inter, sans-serif; letter-spacing: -.04em; }
+.tool-breadcrumb { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.tool-breadcrumb a { color: inherit; }
+.upload-intro { max-width: 760px; margin: 0 0 24px; text-align: left; }
+.upload-intro h1 { margin: 8px 0 12px; font: 800 clamp(27px, 3vw, 38px)/1.2 Outfit, Inter, sans-serif; letter-spacing: -.03em; }
 .upload-intro p { margin: 0 auto; max-width: 680px; color: var(--muted); font-size: 17px; line-height: 1.7; }
 .upload-highlights { max-width: 920px; margin: 22px auto 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; list-style: none; text-align: left; }
 .upload-highlights li { min-width: 0; padding: 12px 14px; display: grid; gap: 4px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
@@ -260,7 +262,7 @@ button.layer-row { cursor: pointer; }
   .brand-name { font-size: clamp(15px, 4.6vw, 17px); }
   .header-download { min-width: 42px; width: 42px; height: 42px; padding: 0; }
   .upload-page { width: min(100% - 22px, 1120px); padding-top: 28px; }
-  .upload-intro h1 { font-size: 38px; }
+  .upload-intro h1 { font-size: clamp(23px, 5vw, 30px); }
   .upload-intro p { font-size: 14px; }
   .drop-zone { min-height: 280px; padding: 30px 15px; border-radius: 18px; }
   .format-row small { display: none; }

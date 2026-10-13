@@ -28,7 +28,7 @@ async function fixture(count) {
 async function open(route, input) {
   await page.goto(`http://127.0.0.1:${server.address().port}/${route}/`, { waitUntil: 'domcontentloaded' });
   // Actual user-facing Choose Files control opens the native picker hook.
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Select file', exact: true }).tap()]);
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Select PDF', exact: true }).tap()]);
   await chooser.setFiles(input);
   await page.waitForSelector('.pdf-canvas-wrap[data-current-pdf-page]');
 }
@@ -59,7 +59,8 @@ async function widthSweep(route) {
     await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth + 1);
     assert.ok(await page.locator('#btn-process-action').isVisible());
     assert.ok(await page.locator('.tool-options-panel .preset-btn').evaluateAll(buttons => buttons.every(button => button.getBoundingClientRect().height >= 44)), 'Mode/rotation buttons retain 44px touch height');
-    assert.equal(await page.locator('.gxa-ad-network').count(), 1, 'Existing eligible editorial slot remains present');
+    assert.equal(await page.locator('.gxa-ad-network[data-ad-layout-zone="after-tool"]').count(), 1, 'Existing eligible after-tool slot remains unique');
+    assert.ok(await page.locator('.gxa-ad-network').count() <= 4, 'Current multi-zone policy retains its density limit');
     const emptyAds = await page.locator('.gxa-ad-network').evaluateAll(elements => elements.every(el => el.dataset.adState !== 'mounted' && el.getBoundingClientRect().height === 0));
     assert.ok(emptyAds, 'Unfilled ads must stay collapsed');
     checks.push(`${route}: populated ${width}px layout, visible processing, no body overflow or empty ad gap`);

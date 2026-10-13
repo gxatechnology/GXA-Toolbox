@@ -166,7 +166,7 @@ function toolStaticContent(tool, content, tools) {
         </section>` : '';
   const guide = content ? `<article class="tool-content-guide" aria-label="${escapeHtml(tool.name)} guide">
         ${tool.id === 'edit-pdf' ? intro : ''}
-        ${section('How to Use', `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.description)}</p></div></li>`).join('')}</ol>`)}
+        ${section('How to Use', `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHtml(item.title)}</h3>${item.description.trim().replace(/[.!?]+$/, '') === item.title.trim().replace(/[.!?]+$/, '') ? '' : `<p>${escapeHtml(item.description)}</p>`}</div></li>`).join('')}</ol>`)}
         ${section('About This Tool', content.about.map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join(''))}
         ${section('What You Can Do', cards(content.features))}
         ${section('Practical Use Cases', cards(content.useCases))}

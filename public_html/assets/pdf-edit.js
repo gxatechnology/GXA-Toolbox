@@ -45,12 +45,14 @@
     let thumbnailRevision = 0;
     let thumbnailTask = null;
     let textEditor = null;
+    let renderedFieldInfo = null;
+    let renderedFieldPage = -1;
     const abort = new AbortController();
     const on = (el, event, fn) => el.addEventListener(event, fn, { signal: abort.signal });
     root.innerHTML = `
       <div class="pdf-edit" aria-label="PDF form and overlay editor">
-        <div class="pdf-edit-upload"><label for="pdf-edit-file">Choose a PDF</label><input id="pdf-edit-file" type="file" accept=".pdf,application/pdf"><p>One PDF, up to 25 MB. Edits stay in memory and are cleared when you leave or reset.</p></div>
-        <p class="pdf-edit-status" role="status" aria-live="polite" id="pdf-edit-status">Choose a PDF to begin.</p>
+        <div class="pdf-edit-upload"><label for="pdf-edit-file">Select PDF</label><input id="pdf-edit-file" type="file" accept=".pdf,application/pdf"><p>One PDF, up to 25 MB. Edits stay in memory and are cleared when you leave or reset.</p></div>
+        <p class="pdf-edit-status" role="status" aria-live="polite" id="pdf-edit-status"></p>
         <div class="pdf-edit-document" hidden>
           <p class="pdf-edit-notice">Edit Text can rewrite supported selectable text or offer explicit visual replacement. Scanned pages can use English OCR. Visual covers are not secure redaction; underlying content remains. Rewriting a PDF invalidates existing digital signatures.</p>
           <div class="pdf-edit-file-info"><strong id="pdf-edit-filename"></strong><span id="pdf-edit-info"></span><button type="button" data-action="reset">Reset document</button></div>
@@ -427,7 +429,25 @@
     }
     function renderFields() {
       if (!info) return;
-      const list = $('.pdf-edit-field-list'); list.replaceChildren();
+      const list = $('.pdf-edit-field-list');
+      // A canvas resize must not detach the focused form input between its
+      // native edit and bubbling input event. Reuse controls on the same page;
+      // synchronize restored values for undo/redo without disturbing selection.
+      if (renderedFieldInfo === info && renderedFieldPage === pageIndex && list.childElementCount) {
+        for (const input of list.querySelectorAll('[data-field]')) {
+          const field = info.fields.find(item => item.name === input.dataset.field);
+          if (!field) continue;
+          const value = data.fieldValues[field.name] ?? field.value;
+          if (input.type === 'checkbox') input.checked = !!value;
+          else {
+            const text = String(Array.isArray(value) ? value[0] ?? '' : value ?? '');
+            if (input.value !== text) input.value = text;
+          }
+        }
+        return;
+      }
+      renderedFieldInfo = info; renderedFieldPage = pageIndex;
+      list.replaceChildren();
       const fields = info.fields.filter(field => field.widgets.some(widget => widget.pageIndex === pageIndex && !widget.hidden));
       if (!fields.length) { list.textContent = 'This page has no fillable fields. Use Add Text or a mark for flat forms.'; return; }
       for (const field of fields) {
@@ -593,7 +613,7 @@
       if (name==='replace-image' && !preview) { replaceImageInput.dataset.overlay = selectedId || ''; replaceImageInput.click(); }
       if (name==='apply-image-edit' || name==='reset-image-edit') await editImage(name==='reset-image-edit');
       if (name==='clear-page' && data.overlays.some(item=>item.pageIndex===pageIndex) && window.confirm('Clear all added overlays on this page? Original artwork and form values will remain.')) { remember(); data.overlays=data.overlays.filter(item=>item.pageIndex!==pageIndex); selectedId=null; changed('Page overlays cleared.'); }
-      if (name==='reset' && window.confirm('Discard this document and all unsaved edits?')) { textEditor?.reset(); thumbnailObserver?.disconnect(); thumbnailTask?.cancel(); ++thumbnailRevision; ++loadRevision; ++revision; renderTask?.cancel(); pdf?.destroy(); pdf=null; clearOutput(); source=null; info=null; data={fieldValues:{},overlays:[]}; undo=[]; redo=[]; pendingImage=null; editingInput=null; sourceName=''; selectedId=null; signatureContext.clearRect(0,0,600,200);signatureHasInk=false;canvas.width=1;canvas.height=1;layer.replaceChildren();renderProperties();$('.pdf-edit-field-list').replaceChildren();$('.pdf-edit-pages').replaceChildren();$('#pdf-edit-filename').textContent='';$('#pdf-edit-info').textContent='';$('.pdf-edit-document').hidden=true;status('Choose a PDF to begin.');fileInput.focus(); }
+      if (name==='reset' && window.confirm('Discard this document and all unsaved edits?')) { textEditor?.reset(); thumbnailObserver?.disconnect(); thumbnailTask?.cancel(); ++thumbnailRevision; ++loadRevision; ++revision; renderTask?.cancel(); pdf?.destroy(); pdf=null; clearOutput(); source=null; info=null; data={fieldValues:{},overlays:[]}; undo=[]; redo=[]; pendingImage=null; editingInput=null; sourceName=''; selectedId=null; signatureContext.clearRect(0,0,600,200);signatureHasInk=false;canvas.width=1;canvas.height=1;layer.replaceChildren();renderProperties();$('.pdf-edit-field-list').replaceChildren();$('.pdf-edit-pages').replaceChildren();$('#pdf-edit-filename').textContent='';$('#pdf-edit-info').textContent='';$('.pdf-edit-document').hidden=true;status('');fileInput.focus(); }
       if (name==='preview' && await prepareOutput()) { preview=true; $('[data-action="back"]').hidden=false; await renderPage(); window.GxaWorkspace.scrollToResult(stage); }
       if (name==='back') { preview=false; $('[data-action="back"]').hidden=true; await renderPage(); }
       if (name==='download' && await prepareOutput()) { const link=document.createElement('a');link.href=previewUrl;link.download=`edited_${window.GxaWorkspace.safeFileName(sourceName)}`;document.body.append(link);link.click();link.remove();event('tool_download','downloaded'); }

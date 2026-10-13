@@ -6,6 +6,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PDFDocument, PDFRawStream, decodePDFRawStream } from 'pdf-lib';
 import { createQaServer } from './browser-qa-server.mjs';
+import { cachePublicDependencies } from './tool-functionality-phase4a/cache-public-dependencies.mjs';
 import { createEditPdfFixtures } from './fixtures/edit-pdf-fixtures.mjs';
 
 const require = createRequire(import.meta.url);
@@ -18,6 +19,7 @@ await mkdir(output, { recursive: true });
 const fixtures = await createEditPdfFixtures();
 const browser = await chromium.launch({ headless: true, ...(process.env.GXA_BROWSER_EXECUTABLE ? { executablePath: process.env.GXA_BROWSER_EXECUTABLE } : {}) });
 const context = await browser.newContext({ viewport: { width: 1366, height: 900 }, acceptDownloads: true, hasTouch: true });
+await cachePublicDependencies(context);
 // Prevent local QA from sending real analytics or ad impressions. Production sources are untouched.
 await context.route(/googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net/, route => route.abort());
 await context.route(/bauval\.org|abscloud\.org/, route => route.abort());
@@ -28,7 +30,7 @@ page.on('pageerror', error => failures.push(error.message));
 page.on('dialog', dialog => dialog.accept());
 const upload = async name => {
   const chooserPromise = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Choose a PDF', exact: true }).click();
+  await page.getByLabel('Select PDF', { exact: true }).press('Enter');
   await (await chooserPromise).setFiles({ name, mimeType: 'application/pdf', buffer: Buffer.from(fixtures[name]) });
   await page.waitForFunction(() => document.querySelector('#edit-pdf-mount')?.getAttribute('aria-busy') === 'false');
   const message = await page.locator('#pdf-edit-status').innerText();
@@ -56,9 +58,25 @@ const addText = async (text, x, y) => {
   await page.locator('[data-property="y"]').fill(String(y));
 };
 try {
-  assert.equal((await page.goto(`${origin}/edit-pdf/`)).status(), 200);
+  assert.equal((await page.goto(`${origin}/edit-pdf/`, { waitUntil: 'domcontentloaded' })).status(), 200);
   await upload('fillable-form.pdf');
   console.log('Synthetic form loaded in Chromium.');
+  const retainedField = await page.getByLabel('details', { exact: true }).elementHandle();
+  const initialFieldValue = await page.getByLabel('details', { exact: true }).inputValue();
+  await page.getByLabel('details', { exact: true }).fill('Resize retained draft');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.waitForTimeout(400);
+  assert.ok(await retainedField.evaluate(node => node.isConnected), 'Resize must retain the sidebar form control being edited');
+  assert.equal(await page.getByLabel('details', { exact: true }).inputValue(), 'Resize retained draft');
+  assert.ok(await retainedField.evaluate(node => document.activeElement === node), 'Resize must preserve form field focus');
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.waitForTimeout(400);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('#edit-pdf-mount')?.getAttribute('aria-busy') === 'false');
+  assert.equal(await page.getByLabel('details', { exact: true }).inputValue(), initialFieldValue);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('#edit-pdf-mount')?.getAttribute('aria-busy') === 'false');
+  assert.equal(await page.getByLabel('details', { exact: true }).inputValue(), 'Resize retained draft');
   await page.getByLabel('fullName', { exact: true }).fill('Synthetic Browser User');
   await page.getByLabel('details', { exact: true }).fill('First synthetic line\nSecond synthetic line');
   await page.getByLabel('consent', { exact: true }).check();
@@ -145,6 +163,10 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Fit Width', exact: true }).click();
   await page.waitForFunction(() => Math.abs(document.querySelector('.pdf-edit-page').getBoundingClientRect().width - (document.querySelector('.pdf-edit-viewport').clientWidth - 24)) < 1);
+  // ResizeObserver schedules a second render after 100ms; do not retain a
+  // bounding box from the layer that this render is about to replace.
+  await page.waitForTimeout(250);
+  await page.locator('[data-overlay]').first().waitFor({ state: 'visible' });
   await page.locator('[data-overlay]').first().click();
   const objectBox = await page.locator('[data-overlay]').first().boundingBox();
   const session = await context.newCDPSession(page);

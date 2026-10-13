@@ -28,7 +28,7 @@
           <label class="image-converter__consent" hidden><input type="checkbox"><span></span></label>
           <div class="image-converter__metadata"><strong>Metadata</strong><p>Pixel conversion re-encodes the image and removes EXIF, ICC profiles, location, comments, and other source metadata. Metadata preservation is not offered because it cannot be guaranteed across these formats.</p></div>
           <button type="button" class="btn btn-primary btn-lg image-converter__convert" disabled><i data-lucide="repeat-2" aria-hidden="true"></i> Convert Image</button>
-          <p class="image-converter__status" role="status" aria-live="polite">Choose an image to begin.</p>
+          <p class="image-converter__status" role="status" aria-live="polite"></p>
         </section>
       </div>
       <section class="image-converter__panel image-converter__result" hidden aria-labelledby="image-converter-result-title">
@@ -126,7 +126,7 @@
     } catch (error) { state.detection = null; state.source = null; state.elements.drop.hidden = false; state.elements.original.hidden = true; state.elements.reset.hidden = true; state.elements.format.innerHTML = '<option>Upload an image first</option>'; state.elements.format.disabled = true; state.elements.convert.disabled = true; status(state, error instanceof Error ? error.message : 'The image could not be decoded.', true); state.options.onEvent?.('tool_fail', 'invalid_input'); }
   }
 
-  function reset(state, restorePrompt = true) { revoke(state.sourceUrl); revoke(state.resultUrl); state.sourceUrl = ''; state.resultUrl = ''; state.file = null; state.source = null; state.result = null; state.detection = null; state.elements.input.value = ''; state.elements.original.hidden = true; state.elements.result.hidden = true; state.elements.reset.hidden = true; state.elements.drop.hidden = false; state.elements.format.innerHTML = '<option>Upload an image first</option>'; state.elements.format.disabled = true; state.elements.quality.hidden = true; state.elements.iconSize.hidden = true; state.elements.background.hidden = true; state.elements.consent.hidden = true; state.elements.convert.disabled = true; if (restorePrompt) status(state, 'Choose an image to begin.'); }
+  function reset(state, restorePrompt = true) { revoke(state.sourceUrl); revoke(state.resultUrl); state.sourceUrl = ''; state.resultUrl = ''; state.file = null; state.source = null; state.result = null; state.detection = null; state.elements.input.value = ''; state.elements.original.hidden = true; state.elements.result.hidden = true; state.elements.reset.hidden = true; state.elements.drop.hidden = false; state.elements.format.innerHTML = '<option>Upload an image first</option>'; state.elements.format.disabled = true; state.elements.quality.hidden = true; state.elements.iconSize.hidden = true; state.elements.background.hidden = true; state.elements.consent.hidden = true; state.elements.convert.disabled = true; if (restorePrompt) status(state, ''); }
 
   function mount(root, options = {}) {
     dispose(); root.innerHTML = html; root.setAttribute('aria-busy', 'false'); const pick = selector => root.querySelector(selector); const fields = prefix => Object.fromEntries(['format', 'dimensions', 'size', 'alpha'].map(key => [key, root.querySelector(`[data-${prefix}="${key}"]`)]));

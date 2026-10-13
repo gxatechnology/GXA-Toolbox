@@ -18,8 +18,9 @@ export function UploadScreen({ error, onFile }: UploadScreenProps) {
   };
   return (
     <main className="upload-page">
+      <nav className="tool-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">&gt;</span><span>IMAGE</span><span aria-hidden="true">&gt;</span><span>Background Remover</span></nav>
       <section className="upload-intro">
-        <span className="eyebrow">Browser-local image tool</span>
+        <span className="eyebrow">Image tool</span>
         <h1>Background Remover</h1>
         <p>Automatically detect the foreground, refine the alpha mask, create a new composition, and export at the source resolution.</p>
         <ul className="upload-highlights" aria-label="Background Remover capabilities">
@@ -43,7 +44,7 @@ export function UploadScreen({ error, onFile }: UploadScreenProps) {
         <span className="upload-icon"><Icon name="upload" size={34} /></span>
         <h2>Choose an image</h2>
         <p>or drop a JPG, PNG, or WEBP here</p>
-        <button type="button" className="primary-button" onClick={(event) => { event.stopPropagation(); choose(); }}>Explore your files</button>
+        <button type="button" className="primary-button" onClick={(event) => { event.stopPropagation(); choose(); }}>Select image</button>
         <div className="format-row"><span>JPG</span><span>PNG</span><span>WEBP</span><small>Up to 30 MB</small></div>
         <input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(event) => accept(event.target.files)} />
       </section>

@@ -2,9 +2,11 @@
 // not installed in the production application. All files are synthetic fixtures.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { PDFDocument } from 'pdf-lib';
 import { resolve } from 'node:path';
 import { createQaServer } from './browser-qa-server.mjs';
+import { cachePublicDependencies } from './tool-functionality-phase4a/cache-public-dependencies.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.GXA_PLAYWRIGHT_MODULE || 'playwright');
@@ -15,8 +17,10 @@ const evidence = resolve('test-results/upload-area-layout');
 await mkdir(evidence, { recursive:true });
 const browser = await chromium.launch({ headless:true, ...(process.env.GXA_BROWSER_EXECUTABLE ? { executablePath:process.env.GXA_BROWSER_EXECUTABLE } : {}) });
 const context = await browser.newContext({ hasTouch:true, acceptDownloads:true, reducedMotion:'reduce' });
+await cachePublicDependencies(context);
 await context.route(/googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net|tile\.openstreetmap\.org/, route => route.abort());
 const page = await context.newPage();
+page.on('dialog', dialog => dialog.accept());
 page.setDefaultTimeout(20000);
 const results = [];
 const specs = [
@@ -34,6 +38,9 @@ async function choose(spec, width) {
   await page.locator(spec.preview).waitFor({state:'visible'});
 }
 async function checkArea(selector) {
+  // Disclosure is committed in requestAnimationFrame after reset; measure the
+  // settled layout, not the previous editor grid midway through that update.
+  await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
   await page.locator(selector).evaluate(el => el.scrollIntoView({block:'start',behavior:'instant'}));
   const check = await page.locator(selector).evaluate(el => {
     const r=el.getBoundingClientRect(), header=document.querySelector('.header-nav,.gxa-header').getBoundingClientRect();
@@ -90,6 +97,25 @@ try {
     results.push({route:'background-remover',width,upload:true,reset:true,reupload:true,scope:'real decode/preview; model request held to verify loading cancellation; inference not asserted'});
     console.log(`background-remover ${width}: native picker, processing preview, cancel and re-upload passed`);
   }
+  await page.setViewportSize({width:1366,height:900});
+  await page.goto(`${origin}/merge-pdf/`, {waitUntil:'domcontentloaded'});
+  await page.locator('#drop-zone').waitFor({state:'visible'});
+  const bytes = [...await readFile(resolve('tests/fixtures/one-page.pdf'))];
+  const transfer = await page.evaluateHandle(bytes => {
+    const files = new DataTransfer();
+    for (const name of ['first.pdf','second.pdf']) files.items.add(new File([new Uint8Array(bytes)],name,{type:'application/pdf'}));
+    return files;
+  },bytes);
+  await page.locator('#drop-zone').dispatchEvent('drop',{dataTransfer:transfer});
+  await transfer.dispose();
+  await page.waitForFunction(()=>document.querySelectorAll('.file-card').length===2);
+  await page.locator('#btn-process-action').click();
+  await page.waitForFunction(()=>document.querySelector('#btn-download-result')?.disabled===false);
+  const pending = page.waitForEvent('download');
+  await page.locator('#btn-download-result').click();
+  const download = await pending;
+  assert.equal((await PDFDocument.load(await readFile(await download.path()))).getPageCount(),2);
+  results.push({route:'merge-pdf',width:1366,scope:'two real PDFs via DataTransfer drop; processed, downloaded and reopened with two pages'});
   await writeFile(resolve(evidence,'lifecycle.json'),JSON.stringify(results,null,2));
   console.log(`PASS: ${results.length} file-input lifecycle checks, with real crop downloads.`);
 } finally {

@@ -8013,7 +8013,7 @@ html { scroll-padding-top: var(--header-clearance); }
 [data-disclosure="upload"] .image-converter__grid { grid-template-columns: minmax(0, 1fr); }
 [data-disclosure="upload"] #tool-upload-mount,
 [data-disclosure="upload"] .crop-editor-main,
-[data-disclosure="upload"] .image-converter__grid { width: 100%; max-width: 760px; margin-inline: auto; }
+[data-disclosure="upload"] .image-converter__grid { width: 100%; max-width: var(--tool-empty-width); margin-inline: auto; }
 [data-disclosure="upload"] .crop-canvas-stage { min-height: 300px; height: auto; background: var(--color-surface); }
 .tool-content-guide { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--color-border); }
 .tool-ad-placement[hidden], .tool-ad-placement:empty { display: none !important; margin: 0; padding: 0; min-height: 0; }
@@ -8035,20 +8035,56 @@ html { scroll-padding-top: var(--header-clearance); }
   [data-disclosure="upload"] .crop-canvas-stage { min-height: 280px; }
   .tool-content-guide { margin-top: 32px; padding-top: 24px; }
 }
+/* Shared public-tool presentation tokens. Loaded editor geometry is unchanged. */
+:root {
+  --tool-section-gap: 24px;
+  --tool-heading-gap: 12px;
+  --tool-card-padding: clamp(16px, 2vw, 24px);
+  --tool-card-radius: 16px;
+  --tool-empty-width: 760px;
+  --tool-empty-height: 300px;
+  --tool-control-height: 44px;
+}
+.tool-container { padding-top: 24px; }
+.tool-container .tool-header { padding-bottom: 0; margin-bottom: var(--tool-section-gap); text-align: left; }
+.tool-container .breadcrumb { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; }
+.tool-breadcrumb-category { text-transform: uppercase; }
+.tool-container .tool-title-wrapper { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--tool-heading-gap); }
+.tool-container .tool-heading-group { min-width: 0; flex: 1; align-items: center; }
+.tool-container .tool-heading-group > div { min-width: 0; }
+.tool-container .tool-page-icon { flex-shrink: 0; }
+.tool-container .tool-heading-actions { flex: 0 0 auto; width: auto; align-items: center; }
+.tool-container .tool-favorite { min-width: var(--tool-control-height); min-height: var(--tool-control-height); }
+.tool-container .tool-header .section-desc { max-width: 76ch; margin: 14px 0 0; text-align: left; }
+.tool-container .tool-page-title { line-height: 1.2; overflow-wrap: anywhere; scroll-margin-top: var(--header-clearance); }
+.crop-upload-state { width: 100%; color: var(--color-text-secondary); background: var(--color-bg); border-color: var(--color-border); border-radius: var(--tool-card-radius); }
+.crop-upload-state h2 { color: var(--color-text-primary); }
+.crop-upload-state .crop-upload-hint { color: var(--color-text-secondary); }
+#crop-editor-status:empty, #pdf-edit-status:empty,
+.image-converter__status:empty, .gps-studio__status:empty { display: none; }
+.crop-canvas-footer:has(#crop-editor-status:empty):has(.crop-shortcuts[hidden]) { display: none; }
+@media (max-width: 767px) {
+  .tool-container { padding-top: 18px; }
+  .tool-container .tool-page-icon { width: 42px; height: 42px; }
+  .tool-container .tool-page-title { font-size: clamp(23px, 5vw, 30px); }
+  .tool-container .tool-heading-group { gap: 10px; }
+  .tool-container .tool-favorite span { display: none; }
+}
 /* Merge-only progressive controls; shared file cards and previews retain their layout. */
 /* Compact empty states only. Loaded editors keep their existing geometry. */
 .tool-container[data-disclosure="upload"] { max-width: 1280px; padding-top: 24px; }
 .tool-container[data-disclosure="upload"] .tool-header { margin-bottom: 20px; }
 .tool-container[data-disclosure="upload"] .tool-interactive-area { padding: 16px; }
 .tool-container[data-disclosure="upload"] .upload-zone {
-  min-height: 280px; padding: 24px 20px; height: auto;
+  min-height: var(--tool-empty-height); padding: var(--tool-card-padding); height: auto;
 }
 .tool-container[data-disclosure="upload"] .upload-icon-shell { width: 48px; height: 48px; border-radius: 14px; }
 .tool-container[data-disclosure="upload"] .upload-zone .upload-title { margin-top: 12px; }
 .tool-container[data-disclosure="upload"] .upload-zone .upload-subtitle { margin-bottom: 12px; }
-.edit-pdf-page[data-disclosure="upload"] #edit-pdf-mount { max-width: 760px; margin-inline: auto; }
+.edit-pdf-page[data-disclosure="upload"] #edit-pdf-mount { max-width: var(--tool-empty-width); margin-inline: auto; }
+.edit-pdf-page[data-disclosure="upload"] .pdf-edit-upload { min-height: var(--tool-empty-height); align-content: center; padding: var(--tool-card-padding); border-radius: var(--tool-card-radius); }
 .edit-pdf-page .tool-content-guide .tool-preworkspace-intro { margin: 24px 0 0; }
-.tool-container[data-disclosure="upload"] .image-converter__drop { min-height: 280px; padding: 20px; }
+.tool-container[data-disclosure="upload"] .image-converter__drop { min-height: var(--tool-empty-height); padding: var(--tool-card-padding); }
 @media (max-width: 767px) {
   .tool-container[data-disclosure="upload"] { padding-top: 18px; }
   .tool-container[data-disclosure="upload"] .upload-zone { padding: 20px 12px; }

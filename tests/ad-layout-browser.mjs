@@ -110,7 +110,7 @@ try {
   assert.match(await page.locator('#generator-preview-mount').innerText(),/"ads"\s*:\s*true/);
   await open('compress-pdf',390); await loadSlots();
   const pdf = await PDFDocument.create(); for(let i=0;i<3;i++) pdf.addPage().drawText(`Ad layout real export test ${i+1}`);
-  const choose = page.getByRole('button',{name:/^Select files?$/}).first(); await choose.focus();
+  const choose = page.getByRole('button',{name:/^Select (?:files?|PDF)$/}).first(); await choose.focus();
   const [picker] = await Promise.all([page.waitForEvent('filechooser'),choose.press('Enter')]);
   await picker.setFiles({name:'ad-layout.pdf',mimeType:'application/pdf',buffer:Buffer.from(await pdf.save({useObjectStreams:false}))});
   await page.locator('#btn-process-action').click();

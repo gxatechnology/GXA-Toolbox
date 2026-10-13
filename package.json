@@ -38,6 +38,8 @@
     "test:admin:browser": "node tests/admin-dashboard-final-browser.mjs",
     "test:upload-layout": "node tests/upload-area-layout-contract.mjs",
     "test:upload-lifecycle": "node tests/upload-area-lifecycle-browser.mjs",
+    "test:ui-final": "node tests/tool-ui-final-contract.mjs",
+    "test:ui-final:browser": "node tests/tool-ui-final-browser.mjs",
     "test": "npm run generate:seo && node tests/repository-audit.mjs && node tests/phase-one-output-validation.mjs && node tests/browser-engine-contract.mjs && node tests/compress-pdf-contract.mjs && node tests/image-ocr-contract.mjs && node tests/background-remover-qa-contract.mjs && node tests/background-remover-transform-mapping.mjs && node tests/background-remover-react-contract.mjs && node tests/mobile-responsive-contract.mjs && node tests/navigation-calculator-contract.mjs && node tests/tool-workspace-layout-contract.mjs && node tests/authentication-contract.mjs && node tests/admin-panel-contract.mjs && node tests/admin-dashboard-final-contract.mjs && node tests/admin-integrations-contract.mjs && node tests/production-finalization-contract.mjs && node tests/contact-support-contract.mjs && node tests/analytics-contract.mjs && node tests/postgres-auth-integration.mjs && node tests/seo-contract.mjs && node tests/seo-count-contract.mjs && node tests/direct-route-seo.mjs && npm run test:bg",
     "build": "npm run lint && npm run build:bg && npm test",
     "dev:bg": "npm run dev --workspace background-remover-app",
