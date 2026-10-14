@@ -2,6 +2,7 @@
   'use strict';
   if (window.GxaAdNetwork || window.GxaAdConfig?.network !== 'adsterra') return;
   const config = window.GxaAdConfig, slots = new Map(), used = new Set();
+  let fixedQueue = Promise.resolve();
   let requested = false, requestedPath = null, plannedPath = null, pending = false, resizeTimer = null;
   const visible = element => element.getClientRects().length && !element.closest('[hidden], .hidden');
   function eligible() {
@@ -25,6 +26,35 @@
     state.sentinel?.remove(); state.node.hidden = true; state.node.dataset.adState = reason;
     state.mount.replaceChildren(); state.terminal = true;
   }
+  function watchForFill(state, container) {
+    state.container = container;
+    state.observer = new MutationObserver(() => ready(state, container));
+    state.observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
+    state.loadedFrames = new WeakSet();
+    container.addEventListener('load', event => { if (event.target.tagName === 'IFRAME') state.loadedFrames.add(event.target); ready(state, container); }, true);
+    // Give the provider a full initial window and one bounded delayed recheck.
+    state.timer = setTimeout(() => {
+      ready(state, container);
+      if (!state.terminal && state.node.dataset.adState !== 'mounted') {
+        state.timer = setTimeout(() => { ready(state, container); if (!state.terminal && state.node.dataset.adState !== 'mounted') collapse(state, 'empty'); }, 5000);
+      }
+    }, 30000);
+  }
+  function loadFixed(state) {
+    return new Promise(resolve => {
+      if (state.terminal || !state.node.isConnected || !eligible() || blocked()) { collapse(state, 'suppressed'); resolve(); return; }
+      // Exact official embed pair, directly in the intended slot. Serialize pairs
+      // so the provider-global atOptions object cannot race another unit.
+      const options = document.createElement('script');
+      options.textContent = `atOptions = {'key':${JSON.stringify(state.unit.key)},'format':'iframe','height':${state.unit.height},'width':${state.unit.width},'params':{}};`;
+      const script = document.createElement('script');
+      script.async = false; script.src = state.unit.src;
+      script.onload = () => { ready(state, state.mount); resolve(); };
+      script.onerror = () => { collapse(state, 'failed'); resolve(); };
+      watchForFill(state, state.mount);
+      state.mount.append(options, script);
+    });
+  }
   function ready(state, container) {
     if (state.terminal) return;
     if (!eligible() || !state.node.isConnected || requestedPath !== location.pathname || blocked()) { collapse(state, 'suppressed'); return; }
@@ -45,32 +75,17 @@
     used.add(key); state.started = true; requested = true; requestedPath = location.pathname;
     state.intersection?.disconnect(); state.sentinel.remove();
     state.node.dataset.adState = 'loading'; state.node.hidden = false;
-    const script = document.createElement('script'); script.async = true; script.dataset.cfasync = 'false'; script.src = state.unit.src;
-    script.onerror = () => collapse(state, 'failed');
-    let container;
     if (state.unit.key) {
-      // Separate context per key prevents the provider's atOptions globals racing.
-      // This is a compatibility boundary, NOT a security sandbox.
-      const frame = document.createElement('iframe'); frame.title = 'Advertisement';
-      frame.width = String(state.unit.width); frame.height = String(state.unit.height);
-      frame.setAttribute('scrolling', 'no'); frame.className = 'gxa-ad-banner-frame';
-      state.mount.append(frame);
-      const doc = frame.contentDocument;
-      if (!doc) { collapse(state, 'failed'); return; }
-      const style = doc.createElement('style'); style.textContent = 'html,body{margin:0;padding:0;background:transparent}'; doc.head.append(style);
-      frame.contentWindow.atOptions = { key: state.unit.key, format: 'iframe', width: state.unit.width, height: state.unit.height, params: {} };
-      container = doc.body;
+      fixedQueue = fixedQueue.then(() => loadFixed(state));
     } else {
       if (document.getElementById(state.unit.containerId)) { collapse(state, 'duplicate'); return; }
-      container = document.createElement('div'); container.id = state.unit.containerId; state.mount.append(container);
+      // Exact official Native order: async provider script, then its fixed ID.
+      const script = document.createElement('script'); script.async = true; script.dataset.cfasync = 'false'; script.src = state.unit.src;
+      script.onerror = () => collapse(state, 'failed');
+      const container = document.createElement('div'); container.id = state.unit.containerId;
+      watchForFill(state, container);
+      state.mount.append(script, container);
     }
-    state.container = container;
-    state.observer = new MutationObserver(() => ready(state, container));
-    state.observer.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
-    state.loadedFrames = new WeakSet();
-    container.addEventListener('load', event => { if (event.target.tagName === 'IFRAME') state.loadedFrames.add(event.target); ready(state, container); }, true);
-    state.timer = setTimeout(() => collapse(state, 'empty'), 20000);
-    container.append(script);
   }
   function makeSlot(zone, unit, anchor, existing = null) {
     if (slots.has(zone)) return;
@@ -155,11 +170,6 @@
   function start() {
     new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'data-gxa-last-processing-error'] });
     document.addEventListener('focusout', schedule);
-    document.addEventListener('pointerdown', event => {
-      if (!event.target.closest?.('.tool-workspace, #edit-pdf-mount, #image-converter-mount, .tool-interactive-area')) return;
-      // A late response must not move the controls under an active pointer.
-      for (const state of slots.values()) if (state.node.dataset.adState === 'loading') collapse(state, 'interaction');
-    }, { passive: true, capture: true });
     // Browser capture/orientation can briefly report a 1px viewport. Only retire
     // an impression after dimensions settle; never remount it to recover.
     window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 150); }); sync();

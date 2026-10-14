@@ -46,8 +46,12 @@ for (const unit of config.banners) {
 }
 assert.deepEqual(layout.plan({ ...config, native: { ...config.native, enabled: false }, banners: config.banners.map(item => ({ ...item, enabled: false })) }, { tool: 'compress-image', viewport: 1920, inlineWidth: 1280, leftSpace: 400, rightSpace: 400 }), []);
 const runtime = await read('public_html/assets/ad-network.js');
-assert.doesNotMatch(runtime, /innerHTML|document\.write|config\.intrusive|adsbygoogle\.push/);
-assert.match(runtime, /frame\.contentWindow\.atOptions/);
+assert.doesNotMatch(runtime, /innerHTML|document\.write|frame\.contentWindow\.atOptions|createElement\('iframe'\)|config\.intrusive|adsbygoogle\.push/);
+assert.match(runtime, /options\.textContent = `atOptions =/);
+assert.match(runtime, /state\.mount\.append\(options, script\)/);
+assert.match(runtime, /state\.mount\.append\(script, container\)/);
+assert.match(runtime, /30000/); assert.match(runtime, /5000/);
+assert.doesNotMatch(runtime, /addEventListener\('pointerdown'/);
 assert.match(runtime, /used\.has\(key\)/);
 assert.match(runtime, /setTimeout\(resize, 150\)/, 'Retire units only after transient viewport measurements settle');
 assert.match(runtime, /IntersectionObserver/); assert.match(runtime, /if \(requested/);

@@ -140,7 +140,7 @@ try {
   const afterModal = requests; await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, afterModal);
   for (const failure of ['blocked', 'empty']) {
     mode = failure; const before = requests; await open('resize-image'); await requestSlot();
-    await page.waitForFunction(() => ['failed', 'empty'].includes(document.querySelector('.gxa-ad-network')?.dataset.adState), null, { timeout: 30000 });
+    await page.waitForFunction(() => ['failed', 'empty'].includes(document.querySelector('.gxa-ad-network')?.dataset.adState), null, { timeout: 40000 });
     assert.equal(await page.locator('.gxa-ad-network').evaluate(e => e.getBoundingClientRect().height), 0);
     assert.equal(requests, before + 1); assert.ok(await page.locator('#file-picker').count());
     await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, before + 1);

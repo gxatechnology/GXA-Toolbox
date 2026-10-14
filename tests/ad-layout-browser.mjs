@@ -30,7 +30,7 @@ await context.route(/bauval\.org|abscloud\.org/, async route => {
   if (mode === 'blocked') return route.abort();
   if (mode === 'empty') return route.fulfill({ contentType: 'application/javascript', body: '/* intentional no fill */' });
   // Test-only provider adapter: verify isolated standard options and draw no real ad.
-  const target = unit ? 'document.body' : `document.getElementById(${JSON.stringify(config.native.containerId)})`;
+  const target = unit ? 'document.currentScript.parentElement' : `document.getElementById(${JSON.stringify(config.native.containerId)})`;
   const check = unit ? `if(atOptions.key!==${JSON.stringify(unit.key)}||atOptions.width!==${unit.width}||atOptions.height!==${unit.height}||atOptions.format!=='iframe')throw Error('Wrong isolated options');` : '';
   await route.fulfill({ contentType: 'application/javascript', body: `(function(){${check}const a=document.createElement('a');a.href='https://example.com/';a.textContent='TEST ONLY — intercepted advertisement';a.style.cssText='display:block;box-sizing:border-box;background:#e5e7eb;color:#111;padding:12px;overflow-wrap:anywhere;width:${unit ? unit.width + 'px' : '100%'};height:${unit ? unit.height + 'px' : '90px'}';${target}.append(a);})();` });
 });
@@ -54,7 +54,7 @@ async function loadSlots() {
     }, zone);
     await page.waitForFunction(zone => document.querySelector(`[data-ad-layout-zone="${zone}"]`)?.dataset.adState !== 'waiting', zone);
   }
-  await page.waitForFunction(() => [...document.querySelectorAll('.gxa-ad-network')].every(node => !['waiting', 'loading'].includes(node.dataset.adState)));
+  await page.waitForFunction(() => [...document.querySelectorAll('.gxa-ad-network')].every(node => !['waiting', 'loading'].includes(node.dataset.adState)), null, { timeout: 40000 });
 }
 try {
   for (const id of ['image-converter', 'compress-image', 'compress-pdf', 'merge-pdf', 'split-pdf', 'edit-pdf', 'crop-image', 'gst-calculator', 'json-tool'].filter(id => !process.env.GXA_AD_QA_ROUTE || id === process.env.GXA_AD_QA_ROUTE)) {
