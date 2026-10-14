@@ -32,7 +32,10 @@ await context.route(/bauval\.org|abscloud\.org/, async route => {
   // Test-only provider adapter: verify isolated standard options and draw no real ad.
   const target = unit ? 'document.currentScript.parentElement' : `document.getElementById(${JSON.stringify(config.native.containerId)})`;
   const check = unit ? `if(atOptions.key!==${JSON.stringify(unit.key)}||atOptions.width!==${unit.width}||atOptions.height!==${unit.height}||atOptions.format!=='iframe')throw Error('Wrong isolated options');` : '';
-  await route.fulfill({ contentType: 'application/javascript', body: `(function(){${check}const a=document.createElement('a');a.href='https://example.com/';a.textContent='TEST ONLY — intercepted advertisement';a.style.cssText='display:block;box-sizing:border-box;background:#e5e7eb;color:#111;padding:12px;overflow-wrap:anywhere;width:${unit ? unit.width + 'px' : '100%'};height:${unit ? unit.height + 'px' : '90px'}';${target}.append(a);})();` });
+  const creative = unit
+    ? `const a=document.createElement('iframe');a.width='${unit.width}';a.height='${unit.height}';a.src='about:blank';a.style.border='0';${target}.append(a);`
+    : `const a=document.createElement('a');a.href='https://example.com/';a.textContent='TEST ONLY — intercepted advertisement';a.style.cssText='display:block;box-sizing:border-box;background:#e5e7eb;color:#111;padding:12px;overflow-wrap:anywhere;width:100%;height:90px';${target}.append(a);`;
+  await route.fulfill({ contentType: 'application/javascript', body: `(function(){${check}${creative}})();` });
 });
 const page = await context.newPage(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
 async function open(id, width) {

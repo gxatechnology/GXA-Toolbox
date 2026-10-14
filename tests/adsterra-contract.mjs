@@ -51,6 +51,8 @@ assert.match(runtime, /options\.textContent = `atOptions =/);
 assert.match(runtime, /state\.mount\.append\(options, script\)/);
 assert.match(runtime, /state\.mount\.append\(script, container\)/);
 assert.match(runtime, /30000/); assert.match(runtime, /5000/);
+assert.match(runtime, /exact provider dimensions plus rendered geometry/);
+assert.match(runtime, /dataset\.adFormat/); assert.match(runtime, /dataset\.adCollapseReason/);
 assert.doesNotMatch(runtime, /addEventListener\('pointerdown'/);
 assert.match(runtime, /used\.has\(key\)/);
 assert.match(runtime, /setTimeout\(resize, 150\)/, 'Retire units only after transient viewport measurements settle');

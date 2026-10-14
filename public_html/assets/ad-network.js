@@ -24,6 +24,7 @@
     if (state.terminal) return;
     clearTimeout(state.timer); state.observer?.disconnect(); state.intersection?.disconnect();
     state.sentinel?.remove(); state.node.hidden = true; state.node.dataset.adState = reason;
+    state.node.dataset.adCollapseReason = reason;
     state.mount.replaceChildren(); state.terminal = true;
   }
   function watchForFill(state, container) {
@@ -61,12 +62,22 @@
     // A host iframe/script loading is NOT a fill signal. Require provider creative DOM.
     const creative = [...container.querySelectorAll('iframe, img, a[href]')].some(element => {
       if (element.tagName === 'IMG') return element.complete && element.naturalWidth > 0;
-      if (element.tagName === 'IFRAME') return state.loadedFrames?.has(element) && Boolean(element.getAttribute('src') && element.getAttribute('src') !== 'about:blank');
+      if (element.tagName === 'IFRAME') {
+        const rect = element.getBoundingClientRect();
+        // Official fixed units intentionally create an about:blank iframe and
+        // populate it internally. Its contents are not a safe/reliable fill
+        // boundary; exact provider dimensions plus rendered geometry are.
+        if (state.unit.key) return Number(element.getAttribute('width')) === state.unit.width
+          && Number(element.getAttribute('height')) === state.unit.height
+          && rect.width >= state.unit.width && rect.height >= state.unit.height;
+        return state.loadedFrames?.has(element) && Boolean(element.getAttribute('src') && element.getAttribute('src') !== 'about:blank');
+      }
       return Boolean(element.textContent.trim() || element.querySelector('img'));
     });
     if (!creative) return;
     if (document.activeElement?.closest('.tool-workspace, #edit-pdf-mount, #image-converter-mount, .tool-interactive-area')) return;
     clearTimeout(state.timer); state.node.dataset.adState = 'mounted';
+    delete state.node.dataset.adCollapseReason;
   }
   function request(state) {
     if (state.started || state.terminal || !state.node.isConnected || !eligible() || blocked()) return;
@@ -91,7 +102,9 @@
     if (slots.has(zone)) return;
     const node = existing || document.createElement('aside'); node.hidden = true;
     node.setAttribute('aria-label', 'Advertisement'); node.classList.add('gxa-ad-network');
-    node.dataset.adLayoutZone = zone; node.dataset.adState = 'waiting';
+    node.dataset.adLayoutZone = zone; node.dataset.adPlacement = zone;
+    node.dataset.adFormat = unit.key ? `${unit.width}x${unit.height}` : 'native';
+    node.dataset.adState = 'waiting'; delete node.dataset.adCollapseReason;
     if (!existing) {
       node.dataset.adZone = zone;
       const label = document.createElement('span'); label.className = 'tool-ad-label'; label.textContent = 'Advertisement';
