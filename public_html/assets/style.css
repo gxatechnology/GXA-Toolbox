@@ -8086,9 +8086,17 @@ html { scroll-padding-top: var(--header-clearance); }
 /* Compact empty states only. Loaded editors keep their existing geometry. */
 .tool-container[data-disclosure="upload"] { max-width: 1280px; padding-top: 24px; }
 .tool-container[data-disclosure="upload"] .tool-header { margin-bottom: 20px; }
-.tool-container[data-disclosure="upload"] .tool-interactive-area { padding: 16px; }
-.tool-container[data-disclosure="upload"] .upload-zone {
-  min-height: var(--tool-empty-height); padding: var(--tool-card-padding); height: auto;
+/* Empty uploads have one visible container: the dashed drop zone. Restore the
+   normal card automatically when the engine changes disclosure to ready. */
+.tool-container[data-disclosure="upload"] .tool-interactive-area,
+.tool-container[data-disclosure="upload"] .image-converter__grid > .image-converter__panel {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.tool-container[data-disclosure="upload"] .premium-editor-workspace .upload-zone {
+  min-height: var(--tool-empty-height); padding: 16px; height: auto;
 }
 .tool-container[data-disclosure="upload"] .upload-icon-shell { width: 48px; height: 48px; border-radius: 14px; }
 .tool-container[data-disclosure="upload"] .upload-zone .upload-title { margin-top: 12px; }

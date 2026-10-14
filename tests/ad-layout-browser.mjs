@@ -40,6 +40,9 @@ async function open(id, width) {
   await page.goto(`${origin}/${id}/`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof navigate === 'function' && !document.querySelector('[data-static-route-shell]'));
   await page.waitForFunction(() => window.GxaAdNetwork && document.querySelector('.gxa-ad-network'));
+  // Route styles load lazily; measure ad-induced changes only after CSS arrives.
+  await page.waitForFunction(() => [...document.querySelectorAll('link[rel="stylesheet"]')].every(link => link.sheet));
+  await page.evaluate(() => document.fonts.ready);
 }
 async function loadSlots() {
   // A snapshot avoids looping when observers remove sentinels after requesting.
