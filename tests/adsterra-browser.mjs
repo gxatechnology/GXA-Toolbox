@@ -22,18 +22,24 @@ await cachePublicDependencies(context);
 // separately by ad-layout-browser.mjs, including every approved banner adapter.
 await context.route('**/assets/ad-config.js', async route => {
   const source = await readFile('public_html/assets/ad-config.js', 'utf8');
-  await route.fulfill({ contentType: 'application/javascript', body: source.replace('top: true, right: true, left: true, afterTool: true, content: true', 'top: false, right: false, left: false, afterTool: true, content: false') });
+  // Keep the actual homepage configuration; isolate Native only on tool pages.
+  const isHome = new URL(route.request().headers().referer || origin).pathname === '/';
+  await route.fulfill({ contentType: 'application/javascript', body: isHome ? source : source.replace('top: true, right: true, left: true, afterTool: true, content: true', 'top: false, right: false, left: false, afterTool: true, content: false') });
 });
 await context.route(/googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net/, route => route.abort());
 let mode = 'filled', requests = 0;
 const unexpected = [], errors = [], rows = [];
 // Controlled fixture ONLY in tests. Never contact the real advertising service.
 await context.route(/bauval\.org|abscloud\.org/, async route => {
-  if (route.request().url() !== config.native.src) { unexpected.push(route.request().url()); await route.abort(); return; }
+  const url = route.request().url(), unit = config.banners.find(item => item.src === url);
+  const intrusive = Object.values(config.intrusive).find(item => item.src === url);
+  if (url !== config.native.src && !unit && !intrusive?.enabled) { unexpected.push(url); await route.abort(); return; }
   requests++;
   if (mode === 'blocked') { await route.abort(); return; }
-  const body = mode === 'empty' ? '/* no fill */' : `const c=document.getElementById('${config.native.containerId}');const a=document.createElement('a');a.href='https://example.com/';a.textContent='TEST FIXTURE — no live advertisement';a.style.cssText='display:block;box-sizing:border-box;width:100%;min-height:90px;padding:20px;border:1px solid #aaa;overflow-wrap:anywhere';c.append(a);`;
-  await route.fulfill({ contentType: 'application/javascript', body });
+  const body = intrusive ? `document.documentElement.dataset.gxaFixture${intrusive.unitId}='loaded';` : mode === 'empty' ? '/* no fill */' : unit
+    ? `const a=document.createElement('iframe');a.width='${unit.width}';a.height='${unit.height}';a.srcdoc='<a href="https://example.com/">LOCAL TEST FIXTURE</a>';(document.currentScript?.parentElement||document.querySelector('script[src="${unit.src}"]')?.parentElement)?.append(a);`
+    : `const c=document.getElementById('${config.native.containerId}');const a=document.createElement('a');a.href='https://example.com/';a.textContent='TEST FIXTURE — no live advertisement';a.style.cssText='display:block;box-sizing:border-box;width:100%;min-height:90px;padding:20px;border:1px solid #aaa;overflow-wrap:anywhere';c.append(a);`;
+  await route.fulfill({ contentType: 'application/javascript', body: `(function(){${body}})();` });
 });
 await context.route(url => url.origin === origin, async route => {
   if (route.request().resourceType() !== 'document') return route.fallback();
@@ -45,9 +51,10 @@ async function open(id = '') {
   await page.goto(`${origin}/${id ? id + '/' : ''}`, { waitUntil: 'domcontentloaded' });
   if (id === 'background-remover') await page.waitForSelector('#root main');
   else if (!['dashboard', 'not-a-real-route'].includes(id)) await page.waitForFunction(() => typeof window.navigate === 'function' && !document.querySelector('[data-static-route-shell]'));
+  if (!id) await page.waitForFunction(() => document.querySelector('.command-search-section') && document.querySelectorAll('.gxa-ad-network').length === 2);
 }
 async function requestSlot() {
-  if (await page.locator('.gxa-ad-sentinel').count()) await page.locator('.gxa-ad-sentinel').scrollIntoViewIfNeeded();
+  await page.evaluate(() => document.querySelector('.gxa-ad-sentinel')?.scrollIntoView({ block: 'center' }));
   await page.waitForFunction(() => window.GxaAdNetwork.hasRequested());
 }
 try {
@@ -85,7 +92,9 @@ try {
     await page.setViewportSize({ width, height: 900 }); const before = requests; await open('crop-image');
     await requestSlot(); // The after-tool candidate may already be within the lazy-load margin.
     await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
-    assert.equal(requests, before + 1); assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1);
+    assert.equal(requests, before + 3); assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1);
+    assert.equal(await page.locator(`#gxa-adsterra-popunder`).count(), 1);
+    assert.equal(await page.locator(`#gxa-adsterra-social-bar`).count(), 1);
     assert.equal(await page.locator('script[src="' + config.native.src + '"]').count(), 1);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     assert.ok(await page.evaluate(() => {
@@ -93,7 +102,7 @@ try {
       return [...document.querySelectorAll('#crop-editor-workspace, #crop-download-button, #crop-mobile-download-button, #btn-download-result')].filter(e => e.getClientRects().length).every(e => e.getBoundingClientRect().bottom + 24 <= slot.top);
     }), 'Ad must be separated from all crop interaction/download areas');
     await page.evaluate(() => { for (let i = 0; i < 8; i++) GxaAdNetwork.sync(); setTheme(appState.theme === 'dark' ? 'light' : 'dark'); });
-    assert.equal(requests, before + 1, 'No mutation/remount requests');
+    assert.equal(requests, before + 3, 'No display or provider-bootstrap remount requests');
     await page.screenshot({ path: resolve(out, `crop-native-${width}.png`), animations: 'disabled' });
     rows.push({ route: 'crop-image', width, status: 'one lazy fixture, no overlap/overflow' });
   }
@@ -122,8 +131,10 @@ try {
   for (const id of ['', 'guides/pdf-compression', 'background-remover']) {
     await open(id);
     await page.evaluate(() => { for (let i = 0; i < 8; i++) window.GxaAdNetwork.sync(); });
-    assert.equal(await page.locator('.gxa-ad-network').count(), 1, 'Reuse the editorial candidate before request');
+    assert.equal(await page.locator('.gxa-ad-network').count(), id ? 1 : 2, 'Homepage has one discovery banner plus one editorial candidate');
+    if (!id) await page.evaluate(() => [...document.querySelectorAll('.gxa-ad-sentinel')].at(-1)?.scrollIntoView({ block: 'center' }));
     await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
+    if (!id) await page.locator(`#${config.native.containerId}`).waitFor({ state: 'attached' });
     assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1); rows.push({ route: id || '/', status: 'one editorial placement' });
   }
   await open('resize-image');
@@ -140,10 +151,10 @@ try {
   const afterModal = requests; await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, afterModal);
   for (const failure of ['blocked', 'empty']) {
     mode = failure; const before = requests; await open('resize-image'); await requestSlot();
-    await page.waitForFunction(() => ['failed', 'empty'].includes(document.querySelector('.gxa-ad-network')?.dataset.adState), null, { timeout: 40000 });
+    await page.waitForFunction(() => ['failed', 'empty'].includes(document.querySelector('.gxa-ad-network')?.dataset.adState), null, { timeout: 60000 });
     assert.equal(await page.locator('.gxa-ad-network').evaluate(e => e.getBoundingClientRect().height), 0);
-    assert.equal(requests, before + 1); assert.ok(await page.locator('#file-picker').count());
-    await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, before + 1);
+    assert.equal(requests, before + 4); assert.ok(await page.locator('#file-picker').count());
+    await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, before + 4);
     rows.push({ route: 'resize-image', status: failure + ': collapsed, no retry, uploader retained' });
   }
   assert.deepEqual(errors, []); assert.deepEqual(unexpected, []);

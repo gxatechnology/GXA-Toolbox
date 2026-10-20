@@ -8,6 +8,7 @@ export function applyAdNetwork(html, network = AD_NETWORK) {
   if (network !== 'adsense') html = html.replace(block, '');
   if (network === 'adsterra' && eligible) {
     html = html.replace('</head>', '<link rel="stylesheet" href="/assets/ad-network.css">\n<script defer src="/assets/ad-config.js"></script>\n<script defer src="/assets/ad-layout.js"></script>\n<script defer src="/assets/ad-network.js"></script>\n</head>');
+    html = html.replace('</body>', '<script defer src="/assets/ad-intrusive.js"></script>\n</body>');
   }
   return html;
 }

@@ -13,11 +13,12 @@
     tools: 'Tool Analytics',
     seo: 'SEO / Search Console',
     adsense: 'AdSense',
+    adsterra: 'Adsterra',
     users: 'Users',
     support: 'Support Messages',
     system: 'System'
   });
-  const state = { section: 'overview', range: '30d', data: null, busy: false, requestId:0, filters: { search:'', category:'', activity:'all', sort:'opens', page:1 }, supportStatus:'' };
+  const state = { section: 'overview', range: '30d', customStart:'', customEnd:'', data: null, busy: false, requestId:0, filters: { search:'', category:'', activity:'all', sort:'opens', page:1 }, supportStatus:'' };
   const byId = id => document.getElementById(id);
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -25,6 +26,7 @@
   const numeric = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
   const formatNumber = value => numeric(value) ? Number(value).toLocaleString('en-IN') : 'Not available';
   const formatPercent = value => numeric(value) ? `${(Number(value) * 100).toFixed(1)}%` : 'Not available';
+  const formatReportedPercent = value => numeric(value) ? `${(Math.abs(Number(value)) <= 1 ? Number(value) * 100 : Number(value)).toFixed(2)}%` : 'Not available';
   const formatDecimal = value => numeric(value) ? Number(value).toFixed(2) : 'Not available';
   const formatMoney = (value, currency) => !numeric(value) ? 'Not available' : currency ? new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value)) : `${formatDecimal(value)} (currency not reported)`;
   const formatDate = value => { const text=String(value || '').replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3'); const date=new Date(text); return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('en-IN', { dateStyle:'medium', timeStyle:'short' }).format(date) : 'Not available'; };
@@ -74,6 +76,7 @@
     byId('dashboard-content').setAttribute('aria-busy', String(busy));
     byId('refresh-data').disabled = busy;
     byId('date-range').disabled = busy;
+    for (const id of ['custom-start','custom-end','apply-custom-range']) byId(id).disabled = busy;
     byId('dashboard-status').hidden = !busy && !message;
     byId('dashboard-status').textContent = message || (busy ? 'Loading protected dashboard data…' : '');
   }
@@ -92,12 +95,12 @@
 
   function table(headers, rows) {
     if (!rows.length) return empty('No Data Available', 'No verified records exist for this period.');
-    return `<div class="table-wrap" role="region" aria-label="Scrollable data table" tabindex="0"><table><thead><tr>${headers.map(item => `<th scope="col">${escapeHtml(item.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map(item => `<td>${item.render ? item.render(row) : escapeHtml(row[item.key] ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    return `<div class="table-wrap" role="region" aria-label="Scrollable data table" tabindex="0"><table><thead><tr>${headers.map(item => `<th scope="col">${escapeHtml(item.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map(item => `<td data-label="${escapeHtml(item.label)}">${item.render ? item.render(row) : escapeHtml(row[item.key] ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
   function integrationCards() {
     return `<div class="integration-grid">${state.data.integrations.map(item => {
-      const className = item.status === 'connected' ? 'connected' : ['error', 'api_error', 'api_unavailable', 'connection_error'].includes(item.status) ? 'error' : '';
+      const className = item.status === 'connected' ? 'connected' : ['error', 'api_error', 'api_unavailable', 'connection_error', 'authentication_required', 'permission_required', 'rate_limited'].includes(item.status) ? 'error' : '';
       const detail = item.detail || (item.status === 'configuration_required' ? 'Server-side configuration is required.' : 'Installed code does not confirm reporting access.');
       return `<article class="integration-card"><h4>${escapeHtml(item.name)}</h4><span class="status-chip ${className}">${escapeHtml(item.label)}</span><p>${escapeHtml(detail)}</p></article>`;
     }).join('')}</div>`;
@@ -108,6 +111,7 @@
     const ga = state.data.reports.ga4;
     const search = state.data.reports.searchConsole;
     const ads = state.data.reports.adsense;
+    const adsterra = state.data.reports.adsterra;
     const cards = [
       kpi(state.range === 'today' ? 'Users Today' : 'Active Users', reportMetric(ga, 'activeUsers'), 'GA4', 'Selected date range'),
       kpi('Page Views', reportMetric(ga, 'screenPageViews'), 'GA4', 'No client-side estimate is substituted'),
@@ -117,6 +121,7 @@
       kpi('Downloads', internal ? formatNumber(internal.downloads) : unavailable('Database unavailable'), 'GXA Analytics', 'Recorded result downloads'),
       kpi('Search Clicks', reportMetric(search, 'clicks'), 'Search Console', 'Selected date range'),
       kpi('AdSense Earnings', reportMetric(ads, 'ESTIMATED_EARNINGS', value=>formatMoney(value, ads.currencyCode)), 'Google AdSense', 'Selected date range'),
+      kpi('Adsterra Revenue', reportMetric(adsterra, 'revenue', value=>formatMoney(value, adsterra.currencyCode)), 'Adsterra API', 'Publisher-reported revenue'),
       kpi('Errors', internal ? formatNumber(internal.errors) : unavailable('Database unavailable'), 'GXA Analytics', 'Sanitized processing failures')
     ].join('');
     const top = table([
@@ -135,7 +140,7 @@
       { label: 'Date', key: 'DATE' }, { label: 'Earnings', render: row => formatMoney(row.ESTIMATED_EARNINGS, ads.currencyCode) }, { label: 'Views', render: row => formatNumber(row.PAGE_VIEWS) }
     ], ads.trend || []);
     const supportCount=state.data.support?.summary?.filter(row=>row.status!=='resolved').reduce((sum,row)=>sum+row.count,0);
-    const alerts=state.data.integrations.filter(item=>['error','api_error','api_unavailable','authentication_required','permission_required','configuration_required'].includes(item.status)).map(item=>({tool_name:item.name, reason:item.label}));
+    const alerts=state.data.integrations.filter(item=>['error','api_error','api_unavailable','authentication_required','permission_required','rate_limited','configuration_required'].includes(item.status)).map(item=>({tool_name:item.name, reason:item.label}));
     if (supportCount) alerts.push({tool_name:'Support messages awaiting response',reason:String(supportCount)});
     for (const row of state.data.toolAnalytics.attention || []) alerts.push({tool_name:row.tool_name,reason:'Review completion / failure rates'});
     return `<div class="section-stack"><div class="kpi-grid">${cards}</div>${panel('Needs Attention', 'Configuration notices are separate from operational failures. Tool alerts require at least 20 starts.', table([{label:'Area',key:'tool_name'},{label:'Review',key:'reason'}],alerts))}${panel('Product Snapshot', 'Generated from the current public registry; sitemap URLs are not indexed pages.', `<p>${formatNumber(state.data.internalSeo.registeredTools)} registered tools · ${formatNumber(state.data.internalSeo.sitemapUrls)} sitemap URLs</p>`)}${panel('Integration Status', 'Installed code and authenticated reporting connections are shown separately.', integrationCards())}<div class="panel-grid">${panel('Top Performing Tools', 'Real first-party events for the selected period.', top)}${panel('Recent Signups', 'Normal GXA Toolbox accounts only.', signups)}</div><div class="panel-grid">${panel('Traffic Trend', 'Google Analytics authoritative reporting.', trafficTrend)}${panel('Revenue Trend', 'Google AdSense authoritative reporting.', revenueTrend)}</div></div>`;
@@ -200,6 +205,45 @@
     return `<div class="section-stack"><p class="section-intro">The existing AdSense site code and publisher identity are preserved. Reporting access is a separate server-side integration.</p><div class="kpi-grid">${kpi('Estimated Earnings', money('ESTIMATED_EARNINGS'), 'AdSense API')}${kpi('Page Views', reportMetric(ads, 'PAGE_VIEWS'), 'AdSense API')}${kpi('Ad Impressions', reportMetric(ads, 'IMPRESSIONS'), 'AdSense API')}${kpi('Clicks', reportMetric(ads, 'CLICKS'), 'AdSense API')}${kpi('Page RPM', money('PAGE_VIEWS_RPM'), 'AdSense API')}${kpi('CPC', money('COST_PER_CLICK'), 'AdSense API')}</div>${panel('AdSense Reporting Status', publisherLabel, status)}${panel('Revenue Trend', 'Selected dashboard date range.', trend)}</div>`;
   }
 
+  function adsterra() {
+    const report = state.data.reports.adsterra;
+    const money = value => formatMoney(value, report.currencyCode);
+    const detail = report.status === 'configuration_required'
+      ? 'Configure the server-side Adsterra publisher token in Netlify. The token is never sent to this browser.'
+      : report.status === 'authentication_required'
+        ? 'The publisher API token was rejected or expired. Generate a publisher token and update the server environment.'
+        : report.status === 'permission_required'
+          ? 'The configured token does not have publisher statistics permission.'
+          : report.status === 'rate_limited'
+            ? 'Adsterra temporarily rate-limited reporting. The dashboard cache prevents rapid repeat requests.'
+            : report.status === 'api_unavailable'
+              ? 'Adsterra reporting is temporarily unavailable; the rest of the dashboard remains operational.'
+              : 'No estimates are generated locally.';
+    if (report.status !== 'connected') return `<div class="section-stack">${panel('Adsterra Publisher Reporting', 'Website ID 6091425 · server-side read-only API', empty(report.label, detail))}${integrationCards()}</div>`;
+    const placements = table([
+      { label:'Ad unit', key:'title' }, { label:'Placement ID', key:'placement' },
+      { label:'Impressions', render:row=>formatNumber(row.impressions) }, { label:'Clicks', render:row=>formatNumber(row.clicks) },
+      { label:'CTR', render:row=>formatReportedPercent(row.ctr) }, { label:'CPM', render:row=>money(row.cpm) },
+      { label:'Revenue', render:row=>money(row.revenue) }, { label:'Provider row', render:row=>row.reported?'Reported':'No activity returned' }
+    ], report.rows || []);
+    const trend = table([
+      { label:'Date', key:'date' }, { label:'Impressions', render:row=>formatNumber(row.impressions) },
+      { label:'Clicks', render:row=>formatNumber(row.clicks) }, { label:'CTR', render:row=>formatReportedPercent(row.ctr) },
+      { label:'CPM', render:row=>money(row.cpm) }, { label:'Revenue', render:row=>money(row.revenue) }
+    ], report.trend || []);
+    const countries = table([
+      { label:'Country', key:'country' }, { label:'Impressions', render:row=>formatNumber(row.impressions) },
+      { label:'Clicks', render:row=>formatNumber(row.clicks) }, { label:'Revenue', render:row=>money(row.revenue) }
+    ], report.groups?.countries || []);
+    const domains = table([
+      { label:'Website / domain', render:row=>escapeHtml(row.title || row.domain || 'Not reported') },
+      { label:'Impressions', render:row=>formatNumber(row.impressions) }, { label:'Clicks', render:row=>formatNumber(row.clicks) },
+      { label:'Revenue', render:row=>money(row.revenue) }
+    ], report.groups?.domains || []);
+    const status = report.dataState === 'no_data' ? empty('No Adsterra Data Available', report.note || 'The authenticated report returned no activity for this period.') : `<div class="status-message">Connected · Last successful sync ${escapeHtml(formatDate(report.refreshedAt))} · ${escapeHtml(report.dateRange?.start || '')}–${escapeHtml(report.dateRange?.end || '')}</div>`;
+    return `<div class="section-stack"><p class="section-intro">Read-only publisher statistics for website 6091425. Impressions and clicks are advertising activity, not visitors. Revenue is never inferred from GA4.</p>${status}<div class="kpi-grid">${kpi('Revenue', reportMetric(report,'revenue',money),'Adsterra API')}${kpi('Impressions',reportMetric(report,'impressions'),'Adsterra API')}${kpi('Clicks',reportMetric(report,'clicks'),'Adsterra API')}${kpi('CTR',reportMetric(report,'ctr',formatReportedPercent),'Adsterra API')}${kpi('CPM',reportMetric(report,'cpm',money),'Adsterra API')}</div>${panel('Daily Performance','Publisher API · selected reporting period.',trend)}${panel('Ad Unit Performance','All nine configured units are listed; zero-activity units are not hidden.',placements)}<div class="panel-grid">${panel('Website Performance','Provider rows grouped by domain.',domains)}${panel('Country Performance','Available only when returned by the provider.',countries)}</div></div>`;
+  }
+
   function users() {
     const summary = state.data.users.summary;
     const value = key => summary ? formatNumber(summary[key]) : unavailable('Database unavailable');
@@ -237,8 +281,9 @@
   }
 
   function renderSection() {
-    const renderers = { overview, analytics, tools, seo, adsense, users, support, system };
+    const renderers = { overview, analytics, tools, seo, adsense, adsterra, users, support, system };
     byId('section-title').textContent = titles[state.section];
+    byId('mobile-section-title').textContent = titles[state.section];
     byId('dashboard-content').innerHTML = renderers[state.section]()+panel('Data Freshness','Refreshed timestamps describe API fetches, not when events occurred. Reports may be cached for two minutes. GA4 does not reconstruct traffic before activation; Search Console has reporting delays.',table([{label:'Source',key:'source'},{label:'Fetched at',render:row=>formatDate(row.refreshedAt)},{label:'State',key:'label'}],[{source:'GXA Analytics',refreshedAt:state.data.generated_at,label:state.data.toolAnalytics.available?'Database query completed':'Database unavailable'},...Object.entries(state.data.reports).map(([source,report])=>({source,...report}))]));
     document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.section === state.section));
   }
@@ -248,7 +293,9 @@
     const requestId=++state.requestId;
     setBusy(true);
     try {
-      const data = await api(`${endpoints.data}?range=${encodeURIComponent(state.range)}`);
+      const query = new URLSearchParams({ range: state.range });
+      if (state.range === 'custom') { query.set('start', state.customStart); query.set('end', state.customEnd); }
+      const data = await api(`${endpoints.data}?${query}`);
       if(requestId!==state.requestId) return;
       state.data=data;
       showApp();
@@ -315,7 +362,17 @@
   });
   byId('dashboard-content').addEventListener('change',event=>{if(event.target.id==='support-filter'){state.supportStatus=event.target.value;renderSection();byId('support-filter').focus();}});
   byId('dashboard-content').addEventListener('click',event=>{const b=event.target.closest('[data-page]');if(b){state.filters.page+=Number(b.dataset.page);byId('tool-results').innerHTML=toolResults();byId('tool-results').querySelector('[data-page]:not(:disabled)')?.focus();}});
-  byId('date-range').addEventListener('change', event => { state.range = event.target.value; loadData(); });
+  byId('date-range').addEventListener('change', event => {
+    state.range = event.target.value;
+    byId('custom-range').hidden = state.range !== 'custom';
+    if (state.range !== 'custom') loadData();
+  });
+  byId('apply-custom-range').addEventListener('click', () => {
+    state.customStart = byId('custom-start').value;
+    state.customEnd = byId('custom-end').value;
+    if (!state.customStart || !state.customEnd) { setBusy(false, 'Choose both custom range dates.'); return; }
+    loadData();
+  });
   byId('refresh-data').addEventListener('click', loadData);
   byId('open-drawer').addEventListener('click', openDrawer);
   byId('close-drawer').addEventListener('click', () => { closeDrawer(); byId('open-drawer').focus(); });
@@ -331,6 +388,11 @@
     }
   });
   window.addEventListener('resize', closeDrawer);
+  const today = new Date().toISOString().slice(0,10);
+  const start = new Date(`${today}T00:00:00.000Z`); start.setUTCDate(start.getUTCDate()-27);
+  state.customStart = start.toISOString().slice(0,10); state.customEnd = today;
+  byId('custom-start').value = state.customStart; byId('custom-end').value = state.customEnd;
+  byId('custom-start').max = today; byId('custom-end').max = today;
   closeDrawer();
   byId('admin-logout').addEventListener('click', async () => {
     try { await api(endpoints.logout, { method: 'POST' }); } catch { setBusy(false, 'Logout failed. Your session may still be active; retry logout.'); return; }

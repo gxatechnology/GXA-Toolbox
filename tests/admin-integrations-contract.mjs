@@ -174,7 +174,8 @@ assert.equal(noData.reports.searchConsole.metrics, null);
 recordedSystemEvents.length = 0;
 resetGoogleTokenCacheForTests();
 const permission = await loadAdminIntegrations('30d', { env, fetchImpl: async url => String(url).includes('oauth2.googleapis.com') ? json({ error: 'forbidden' }, 403) : json({}, 500) });
-for (const report of Object.values(permission.reports)) assert.equal(report.status, 'permission_required');
+for (const report of [permission.reports.ga4,permission.reports.searchConsole,permission.reports.adsense]) assert.equal(report.status, 'permission_required');
+assert.equal(permission.reports.adsterra.status, 'configuration_required');
 assert.deepEqual(recordedSystemEvents, [], 'Expected authorization states must not pollute operational errors.');
 
 recordedSystemEvents.length = 0;
@@ -213,7 +214,8 @@ assert.equal(recordedSystemEvents.length,2,'Warm-instance repeated operational d
 for(const [status,expected] of [[401,'authentication_required'],[403,'permission_required'],[400,'api_error'],[503,'api_unavailable']]) {
   resetGoogleTokenCacheForTests();
   const rejected=await loadAdminIntegrations('90d',{env,fetchImpl:async url=>String(url).includes('oauth2.googleapis.com')?json({access_token:'local-token',expires_in:3600}):json({error:'secret-details-not-returned'},status)});
-  for(const report of Object.values(rejected.reports)){assert.equal(report.status,expected);assert.equal(report.metrics,null);assert.doesNotMatch(JSON.stringify(report),/secret-details|local-token/);}
+  for(const report of [rejected.reports.ga4,rejected.reports.searchConsole,rejected.reports.adsense]){assert.equal(report.status,expected);assert.equal(report.metrics,null);assert.doesNotMatch(JSON.stringify(report),/secret-details|local-token/);}
+  assert.equal(rejected.reports.adsterra.status,'configuration_required');
 }
 resetGoogleTokenCacheForTests();
 const zero=await loadAdminIntegrations('today',{env:{...serviceAccountOnly,GA4_PROPERTY_ID:env.GA4_PROPERTY_ID},fetchImpl:async(url,options)=>String(url).includes('oauth2.googleapis.com')?json({access_token:'local-zero-token',expires_in:3600}):JSON.parse(options.body).dimensions?json({}):json({metricHeaders:[{name:'activeUsers'}],totals:[{metricValues:[{value:'0'}]}]})});

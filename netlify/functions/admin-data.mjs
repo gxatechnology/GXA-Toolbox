@@ -88,9 +88,12 @@ export default async function handler(request) {
   if (request.method !== 'GET') return methodNotAllowed(['GET']);
   try {
     requireAdminSession(request);
-    const dateRange = getAdminDateRange(new URL(request.url).searchParams.get('range'));
+    const requestUrl = new URL(request.url);
+    const requestedRange = requestUrl.searchParams.get('range');
+    const customRange = { start: requestUrl.searchParams.get('start'), end: requestUrl.searchParams.get('end') };
+    const dateRange = getAdminDateRange(requestedRange, new Date(), customRange);
     const range = dateRange.key;
-    const externalPromise = loadAdminIntegrations(range);
+    const externalPromise = loadAdminIntegrations(range, { customRange });
     let internal = emptyInternalData();
     let database;
     try {

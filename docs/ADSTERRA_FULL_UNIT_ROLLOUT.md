@@ -15,12 +15,12 @@ This report supersedes the breakpoint mapping in AD_LAYOUT_EXPANSION.md. No comm
 | 300×250 | Enabled | Right gutter when it fits, otherwise eligible content section |
 | 160×300 | Enabled | Secondary gutter at 1600–1919 when it fits |
 | 160×600 | Enabled | Secondary gutter at ≥1920 when it fits |
-| Social Bar | Disabled | No approved routes or verified safe overlay adapter |
-| Popunder | Disabled | No verified one-shot, action-excluding provider adapter |
+| Social Bar | Enabled | Official provider bootstrap once per ads-eligible public document |
+| Popunder | Enabled | Official provider bootstrap once per ads-eligible public document |
 
-Seven of nine units are enabled. Intrusive flags remain explicitly false. Reserved Popunder policy is at most once per session and at least 30 minutes apart, but **no popup implementation or active frequency cap is claimed**. Changing the flag alone does not activate a provider adapter. A future adapter must prove those limits and exclude initial load, authentication, upload, download, reset, and form interactions before activation.
+All nine selected units are enabled. The local bootstrap injects the exact Popunder and Social Bar provider scripts once per eligible document. It does not add custom click listeners, call `window.open`, force redirects, or claim control over provider-owned frequency or creative behavior. Smartlink remains disabled.
 
-Adsterra documents [page-interaction Popunder behavior](https://adsterra.com/blog/popunder-traffic-monetization/) and [provider-controlled Social Bar formats](https://adsterra.com/blog/publishers-guide-to-social-bar/). Loading a bootstrap once does not prove a once-only popup or safe overlay positioning. The conditional safety requirements therefore take precedence over enabling these two units. Interstitial remains disabled and is not one of the nine approved units.
+Adsterra documents [page-interaction Popunder behavior](https://adsterra.com/blog/popunder-traffic-monetization/) and [provider-controlled Social Bar formats](https://adsterra.com/blog/publishers-guide-to-social-bar/). Loading each bootstrap once prevents duplicate site initialization, but does not prove provider fill, popup frequency, creative quality, or safe overlay geometry. Those remain deployment-time provider/account checks. Interstitial remains disabled and is not one of the nine selected units.
 
 ## Routes, placement and density
 
@@ -70,7 +70,7 @@ All browser ad requests are intercepted with test-only fixtures; no real impress
 
 Screenshots: `test-results/ad-layout-expansion/` contains eight full-page and eight viewport captures of Compress Image and Edit PDF at 390, 768, 1440 and 1920. `results.json` records all 108 width cases, including actual short/tall secondary rails at 1800/1920 and both rails at 2400. Mobile Compress Image/Edit PDF and desktop Compress Image viewport screenshots were visually inspected; fixture units remain separated from upload controls. The test output confirms zero page errors, horizontal overflow and workspace overlap in the measured cases. Screenshots contain clearly marked intercepted test creatives, not live advertisements.
 
-The opt-in PostgreSQL integration test is skipped normally, as intended. The existing non-module `/assets/tool-content.js` Vite warning remains nonfatal. No tests were disabled or weakened for this rollout. Local browser emulation is not physical-device validation. Popunder/Social Bar tests verify exclusion and zero script execution, not an enabled provider frequency/overlay implementation. Local build and regression validation are green; deployment requires owner approval and provider-account/live creative review.
+The opt-in PostgreSQL integration test is skipped normally, as intended. The existing non-module `/assets/tool-content.js` Vite warning remains nonfatal. No tests were disabled or weakened for this rollout. Local browser emulation is not physical-device validation. Popunder/Social Bar tests verify eligible-only, once-per-document script initialization; provider frequency and overlay behavior still require owner review on the production domain. Local build and regression validation are green; deployment requires owner approval and provider-account/live creative review.
 
 ## Files changed for this follow-up
 

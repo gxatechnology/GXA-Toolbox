@@ -16,12 +16,14 @@ export const fixture = {
     { id: 'ga4', name: 'Google Analytics 4', status: 'connected', label: 'Connected' },
     { id: 'search-console', name: 'Google Search Console', status: 'connected', label: 'Connected' },
     { id: 'adsense-reporting', name: 'Google AdSense Reporting', status: 'connected', label: 'Connected' },
+    { id: 'adsterra-reporting', name: 'Adsterra Publisher Reporting', status: 'connected', label: 'Connected' },
     { id: 'gtm', name: 'Google Tag Manager', status: 'installed_unverified', label: 'Container configured in build' }
   ],
   reports: {
     ga4: report('connected', 'Connected', { activeUsers: 12, newUsers: 5, sessions: 18, screenPageViews: 42, engagedSessions: 14, engagementRate: 0.77 }, [{ pagePath: '/crop-image/', screenPageViews: 20 }], { sources: [{ sessionDefaultChannelGroup: 'Organic Search', sessions: 10 }], countries: [{ country: 'India', activeUsers: 9 }], devices: [{ deviceCategory: 'mobile', activeUsers: 8 }] }, [{ date: '20260816', activeUsers: 12, screenPageViews: 42 }]),
     searchConsole: report('connected', 'Connected', { clicks: 9, impressions: 90, ctr: 0.1, position: 4.2 }, [{ query: 'crop image', clicks: 5, impressions: 40, ctr: 0.125, position: 3.8 }], { pages: [{ page: '/crop-image/', clicks: 5, impressions: 40, ctr: 0.125, position: 3.8 }] }),
-    adsense: { ...report('connected', 'Connected', { ESTIMATED_EARNINGS: 1.25, PAGE_VIEWS: 100, IMPRESSIONS: 80, CLICKS: 4, PAGE_VIEWS_RPM: 12.5, COST_PER_CLICK: 0.31 }, [], {}, [{ DATE: '2026-08-16', ESTIMATED_EARNINGS: 1.25, PAGE_VIEWS: 100, CLICKS: 4 }]), currencyCode: 'USD' }
+    adsense: { ...report('connected', 'Connected', { ESTIMATED_EARNINGS: 1.25, PAGE_VIEWS: 100, IMPRESSIONS: 80, CLICKS: 4, PAGE_VIEWS_RPM: 12.5, COST_PER_CLICK: 0.31 }, [], {}, [{ DATE: '2026-08-16', ESTIMATED_EARNINGS: 1.25, PAGE_VIEWS: 100, CLICKS: 4 }]), currencyCode: 'USD' },
+    adsterra: { ...report('connected', 'Connected', { revenue:2.5, impressions:1000, clicks:25, ctr:.025, cpm:2.5 }, [{placement:'31513011',title:'Banner 728×90',impressions:1000,clicks:25,ctr:.025,cpm:2.5,revenue:2.5,reported:true}], {domains:[{domain:'6091425',title:'gxatoolbox.in',impressions:1000,clicks:25,revenue:2.5}],countries:[{country:'IN',impressions:800,clicks:20,revenue:2}]}, [{date:'2026-08-16',impressions:1000,clicks:25,ctr:.025,cpm:2.5,revenue:2.5}]), currencyCode:'USD', dataState:'available', dateRange:{start:'2026-08-01',end:'2026-08-16'} }
   },
   internalSeo: ADMIN_BUILD_STATE,
   overview: { internal: { tool_opens:8, tool_runs: 6, downloads: 4, errors: 1, successful_jobs: 5 }, top_tools: [{ tool_name: 'Crop Image', category: 'image', opens: 8, starts: 6, successful_jobs: 5, downloads: 4 }], recent_signups: [{ name: 'QA User', email: 'qa@example.test', created_at: '2026-08-16T00:00:00Z' }], trend: [{ date: '2026-08-16', starts: 6, completions: 5, downloads: 4, failures: 1 }] },

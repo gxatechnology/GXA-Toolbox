@@ -2,11 +2,47 @@
 .gxa-ad-network[hidden] { display: none !important; }
 .gxa-ad-network:not([hidden]) { display: block; box-sizing: border-box; width: 100%; max-width: 970px; min-width: 0; min-height: 0; margin: 40px auto; padding: 16px 0; border-block: 1px solid var(--color-border, #dbe2ea); background: transparent; contain: layout; overflow: visible; }
 .gxa-ad-layout-shell { position: relative; }
+/* The rails are grid siblings of the actual functional workspace. Other tool
+   sections span the grid, and loaded editors return to their full-width layout. */
+@media (min-width: 1280px) {
+  .container.gxa-ad-layout-shell--rail-right,
+  .container.gxa-ad-layout-shell--rail-left,
+  .container.gxa-ad-layout-shell--rail-both { display: grid; column-gap: 24px; align-items: start; }
+  .container.gxa-ad-layout-shell--rail-right { max-width: 1180px; grid-template-columns: minmax(0, 760px) 300px; }
+  .container.gxa-ad-layout-shell--rail-left { max-width: 1116px; grid-template-columns: 160px minmax(0, 760px); }
+  .container.gxa-ad-layout-shell--rail-both { max-width: 1364px; grid-template-columns: 160px minmax(0, 760px) 300px; }
+  .container.gxa-ad-layout-shell--rail-right > :not(.gxa-ad-rail):not(.tool-workspace):not(#edit-pdf-mount):not(#image-converter-mount):not(#crop-editor-workspace):not(#gps-map-camera-mount),
+  .container.gxa-ad-layout-shell--rail-left > :not(.gxa-ad-rail):not(.tool-workspace):not(#edit-pdf-mount):not(#image-converter-mount):not(#crop-editor-workspace):not(#gps-map-camera-mount),
+  .container.gxa-ad-layout-shell--rail-both > :not(.gxa-ad-rail):not(.tool-workspace):not(#edit-pdf-mount):not(#image-converter-mount):not(#crop-editor-workspace):not(#gps-map-camera-mount) { grid-column: 1 / -1; }
+  .gxa-ad-layout-shell--rail-right > :is(.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount) { grid-column: 1; min-width: 0; width: 100%; }
+  .gxa-ad-layout-shell--rail-left > :is(.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount),
+  .gxa-ad-layout-shell--rail-both > :is(.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount) { grid-column: 2; min-width: 0; width: 100%; }
+  .gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="left"],
+  .gxa-ad-layout-shell--rail-left > .gxa-ad-rail[data-ad-layout-zone="left"] { grid-column: 1; }
+  .gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 3; }
+  .gxa-ad-layout-shell--rail-right > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 2; }
+  /* Keep React's existing full-width header while its upload/root column is
+     narrower. Offsets are half the asymmetric rail+gap widths (324/140/184). */
+  body.gxa-ad-background-rails { --gxa-bg-header-offset: 162px; display: grid; grid-template-columns: minmax(0, 760px) 300px; column-gap: 24px; justify-content: center; align-items: start; }
+  body.gxa-ad-background-rails > #root { grid-column: 1; min-width: 0; width: 100%; }
+  body.gxa-ad-background-rails .gxa-header { width: 100vw; margin-left: calc(50% - 50vw + var(--gxa-bg-header-offset)); }
+  body.gxa-ad-background-rails > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 2; }
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both { --gxa-bg-header-offset: 70px; grid-template-columns: 160px minmax(0, 760px) 300px; }
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both > #root,
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-left > #root { grid-column: 2; }
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="left"],
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-left > .gxa-ad-rail[data-ad-layout-zone="left"] { grid-column: 1; }
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 3; }
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-left { --gxa-bg-header-offset: -92px; grid-template-columns: 160px minmax(0, 760px); }
+  body.gxa-ad-background-rails > .gxa-ad-network:not(.gxa-ad-rail) { grid-column: 1 / -1; }
+}
 .gxa-ad-network[data-ad-state="loading"] { position: absolute; visibility: hidden; height: 0; margin-block: 0; padding: 0; border: 0; pointer-events: none; }
 .gxa-ad-banner-frame { display: block; margin: 0 auto; border: 0; max-width: 100%; }
-.gxa-ad-network.gxa-ad-rail { position: absolute; margin: 0; padding: 12px 0; }
+.gxa-ad-network.gxa-ad-rail { position: static; margin: 0; padding: 12px 0; }
 @media (max-width: 1279px) { .gxa-ad-network.gxa-ad-rail { display: none !important; } }
-@media (max-width: 1599px) { .gxa-ad-network[data-ad-layout-zone="left"] { display: none !important; } }
+.gxa-ad-layout-shell > .gxa-ad-sentinel:is([data-ad-sentinel-zone="left"], [data-ad-sentinel-zone="right"]),
+body.gxa-ad-background-rails > .gxa-ad-sentinel:is([data-ad-sentinel-zone="left"], [data-ad-sentinel-zone="right"]) { position: absolute; top: 0; left: 0; }
+body.gxa-ad-background-rails > .gxa-ad-sentinel[data-ad-sentinel-zone="after-tool"] { grid-column: 1 / -1; }
 .gxa-ad-network[data-ad-state="loading"] > .tool-ad-label,
 .gxa-ad-network[data-ad-state="loading"] > .gxa-tool-ad-label { display: none; }
 .gxa-ad-network [data-ad-unit-mount] { width: 100%; min-width: 0; min-height: 0; }

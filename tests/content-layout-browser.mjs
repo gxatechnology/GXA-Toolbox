@@ -44,7 +44,7 @@ async function openTool(id) {
     throw error;
   }
   if (id === 'background-remover') await page.waitForSelector('.upload-intro');
-  else await page.waitForSelector('.tool-preworkspace-intro');
+  else await page.waitForSelector('.tool-header');
   await page.waitForTimeout(100);
 }
 
@@ -55,7 +55,7 @@ try {
     const state = await page.evaluate(() => {
       const root = document.documentElement;
       const header = document.querySelector('.header-nav, .gxa-header');
-      const intro = document.querySelector('.tool-preworkspace-intro, .upload-intro');
+      const intro = document.querySelector('.tool-preworkspace-intro:not([hidden]), .upload-intro, .tool-header');
       const workspace = document.querySelector('.tool-workspace, #edit-pdf-mount, #image-converter-mount, #gps-map-camera-mount, .crop-editor-grid, .drop-zone');
       const headerBox = header?.getBoundingClientRect();
       const introBox = intro?.getBoundingClientRect();

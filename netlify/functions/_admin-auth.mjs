@@ -172,6 +172,7 @@ export function clearAdminSessionCookie(request) {
 }
 
 export function adminErrorResponse(error) {
+  if (error?.status === 400 && error?.code === 'invalid_date_range') return jsonResponse({ success: false, message: 'Choose a valid date range of no more than 366 days ending today or earlier.' }, 400);
   const safeMessages = { 400:'Invalid JSON request.', 401:'Administrator authentication required.', 403:'Cross-origin request rejected.', 413:'Request body is too large.', 415:'Expected a JSON request.' };
   if (safeMessages[error?.status]) return jsonResponse({ success: false, message: safeMessages[error.status] }, error.status);
   if (error instanceof AdminConfigurationError) {

@@ -13,7 +13,9 @@ const server=createAdminQaServer();
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 const origin=`http://127.0.0.1:${server.address().port}`;
 const evidence=resolve('test-results/admin-final-audit');
+const mobileEvidence=resolve('test-results/admin-mobile-after');
 await mkdir(evidence,{recursive:true});
+await mkdir(mobileEvidence,{recursive:true});
 const browser=await chromium.launch({headless:true,...(process.env.GXA_BROWSER_EXECUTABLE?{executablePath:process.env.GXA_BROWSER_EXECUTABLE}:{})});
 const context=await browser.newContext({hasTouch:true,reducedMotion:'reduce'});
 let authenticated=false, failure=0, mode='connected', logoutFailure=false, requests=0, holdData=null;
@@ -47,21 +49,47 @@ const overflow=async(label)=>{
   assert.ok(size.body<=size.viewport+1&&size.root<=size.viewport+1,`${label}: ${JSON.stringify(size)}`);
 };
 const ready=()=>page.waitForFunction(()=>!document.getElementById('refresh-data').disabled&&!document.getElementById('admin-app').hidden);
-const nav=async section=>{if(await page.locator('#open-drawer').isVisible())await page.locator('#open-drawer').tap();await page.locator(`[data-section="${section}"]`).tap();await page.locator('#section-title').waitFor();};
+const nav=async section=>{if(await page.locator('#open-drawer').isVisible())await page.locator('#open-drawer').tap();await page.locator(`[data-section="${section}"]`).tap();await page.waitForFunction(value=>document.querySelector('.nav-item.active')?.dataset.section===value,section);};
 try{
   await page.setViewportSize({width:320,height:800});await page.goto(origin+'/admin/');
   await page.locator('#admin-login-form').waitFor({state:'visible'});await overflow('login320');
+  await page.screenshot({path:resolve(mobileEvidence,'login-320.png'),fullPage:true});
   assert.equal(await page.locator('#admin-email').inputValue(),'');assert.equal(await page.locator('#admin-password').inputValue(),'');
-  await page.locator('#admin-email').fill('local.admin@example.test');await page.locator('#admin-password').fill('LocalTestOnly!');await page.locator('button[type=submit]').tap();await ready();
+  await page.locator('#admin-email').fill('local.admin@example.test');await page.locator('#admin-password').fill('LocalTestOnly!');await page.locator('#admin-login-form button[type=submit]').tap();await ready();
   await page.setViewportSize({width:320,height:568});await page.locator('#open-drawer').tap();await overflow('drawer320x568');
+  await page.screenshot({path:resolve(mobileEvidence,'drawer-320.png')});
   await page.locator('#admin-logout').scrollIntoViewIfNeeded();
   assert.ok(await page.locator('#admin-logout').evaluate(button=>button.getBoundingClientRect().bottom<=innerHeight),'Short-screen drawer must scroll to logout.');
+  await page.screenshot({path:resolve(mobileEvidence,'drawer-lower-320.png')});
   await page.keyboard.press('Escape');
-  for(const width of [320,360,390,430,768,1366,1920]){
+  const widths=[320,360,375,390,414,430,480,600,768,1024,1280,1440,1920];
+  const screenshots=new Map([
+    ['320/overview','overview-320.png'],
+    ['390/adsterra','adsterra-390.png'],
+    ['430/tools','tools-430.png'],
+    ['600/support','support-600.png'],
+    ['768/overview','overview-768.png'],
+    ['1440/overview','overview-1440.png']
+  ]);
+  for(const width of widths){
     await page.setViewportSize({width,height:width>=1000?900:844});
-    for(const section of ['overview','analytics','tools','seo','adsense','users','support','system']){
+    if(width<=768){
+      await page.locator('.mobile-brand').waitFor({state:'visible'});
+      assert.equal((await page.locator('.mobile-brand strong').innerText()).trim(),'GXA Toolbox');
+      assert.equal(await page.locator('.account-actions').isVisible(),false);
+    }else{
+      assert.equal(await page.locator('.mobile-brand').isVisible(),false);
+      assert.equal(await page.locator('.sidebar').isVisible(),true);
+      assert.equal(await page.locator('.topbar-title').isVisible(),true);
+    }
+    for(const section of ['overview','analytics','tools','seo','adsense','adsterra','users','support','system']){
       await nav(section);await overflow(`${width}/${section}`);
+      if(width<=768){assert.equal(await page.locator('.sidebar').evaluate(node=>node.classList.contains('open')),false);assert.equal(await page.locator('.drawer-backdrop').isVisible(),false);}
+      const activeLabel=(await page.locator('.nav-item.active').innerText()).trim().split(/\n/).at(-1).trim();
+      assert.equal((await page.locator('#mobile-section-title').innerText()).trim(),activeLabel);
       assert.doesNotMatch(await page.locator('#dashboard-content').innerText(),/\bNaN\b|\bInfinity\b/);
+      const screenshot=screenshots.get(`${width}/${section}`);
+      if(screenshot){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:resolve(mobileEvidence,screenshot),fullPage:true});}
       if(section==='tools'){
         assert.equal(await page.locator('#tool-results tbody tr').count(),25);
         const ids=new Set();
@@ -101,9 +129,9 @@ try{
   failure=0;mode='no-data';await page.locator('#refresh-data').tap();await ready();await nav('analytics');assert.match(await page.locator('.kpi-value').first().innerText(),/No data/);
   mode='missing';await page.locator('#refresh-data').tap();await ready();await nav('adsense');assert.equal(await page.locator('#dashboard-content .kpi-card').count(),0);assert.match(await page.locator('#dashboard-content').innerText(),/Reporting not connected/);
   await nav('tools');assert.match(await page.locator('#tool-results tbody tr').first().innerText(),/Not available/);
-  logoutFailure=true;await page.locator('#admin-logout').click();assert.equal(await page.locator('#admin-app').isVisible(),true);assert.match(await page.locator('#dashboard-status').innerText(),/Logout failed/);
+  logoutFailure=true;await page.locator('#admin-logout').click();await page.waitForFunction(()=>document.getElementById('dashboard-status').textContent.includes('Logout failed'));assert.equal(await page.locator('#admin-app').isVisible(),true);assert.match(await page.locator('#dashboard-status').innerText(),/Logout failed/);
   failure=401;await page.locator('#refresh-data').click();await page.locator('#admin-login-form').waitFor({state:'visible'});assert.equal(await page.locator('#dashboard-content').innerText(),'');
-  failure=0;mode='connected';await page.locator('#admin-password').fill('LocalTestOnly!');await page.locator('button[type=submit]').click();await ready();
+  failure=0;mode='connected';await page.locator('#admin-password').fill('LocalTestOnly!');await page.locator('#admin-login-form button[type=submit]').click();await ready();
   let releaseData;holdData=new Promise(done=>{releaseData=done;});
   const heldRequest=page.waitForRequest('**/admin-data?*');await page.locator('#refresh-data').click();await heldRequest;
   logoutFailure=false;await page.locator('#admin-logout').click();await page.locator('#admin-login-form').waitFor({state:'visible'});

@@ -35,7 +35,8 @@ for (const id of known) {
   assert.ok(!description.includes('Use it with GXA Toolbox.'), `${id}: legacy meta suffix`);
   if (quality[id]?.indexable) {
     checkedTools++;
-    for (const phrase of ['How to Use', 'Practical Use Cases', 'Supported Inputs and Outputs', 'Limitations and Important Notes', 'Worked Example', 'Related Guides']) assert.ok(html.includes(`<h2>${phrase}</h2>`), `${id}: missing static ${phrase}`);
+    for (const phrase of ['How to Use', 'About, Features and Practical Uses', 'Privacy, Formats and Limitations', 'Frequently Asked Questions', 'Related Tools and Guides']) assert.ok(html.includes(`<h2>${phrase}</h2>`), `${id}: missing static ${phrase}`);
+    for (const phrase of ['Practical Use Cases', 'Supported Inputs and Outputs', 'Limitations and Important Notes', 'Worked Example']) assert.ok(html.includes(`<h3>${phrase}</h3>`), `${id}: missing specific ${phrase}`);
     assert.ok(content[id].relatedGuides.length > 0);
   }
   // Check actual returned page links, including fragments, not just the source registry.

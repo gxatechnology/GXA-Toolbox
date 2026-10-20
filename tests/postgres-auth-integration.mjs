@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { getDatabase } from '@netlify/database';
 import { NetlifyDB } from '@netlify/database-dev';
@@ -32,13 +33,10 @@ async function runPostgresAuthIntegration() {
 
   try {
     const connectionString = await localDatabase.start();
-    const expectedMigrations = [
-      '0001_create_auth_schema',
-      '0002_repair_auth_schema_after_site_reconnect',
-      '0003_create_admin_analytics_schema',
-      '0004_link_netlify_identity_profiles',
-      '0005_create_support_messages'
-    ];
+    const expectedMigrations = (await readdir(migrationsDirectory))
+      .filter(name => name.endsWith('.sql'))
+      .sort()
+      .map(name => name.slice(0, -4));
     assert.deepEqual(await localDatabase.applyMigrations(migrationsDirectory), expectedMigrations);
     assert.deepEqual(await localDatabase.applyMigrations(migrationsDirectory), []);
 
@@ -57,10 +55,10 @@ async function runPostgresAuthIntegration() {
     const tables = await database.sql`
       SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public'
-         AND table_name IN ('users', 'user_profiles', 'file_jobs', 'tool_analytics_events', 'auth_events', 'system_events', 'support_messages')
+         AND table_name IN ('users', 'user_profiles', 'file_jobs', 'tool_analytics_events', 'auth_events', 'system_events', 'support_messages', 'admin_profiles', 'admin_audit_events', 'admin_rate_limits', 'admin_resource_reads', 'support_message_notes')
        ORDER BY table_name
     `;
-    assert.deepEqual(tables.map(row => row.table_name), ['auth_events', 'file_jobs', 'support_messages', 'system_events', 'tool_analytics_events', 'user_profiles', 'users']);
+    assert.deepEqual(tables.map(row => row.table_name), ['admin_audit_events', 'admin_profiles', 'admin_rate_limits', 'admin_resource_reads', 'auth_events', 'file_jobs', 'support_message_notes', 'support_messages', 'system_events', 'tool_analytics_events', 'user_profiles', 'users']);
 
     const foreignKeys = await database.sql`
       SELECT constraint_name FROM information_schema.table_constraints

@@ -58,9 +58,12 @@
         <button class="nav-item" type="button" data-section="tools"><span aria-hidden="true">⚙</span>Tool Analytics</button>
         <button class="nav-item" type="button" data-section="seo"><span aria-hidden="true">⌕</span>SEO / Search Console</button>
         <button class="nav-item" type="button" data-section="adsense"><span aria-hidden="true">₹</span>AdSense</button>
+        <button class="nav-item" type="button" data-section="adsterra"><span aria-hidden="true">▥</span>Adsterra</button>
         <button class="nav-item" type="button" data-section="users"><span aria-hidden="true">◉</span>Users</button>
         <button class="nav-item" type="button" data-section="support"><span aria-hidden="true">✉</span>Support Messages</button>
         <button class="nav-item" type="button" data-section="system"><span aria-hidden="true">◇</span>System</button>
+        <a class="nav-item mobile-only-nav" href="/admin/profile"><span aria-hidden="true">●</span>My Profile</a>
+        <a class="nav-item mobile-only-nav" href="/admin/settings"><span aria-hidden="true">⚙</span>Settings</a>
       </nav>
       <button id="collapse-sidebar" class="sidebar-collapse" type="button" aria-expanded="true" aria-label="Collapse sidebar"><span aria-hidden="true">⇤</span><span class="nav-label">Collapse sidebar</span></button>
       <div class="sidebar-account">
@@ -73,6 +76,10 @@
     <div class="app-column">
       <header class="topbar">
         <button id="open-drawer" class="icon-button menu-button" type="button" aria-label="Open navigation" aria-controls="admin-sidebar" aria-expanded="false">☰</button>
+        <div class="mobile-brand" aria-label="GXA Toolbox Admin">
+          <img src="/gxa-logo.png" width="32" height="32" alt="">
+          <div><strong>GXA Toolbox</strong><span id="mobile-section-title">Overview</span></div>
+        </div>
         <div class="topbar-title">
           <p id="admin-breadcrumb">Control center / Overview</p>
           <h1 id="section-title">Overview</h1>
@@ -106,8 +113,14 @@
               <option value="28d">28 Days</option>
               <option value="30d" selected>30 Days</option>
               <option value="3m">90 Days</option>
+              <option value="custom">Custom Range</option>
             </select>
           </label>
+          <div id="custom-range" class="custom-range" hidden>
+            <label>From <input id="custom-start" type="date" required></label>
+            <label>To <input id="custom-end" type="date" required></label>
+            <button id="apply-custom-range" class="secondary-button" type="button">Apply</button>
+          </div>
           <button id="refresh-data" class="secondary-button" type="button">Refresh data</button>
         </div>
       </div>

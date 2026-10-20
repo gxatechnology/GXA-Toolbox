@@ -1447,9 +1447,22 @@ function renderFooter() {
       
       <div class="footer-bottom">
         <div class="footer-copy">&copy; ${new Date().getFullYear()} GXA Technologies. All rights reserved. GXA Toolbox is a product of GXA Technologies.</div>
-        <div class="footer-socials" style="display:flex; gap:10px;">
-          <span class="footer-link" aria-label="GXA Toolbox developer community"><i data-lucide="code-2"></i></span>
-          <span class="footer-link" aria-label="GXA Toolbox updates"><i data-lucide="message-circle"></i></span>
+        <nav class="footer-socials" aria-label="GXA Toolbox social media">
+          <a class="footer-social-link" href="https://www.reddit.com/r/GXAToolbox/" target="_blank" rel="noopener noreferrer" aria-label="Join Our Reddit Community" data-tooltip="Join Our Reddit Community">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 11.1c-.7 0-1.3.3-1.8.8-1.6-1.1-3.8-1.8-6.2-1.9l.9-4.1 2.9.6a1.8 1.8 0 1 0 .3-1.2l-3.5-.8a.7.7 0 0 0-.8.5l-1.1 5c-2.4.1-4.5.8-6.1 1.9a2.5 2.5 0 1 0-2.8 4c0 .2-.1.5-.1.7 0 3.7 4.4 6.7 9.8 6.7s9.8-3 9.8-6.7c0-.2 0-.5-.1-.7a2.5 2.5 0 0 0-1.2-4.8ZM7.4 15.5a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8Zm8.9 4.7c-.9.9-2.3 1.3-4.3 1.3s-3.4-.4-4.3-1.3a.6.6 0 0 1 .9-.9c.6.6 1.7.9 3.4.9s2.8-.3 3.4-.9a.6.6 0 1 1 .9.9Zm.3-1.9a1.4 1.4 0 1 1 0-2.8 1.4 1.4 0 0 1 0 2.8Z"/></svg>
+          </a>
+          <a class="footer-social-link" href="https://x.com/gxatoolbox" target="_blank" rel="noopener noreferrer" aria-label="Follow GXA Toolbox on X" data-tooltip="Follow GXA Toolbox on X">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.24 2.25h3.31l-7.23 8.26 8.51 11.24h-6.66l-5.21-6.82-5.97 6.82H1.68l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+          </a>
+          <a class="footer-social-link" href="https://www.facebook.com/gxatoolbox" target="_blank" rel="noopener noreferrer" aria-label="Follow GXA Toolbox on Facebook" data-tooltip="Follow GXA Toolbox on Facebook">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07c0 6.02 4.39 11.01 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.03 1.79-4.7 4.53-4.7 1.31 0 2.69.24 2.69.24v2.97h-1.52c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.08 24 18.09 24 12.07Z"/></svg>
+          </a>
+          <a class="footer-social-link" href="https://www.instagram.com/gxatoolbox" target="_blank" rel="noopener noreferrer" aria-label="Follow GXA Toolbox on Instagram" data-tooltip="Follow GXA Toolbox on Instagram">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 3.26.15 4.78 1.69 4.93 4.93.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.15 3.23-1.67 4.78-4.93 4.93-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-3.27-.15-4.78-1.7-4.93-4.93-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.15-3.24 1.67-4.78 4.93-4.93C8.42 2.17 8.8 2.16 12 2.16ZM12 0C8.74 0 8.33.01 7.05.07 2.7.27.27 2.69.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.2 4.36 2.63 6.78 6.98 6.98C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c4.35-.2 6.78-2.62 6.98-6.98.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95C23.73 2.69 21.3.27 16.95.07 15.67.01 15.26 0 12 0Zm0 5.84A6.16 6.16 0 1 0 12 18.16 6.16 6.16 0 0 0 12 5.84Zm0 10.16A4 4 0 1 1 12 8a4 4 0 0 1 0 8Zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88Z"/></svg>
+          </a>
+          <a class="footer-social-link" href="https://www.linkedin.com/in/gxatoolbox" target="_blank" rel="noopener noreferrer" aria-label="Connect with GXA Toolbox on LinkedIn" data-tooltip="Connect with GXA Toolbox on LinkedIn">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V8.98h3.42v1.57h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.29ZM5.32 7.41a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13Zm1.78 13.04H3.54V8.98H7.1v11.47ZM22.23 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.73V1.73C24 .77 23.21 0 22.23 0Z"/></svg>
+          </a>
         </div>
       </div>
     </div>
@@ -2874,26 +2887,29 @@ function renderToolPreworkspaceIntro(toolId) {
 function renderToolContentSections(toolId) {
   const content = window.GXA_TOOL_CONTENT?.[toolId];
   if (!content) return '';
-  const cards = (items, className) => items?.length ? `<div class="${className}">${items.map(item => `<article><h3>${escapeHTML(item.title)}</h3><p>${escapeHTML(item.description)}</p></article>`).join('')}</div>` : '';
+  const cards = (items, className) => items?.length ? `<div class="${className}">${items.map(item => `<article><h4>${escapeHTML(item.title)}</h4><p>${escapeHTML(item.description)}</p></article>`).join('')}</div>` : '';
   const list = items => items?.length ? `<ul>${items.map(item => `<li>${escapeHTML(item)}</li>`).join('')}</ul>` : '';
   const section = (id, title, body) => body ? `<section class="tool-info-section" id="${id}"><h2>${title}</h2>${body}</section>` : '';
+  const topic = (title, body) => body ? `<div class="tool-guide-topic"><h3>${title}</h3>${body}</div>` : '';
   const toolName = toolsList.find(tool => tool.id === toolId)?.name || 'Tool';
   return `<article class="tool-content-guide" aria-label="${escapeHTML(toolName)} guide">
     ${toolId === 'edit-pdf' ? renderToolPreworkspaceIntro(toolId) : ''}
     ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHTML(item.title)}</h3>${item.description.trim().replace(/[.!?]+$/, '') === item.title.trim().replace(/[.!?]+$/, '') ? '' : `<p>${escapeHTML(item.description)}</p>`}</div></li>`).join('')}</ol>` : '')}
-    ${section(`${toolId}-about`, 'About This Tool', content.about?.map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join(''))}
-    ${section(`${toolId}-features`, 'What You Can Do', cards(content.features, 'tool-info-card-grid'))}
-    ${section(`${toolId}-uses`, 'Practical Use Cases', cards(content.useCases, 'tool-info-card-grid'))}
-    ${section(`${toolId}-privacy`, 'Privacy and File Processing', content.privacy ? `<div class="tool-info-note"><strong>${escapeHTML(content.privacy.processingMode)}</strong><p>${escapeHTML(content.privacy.description)}</p></div>` : '')}
-    ${section(`${toolId}-formats`, 'Supported Inputs and Outputs', content.supportedFormats ? `<div class="tool-format-grid"><div><h3>Input</h3>${list(content.supportedFormats.input)}</div><div><h3>Output</h3>${list(content.supportedFormats.output)}</div></div>` : '')}
-    ${section(`${toolId}-method`, content.formula ? 'Formula / Method' : 'How It Works', content.formula || content.howItWorks ? `<div class="tool-info-note"><p>${escapeHTML(content.formula || content.howItWorks)}</p></div>` : '')}
-    ${section(`${toolId}-inputs`, 'Input Explanation', cards(content.inputExplanation, 'tool-info-card-grid'))}
-    ${section(`${toolId}-result`, 'Understanding the Result', content.resultExplanation ? `<div class="tool-info-note"><p>${escapeHTML(content.resultExplanation)}</p></div>` : '')}
-    ${section(`${toolId}-assumptions`, 'Assumptions', list(content.assumptions))}
-    ${section(`${toolId}-quality`, 'Quality and Fidelity', content.quality ? `<div class="tool-info-note"><p>${escapeHTML(content.quality)}</p></div>` : '')}
-    ${section(`${toolId}-limitations`, 'Limitations and Important Notes', list(content.limitations))}
-    ${section(`${toolId}-examples`, 'Worked Example', content.examples?.map(example => `<div class="tool-example"><p>${escapeHTML(example)}</p></div>`).join(''))}
-    ${section(`${toolId}-tips`, 'Helpful Tips', list(content.tips))}
+    ${section(`${toolId}-about`, 'About, Features and Practical Uses', `
+      ${content.about?.slice(1).map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join('') || ''}
+      ${topic('What You Can Do', cards(content.features, 'tool-info-card-grid'))}
+      ${topic('Practical Use Cases', cards(content.useCases, 'tool-info-card-grid'))}
+      ${topic(content.formula ? 'Formula / Method' : 'How It Works', content.formula || content.howItWorks ? `<p>${escapeHTML(content.formula || content.howItWorks)}</p>` : '')}
+      ${topic('Input Explanation', cards(content.inputExplanation, 'tool-info-card-grid'))}
+      ${topic('Understanding the Result', content.resultExplanation ? `<p>${escapeHTML(content.resultExplanation)}</p>` : '')}
+      ${topic('Worked Example', content.examples?.map(example => `<div class="tool-example"><p>${escapeHTML(example)}</p></div>`).join(''))}
+      ${topic('Helpful Tips', list(content.tips))}`)}
+    ${section(`${toolId}-privacy`, 'Privacy, Formats and Limitations', `
+      ${topic('Privacy and File Processing', content.privacy ? `<div class="tool-info-note"><strong>${escapeHTML(content.privacy.processingMode)}</strong><p>${escapeHTML(content.privacy.description)}</p></div>` : '')}
+      ${topic('Supported Inputs and Outputs', content.supportedFormats ? `<div class="tool-format-grid"><div><h4>Input</h4>${list(content.supportedFormats.input)}</div><div><h4>Output</h4>${list(content.supportedFormats.output)}</div></div>` : '')}
+      ${topic('Quality and Fidelity', content.quality ? `<p>${escapeHTML(content.quality)}</p>` : '')}
+      ${topic('Assumptions', list(content.assumptions))}
+      ${topic('Limitations and Important Notes', list(content.limitations))}`)}
     ${section(`${toolId}-guides`, 'Related Guides', `<div class="content-related-links">${(content.relatedGuides || []).map(link => `<a href="/${escapeHTML(link.id)}/">${escapeHTML(link.label)}</a>`).join('')}</div>`)}
   </article>`;
 }

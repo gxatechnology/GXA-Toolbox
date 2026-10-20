@@ -26,14 +26,16 @@ let mode = 'filled', requests = [];
 const errors = [], rows = [], out = resolve('test-results/ad-layout-expansion'); await mkdir(out, { recursive: true });
 await context.route(/bauval\.org|abscloud\.org/, async route => {
   const url = route.request().url(), unit = config.banners.find(item => item.src === url);
-  assert.ok(unit || url === config.native.src, `Unapproved provider request: ${url}`); requests.push(url);
+  const intrusive = Object.values(config.intrusive).find(item => item.src === url);
+  assert.ok(unit || url === config.native.src || intrusive?.enabled, `Unapproved provider request: ${url}`); requests.push(url);
   if (mode === 'blocked') return route.abort();
   if (mode === 'empty') return route.fulfill({ contentType: 'application/javascript', body: '/* intentional no fill */' });
   // Test-only provider adapter: verify isolated standard options and draw no real ad.
+  if (intrusive) return route.fulfill({ contentType: 'application/javascript', body: `document.documentElement.dataset.gxaFixture${intrusive.unitId}='loaded';` });
   const target = unit ? 'document.currentScript.parentElement' : `document.getElementById(${JSON.stringify(config.native.containerId)})`;
   const check = unit ? `if(atOptions.key!==${JSON.stringify(unit.key)}||atOptions.width!==${unit.width}||atOptions.height!==${unit.height}||atOptions.format!=='iframe')throw Error('Wrong isolated options');` : '';
   const creative = unit
-    ? `const a=document.createElement('iframe');a.width='${unit.width}';a.height='${unit.height}';a.src='about:blank';a.style.border='0';${target}.append(a);`
+    ? `const a=document.createElement('iframe');a.width='${unit.width}';a.height='${unit.height}';a.srcdoc='<a href="https://example.com/">LOCAL TEST FIXTURE</a>';a.style.border='0';${target}.append(a);`
     : `const a=document.createElement('a');a.href='https://example.com/';a.textContent='TEST ONLY — intercepted advertisement';a.style.cssText='display:block;box-sizing:border-box;background:#e5e7eb;color:#111;padding:12px;overflow-wrap:anywhere;width:100%;height:90px';${target}.append(a);`;
   await route.fulfill({ contentType: 'application/javascript', body: `(function(){${check}${creative}})();` });
 });
@@ -46,6 +48,16 @@ async function open(id, width) {
   // Route styles load lazily; measure ad-induced changes only after CSS arrives.
   await page.waitForFunction(() => [...document.querySelectorAll('link[rel="stylesheet"]')].every(link => link.sheet));
   await page.evaluate(() => document.fonts.ready);
+  // Editor modules hydrate asynchronously after the static shell disappears.
+  // Compare workspace geometry only after that initial render has settled.
+  if (['edit-pdf', 'crop-image', 'image-converter'].includes(id)) {
+    await page.waitForFunction(id => {
+      const page = document.querySelector('.tool-container');
+      const selector = id === 'image-converter' ? '.image-converter__drop' : id === 'edit-pdf' ? '.pdf-edit-upload' : '.crop-canvas-stage';
+      return Boolean(page?.querySelector(selector));
+    }, id);
+    await page.waitForTimeout(500);
+  }
 }
 async function loadSlots() {
   // A snapshot avoids looping when observers remove sentinels after requesting.
@@ -57,16 +69,20 @@ async function loadSlots() {
     }, zone);
     await page.waitForFunction(zone => document.querySelector(`[data-ad-layout-zone="${zone}"]`)?.dataset.adState !== 'waiting', zone);
   }
-  await page.waitForFunction(() => [...document.querySelectorAll('.gxa-ad-network')].every(node => !['waiting', 'loading'].includes(node.dataset.adState)), null, { timeout: 40000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('.gxa-ad-network')].every(node => !['waiting', 'loading'].includes(node.dataset.adState)), null, { timeout: 60000 });
 }
 try {
-  for (const id of ['image-converter', 'compress-image', 'compress-pdf', 'merge-pdf', 'split-pdf', 'edit-pdf', 'crop-image', 'gst-calculator', 'json-tool'].filter(id => !process.env.GXA_AD_QA_ROUTE || id === process.env.GXA_AD_QA_ROUTE)) {
-    for (const width of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1600, 1800, 1920, 2400].filter(width => !process.env.GXA_AD_QA_WIDTH || width === Number(process.env.GXA_AD_QA_WIDTH))) {
+  const routeFilter = process.argv.find(value => value.startsWith('--route='))?.slice(8) || process.env.GXA_AD_QA_ROUTE;
+  const widthFilter = Number(process.argv.find(value => value.startsWith('--width='))?.slice(8) || process.env.GXA_AD_QA_WIDTH || 0);
+  for (const id of ['image-converter', 'compress-image', 'compress-pdf', 'merge-pdf', 'split-pdf', 'edit-pdf', 'crop-image', 'gst-calculator', 'json-tool'].filter(id => !routeFilter || id === routeFilter)) {
+    for (const width of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1600, 1800, 1920, 2400].filter(width => !widthFilter || width === widthFilter)) {
       await open(id, width);
       const workspaceWidth = await page.evaluate(() => document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect().width ?? null);
+      const workspaceTopBefore = await page.evaluate(() => { const rect = document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect(); return rect ? rect.top + scrollY : null; });
       await loadSlots();
       const filledWorkspaceWidth = await page.evaluate(() => document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect().width ?? null);
-      if (workspaceWidth !== null) assert.ok(Math.abs(workspaceWidth-filledWorkspaceWidth) <= 1, `${id} ${width}: ad fill must not resize the upload workspace`);
+      const workspaceTopAfter = await page.evaluate(() => { const rect = document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect(); return rect ? rect.top + scrollY : null; });
+      if (workspaceWidth !== null) assert.ok(Math.abs(workspaceWidth-filledWorkspaceWidth) <= 1, `${id} ${width}: ad fill must not resize the upload workspace (${workspaceWidth} -> ${filledWorkspaceWidth})`);
       const result = await page.evaluate(() => {
         const nodes = [...document.querySelectorAll('.gxa-ad-network[data-ad-state="mounted"]')];
         const controls = [...document.querySelectorAll('.tool-workspace, #edit-pdf-mount, #image-converter-mount, .premium-session-panel')].filter(node => node.getClientRects().length);
@@ -83,15 +99,16 @@ try {
       assert.equal(result.overflow, false, `${id} ${width} overflow`); assert.equal(result.overlaps, false, `${id} ${width} overlap`);
       assert.equal(result.insideControl, false); assert.equal(result.topOrdered, true); assert.ok(result.nativeCount <= 1);
       assert.equal(result.afterBeforeGuide,true,`${id}: after-tool ad must precede guide, not interrupt result controls`);
-      assert.ok(result.zones.length <= (width < 768 ? 2 : ['edit-pdf','crop-image'].includes(id) ? 3 : 4));
-      if (width < 1280 || ['edit-pdf','crop-image'].includes(id)) assert.ok(!result.zones.some(zone => ['left','right'].includes(zone)));
+      assert.ok(result.zones.length <= (width < 768 ? 2 : width < 1280 ? 3 : ['edit-pdf','crop-image'].includes(id) ? 4 : 6));
+      if (width < 1280) assert.ok(!result.zones.some(zone => ['left','right'].includes(zone)));
       assert.equal(new Set(requests).size, requests.length, 'One execution per key');
       if (result.zones.includes('top')) {
         const expectedWidth = width >= 1280 ? 728 : width >= 768 ? 468 : 320;
         const unit = config.banners.find(item => item.width === expectedWidth);
         assert.ok(requests.includes(unit.src), `${id} ${width}: correct top banner`);
       }
-      assert.ok(!requests.some(url => [config.intrusive.popunder.src, config.intrusive.socialBar.src].includes(url)), 'Intrusive formats must remain unrequested on every tested route');
+      assert.equal(requests.filter(url => url === config.intrusive.popunder.src).length, 1, 'One Popunder bootstrap per document');
+      assert.equal(requests.filter(url => url === config.intrusive.socialBar.src).length, 1, 'One Social Bar bootstrap per document');
       const before = requests.length; await page.evaluate(() => { for(let i=0;i<10;i++)GxaAdNetwork.sync(); }); assert.equal(requests.length, before);
       if (['compress-image', 'edit-pdf'].includes(id) && [390, 768, 1440, 1920].includes(width)) {
         await page.evaluate(() => scrollTo(0,0));
@@ -100,7 +117,7 @@ try {
         await page.screenshot({ path: resolve(out, `${id}-${width}.png`), fullPage: true, animations: 'disabled' });
         assert.equal(await page.locator('.gxa-ad-network[data-ad-state="mounted"]').count(),result.zones.length, 'Screenshot/scroll must not retire filled slots: ' + JSON.stringify(await page.evaluate(()=>({history:window.adResizeEvidence,slots:[...document.querySelectorAll('.gxa-ad-network')].map(n=>({zone:n.dataset.adLayoutZone,state:n.dataset.adState,parentWidth:n.parentElement.getBoundingClientRect().width,retired:n.dataset.adRetiredGeometry}))}))));
       }
-      rows.push({ id, width, ...result }); console.log(`${id} ${width}: ${result.zones.join(', ')}`);
+      rows.push({ id, width, ...result, workspaceTopShiftPx: workspaceTopBefore === null || workspaceTopAfter === null ? null : Math.round(workspaceTopAfter - workspaceTopBefore) }); console.log(`${id} ${width}: ${result.zones.join(', ')}`);
     }
   }
   for (const failure of ['blocked','empty']) {

@@ -1,6 +1,7 @@
 import { getRefreshTokenAccessToken, getServiceAccountAccessToken, GoogleIntegrationError } from './_google-auth.mjs';
 import { recordSystemEvent } from './_database.mjs';
 import { ADSENSE_PUBLISHER_ID } from '../../config/adsense-config.mjs';
+import { getAdsterraIntegrationState, loadAdsterraReport, resetAdsterraReportingCacheForTests } from './_adsterra-reporting.mjs';
 
 const GA4_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
 const SEARCH_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
@@ -11,7 +12,7 @@ const reportCache = new Map();
 const pendingReports = new Map();
 const recentDiagnostics = new Map();
 async function reportingDiagnostic(source, error) {
-  const category = error instanceof GoogleIntegrationError ? error.state : 'api_error';
+  const category = error instanceof GoogleIntegrationError || typeof error?.state === 'string' ? error.state : 'api_error';
   if (['configuration_required','authentication_required','permission_required'].includes(category)) return;
   const key = `${source}:${category}`;
   if ((recentDiagnostics.get(key) || 0) > Date.now()) return;
@@ -44,7 +45,29 @@ export function getGoogleIntegrationStates(env = process.env) {
   ];
 }
 
-export function getAdminDateRange(range, now = new Date()) {
+export function getAdminDateRange(range, now = new Date(), custom = {}) {
+  if (range === 'custom') {
+    const validIsoDate = value => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return false;
+      const parsed = new Date(`${value}T00:00:00.000Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    };
+    if (!validIsoDate(custom.start) || !validIsoDate(custom.end)) {
+      const error = new RangeError('Invalid custom date range.');
+      error.status = 400; error.code = 'invalid_date_range';
+      throw error;
+    }
+    const startDate = new Date(`${custom.start}T00:00:00.000Z`);
+    const endDate = new Date(`${custom.end}T00:00:00.000Z`);
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const days = Math.floor((endDate - startDate) / 86_400_000) + 1;
+    if (days < 1 || days > 366 || endDate > today) {
+      const error = new RangeError('Invalid custom date range.');
+      error.status = 400; error.code = 'invalid_date_range';
+      throw error;
+    }
+    return { key: 'custom', days, start: custom.start, end: custom.end };
+  }
   const days = Object.hasOwn(RANGE_DAYS, range) ? RANGE_DAYS[range] : 30;
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const start = new Date(end);
@@ -112,7 +135,7 @@ async function loadGa4(range, options) {
     const accessToken = await getServiceAccountAccessToken([GA4_SCOPE], options);
     const property = text(env.GA4_PROPERTY_ID).replace(/^properties\//, '');
     const endpoint = `https://analyticsdata.googleapis.com/v1beta/properties/${encodeURIComponent(property)}:runReport`;
-    const dates = getAdminDateRange(range, options.now);
+    const dates = getAdminDateRange(range, options.now, options.customRange);
     const request = body => googleJson(endpoint, {
       method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ dateRanges: [{ startDate: dates.start, endDate: dates.end }], limit: body.dimensions?.[0]?.name === 'date' ? '366' : '25', ...body })
@@ -159,7 +182,7 @@ async function loadSearchConsole(range, options) {
   if (!configured(env, ['SEARCH_CONSOLE_SITE_URL']) || !serviceAccountConfigured(env)) return reportFailure(new GoogleIntegrationError('', 'configuration_required'), 'Google Search Console not connected.');
   try {
     const accessToken = await getServiceAccountAccessToken([SEARCH_SCOPE], options);
-    const dates = getAdminDateRange(range, options.now);
+    const dates = getAdminDateRange(range, options.now, options.customRange);
     const [summary, trend, queries, pages] = await Promise.all([
       searchQuery(text(env.SEARCH_CONSOLE_SITE_URL), accessToken, dates, {}, options.fetchImpl),
       searchQuery(text(env.SEARCH_CONSOLE_SITE_URL), accessToken, dates, { dimensions: ['date'] }, options.fetchImpl),
@@ -192,7 +215,7 @@ async function loadAdsense(range, options) {
   try {
     const accessToken = await getRefreshTokenAccessToken(options);
     const account = text(env.ADSENSE_ACCOUNT_ID).replace(/^accounts\//, '');
-    const dates = getAdminDateRange(range, options.now);
+    const dates = getAdminDateRange(range, options.now, options.customRange);
     const url = new URL(`https://adsense.googleapis.com/v2/accounts/${encodeURIComponent(account)}/reports:generate`);
     url.searchParams.set('dateRange', 'CUSTOM');
     for (const [part, value] of Object.entries({ year: dates.start.slice(0, 4), month: Number(dates.start.slice(5, 7)), day: Number(dates.start.slice(8, 10)) })) url.searchParams.set(`startDate.${part}`, value);
@@ -231,26 +254,31 @@ function reconcileIntegrations(states, reports) {
 }
 
 async function loadUncachedAdminIntegrations(range, options) {
-  const runtime = { env: options.env || process.env, fetchImpl: options.fetchImpl || fetch, now: options.now };
+  const runtime = { env: options.env || process.env, fetchImpl: options.fetchImpl || fetch, now: options.now, customRange: options.customRange };
+  const dates = getAdminDateRange(range, runtime.now, options.customRange);
   const settled = await Promise.allSettled([
     loadGa4(range, runtime),
     loadSearchConsole(range, runtime),
-    loadAdsense(range, runtime)
+    loadAdsense(range, runtime),
+    loadAdsterraReport(dates, { env: runtime.env, fetchImpl: runtime.fetchImpl, cache: options.cache })
   ]);
-  const [ga4, searchConsole, adsense] = settled.map(result => result.status === 'fulfilled'
+  const [ga4, searchConsole, adsense, adsterra] = settled.map(result => result.status === 'fulfilled'
     ? result.value
     : reportFailure(result.reason, 'Reporting Error'));
-  const reports = { ga4, searchConsole, adsense };
+  const reports = { ga4, searchConsole, adsense, adsterra };
   for (const report of Object.values(reports)) report.refreshedAt = new Date().toISOString();
-  return { reports, integrations: reconcileIntegrations(getGoogleIntegrationStates(runtime.env), reports) };
+  if (!['connected', 'configuration_required', 'authentication_required', 'permission_required'].includes(adsterra.status)) {
+    await reportingDiagnostic('adsterra_api', { state: adsterra.status });
+  }
+  return { reports, integrations: [...reconcileIntegrations(getGoogleIntegrationStates(runtime.env), reports), getAdsterraIntegrationState(runtime.env, adsterra)] };
 }
 
 export async function loadAdminIntegrations(range, options = {}) {
-  const rangeKey = Object.hasOwn(RANGE_DAYS, range) ? range : '30d';
+  const rangeKey = range === 'custom' ? 'custom' : Object.hasOwn(RANGE_DAYS, range) ? range : '30d';
   const useProductionCache = options.cache !== false && !options.env && !options.fetchImpl && !options.now;
   if (!useProductionCache) return loadUncachedAdminIntegrations(rangeKey, options);
 
-  const dates = getAdminDateRange(rangeKey);
+  const dates = getAdminDateRange(rangeKey, new Date(), options.customRange);
   const cacheKey = `${rangeKey}:${dates.start}:${dates.end}`;
   const cached = reportCache.get(cacheKey);
   if (cached?.expiresAt > Date.now()) return cached.value;
@@ -269,4 +297,5 @@ export function resetAdminIntegrationCacheForTests() {
   reportCache.clear();
   pendingReports.clear();
   recentDiagnostics.clear();
+  resetAdsterraReportingCacheForTests();
 }

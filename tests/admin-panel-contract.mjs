@@ -15,7 +15,7 @@ process.env.ADMIN_SESSION_SECRET = 'admin-contract-secret-that-is-longer-than-th
 for (const name of [
   'GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY',
   'GA4_PROPERTY_ID', 'SEARCH_CONSOLE_SITE_URL', 'ADSENSE_ACCOUNT_ID',
-  'GOOGLE_ADSENSE_OAUTH_CLIENT_ID', 'GOOGLE_ADSENSE_OAUTH_CLIENT_SECRET', 'GOOGLE_ADSENSE_REFRESH_TOKEN'
+  'GOOGLE_ADSENSE_OAUTH_CLIENT_ID', 'GOOGLE_ADSENSE_OAUTH_CLIENT_SECRET', 'GOOGLE_ADSENSE_REFRESH_TOKEN', 'ADSTERRA_API_TOKEN'
 ]) delete process.env[name];
 
 const [
@@ -158,7 +158,7 @@ const [adminHtml, adminCss, adminJs, migration, analytics, netlify, generator, p
 ]);
 assert.match(adminHtml, /GXA Toolbox[\s\S]*Admin Dashboard/);
 assert.match(adminHtml, /Secure Administration Portal/);
-for (const label of ['Overview', 'Analytics', 'Tool Analytics', 'SEO / Search Console', 'AdSense', 'Users', 'Support Messages', 'System', 'Administrator', 'Logout']) assert.ok(adminHtml.includes(label), `Admin navigation is missing ${label}.`);
+for (const label of ['Overview', 'Analytics', 'Tool Analytics', 'SEO / Search Console', 'AdSense', 'Adsterra', 'Users', 'Support Messages', 'System', 'Administrator', 'Logout']) assert.ok(adminHtml.includes(label), `Admin navigation is missing ${label}.`);
 assert.match(adminHtml, /<img src="\/gxa-logo\.png"/);
 assert.match(adminHtml, /<meta name="robots" content="noindex, nofollow, noarchive">/);
 assert.doesNotMatch(adminHtml + adminJs, /googletagmanager\.com|googlesyndication\.com|adsbygoogle|gtag\s*\(/i, 'Private admin assets must not load public advertising or tracking code.');
@@ -170,6 +170,7 @@ assert.match(adminJs, /credentials: 'same-origin'/);
 assert.match(adminJs, /reportMetric\(ga, 'activeUsers'\)/);
 assert.match(adminJs, /reportMetric\(search, 'clicks'\)/);
 assert.match(adminJs, /ESTIMATED_EARNINGS/);
+assert.match(adminJs, /Adsterra Publisher Reporting/);
 assert.match(adminJs, /Search Performance Trend/);
 assert.match(adminJs, /Indexed page count is not available through this reporting connection\./i);
 assert.match(adminJs, /state\.range === 'today' \? 'Users Today' : 'Active Users'/);

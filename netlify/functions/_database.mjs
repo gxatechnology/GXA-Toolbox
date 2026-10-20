@@ -27,9 +27,14 @@ function safeToken(value, maxLength) {
 
 export function databaseErrorCategory(error) {
   if (error instanceof MissingDatabaseConnectionError) return 'configuration_required';
-  const code = safeToken(error?.code || error?.name, 48);
-  if (code === '28p01' || code === '3d000') return 'connection_configuration';
-  if (code === '42p01' || code === '42703') return 'migration_required';
+  const rawCode = String(error?.code || error?.cause?.code || error?.name || '').trim().toUpperCase();
+  if (rawCode === '28P01' || rawCode === '28000' || rawCode === '3D000') return 'connection_configuration';
+  if (rawCode.startsWith('08') || ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN'].includes(rawCode)) {
+    return 'connection_unavailable';
+  }
+  if (['42P01', '42703', '42883', '3F000'].includes(rawCode)) return 'migration_required';
+  if (rawCode === '42501') return 'permission_denied';
+  if (['53300', '57P03'].includes(rawCode)) return 'database_unavailable';
   return 'query_failed';
 }
 
