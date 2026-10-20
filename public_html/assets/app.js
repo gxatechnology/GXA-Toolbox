@@ -1922,7 +1922,7 @@ function showAuthModal(mode = 'signup') {
         `}
         <div class="auth-field">
           <label class="form-label" for="auth-email">Email Address</label>
-          <input type="email" id="auth-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${isLogin ? escapeHTML(rememberedEmail) : ''}" autocomplete="email" inputmode="email" aria-describedby="auth-email-error" oninput="clearAuthFieldError('email')">
+          <input type="email" id="auth-email" class="form-input-text" placeholder="name@example.com" value="${isLogin ? escapeHTML(rememberedEmail) : ''}" autocomplete="email" inputmode="email" aria-describedby="auth-email-error" oninput="clearAuthFieldError('email')">
           <small id="auth-email-error" class="auth-field-error"></small>
         </div>
         <div class="auth-field">
@@ -2193,7 +2193,7 @@ function showPasswordRecoveryModal() {
         <p class="auth-description">Enter your account email and Netlify Identity will send a secure recovery link.</p>
         <div id="auth-error-msg" class="auth-status auth-status-error hidden" role="alert"></div>
         <div id="auth-success-msg" class="auth-status auth-status-success hidden" role="status"></div>
-        <div class="auth-field"><label class="form-label" for="auth-recovery-email">Email Address</label><input type="email" id="auth-recovery-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${escapeHTML(rememberedEmail)}" autocomplete="email" inputmode="email"></div>
+        <div class="auth-field"><label class="form-label" for="auth-recovery-email">Email Address</label><input type="email" id="auth-recovery-email" class="form-input-text" placeholder="name@example.com" value="${escapeHTML(rememberedEmail)}" autocomplete="email" inputmode="email"></div>
         <button type="submit" class="btn btn-primary auth-submit" id="auth-submit-button">Send recovery email</button>
         <p class="auth-switch"><a href="#" onclick="showAuthModal('login'); return false;">Back to Sign In</a></p>
       </form>
@@ -2339,7 +2339,7 @@ function showContactModal() {
         </div>
         <div class="form-group contact-field">
           <label for="contact-email" class="form-label">Email Address</label>
-          <input type="email" id="contact-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com" value="${appState.user ? escapeHTML(appState.user.email) : ''}" autocomplete="email" inputmode="email" maxlength="254" aria-describedby="contact-status-msg" required>
+          <input type="email" id="contact-email" class="form-input-text" placeholder="name@example.com" value="${appState.user ? escapeHTML(appState.user.email) : ''}" autocomplete="email" inputmode="email" maxlength="254" aria-describedby="contact-status-msg" required>
         </div>
         <div class="form-group contact-field">
           <label for="contact-message" class="form-label">Message Details</label>
@@ -3997,7 +3997,7 @@ function renderToolPage(container, toolId) {
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
         <div class="form-group">
           <label class="form-label">Email Address</label>
-          <input type="email" id="opt-res-email" class="form-input-text" placeholder="tauqeer@gxatechnologies.com">
+          <input type="email" id="opt-res-email" class="form-input-text" placeholder="name@example.com">
         </div>
         <div class="form-group">
           <label class="form-label">Phone Number</label>
