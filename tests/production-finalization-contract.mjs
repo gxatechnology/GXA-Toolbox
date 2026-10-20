@@ -65,12 +65,17 @@ async function filesUnder(directory) {
 const publicFiles = (await filesUnder(join(projectRoot, 'dist'))).filter(path => !/\.(?:png|wasm|onnx|woff2?)$/i.test(path));
 const forbiddenPublicTokens = [
   'GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY', 'GOOGLE_ADSENSE_OAUTH_CLIENT_SECRET', 'GOOGLE_ADSENSE_REFRESH_TOKEN', 'ADSTERRA_API_TOKEN',
-  'AUTH_SESSION_SECRET', 'ADMIN_SESSION_SECRET', 'GXA_ADMIN_PASSWORD', 'NETLIFY_DATABASE_URL', 'BEGIN PRIVATE KEY'
+  'AUTH_SESSION_SECRET', 'ADMIN_SESSION_SECRET', 'GXA_ADMIN_EMAIL', 'GXA_ADMIN_PASSWORD', 'NETLIFY_DATABASE_URL', 'BEGIN PRIVATE KEY'
 ];
 for (const path of publicFiles) {
   const source = await readFile(path, 'utf8');
   for (const token of forbiddenPublicTokens) assert.ok(!source.includes(token), `${relative(projectRoot, path)} exposes server-only configuration ${token}.`);
 }
+await assert.rejects(
+  stat(join(projectRoot, 'public_html', 'api', 'hash.php')),
+  error => error?.code === 'ENOENT',
+  'A password-hashing utility must not be published under public_html/api.'
+);
 for (const path of await filesUnder(join(projectRoot, 'netlify', 'functions'))) {
   if (!(await stat(path)).isFile() || !path.endsWith('.mjs')) continue;
   const source = await readFile(path, 'utf8');

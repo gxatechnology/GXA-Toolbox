@@ -39,7 +39,7 @@ assert.match(client, /identity\.getUser\(\)/);
 assert.match(client, /window\.GxaIdentity\.logout\(\)/);
 assert.doesNotMatch(client, /fetch\((?:endpoint|'\/api\/login\.php'|'\/api\/register\.php')/);
 assert.match(client, /placeholder="Tauqeer Ashraf"/);
-assert.match(client, /placeholder="tauqeer@gxatechnologies\.com"/);
+assert.match(client, /placeholder="name@example\.com"/);
 assert.doesNotMatch(client, /value="Tauqeer Ashraf"/);
 assert.match(client, /Continue with Google/);
 assert.match(client, /Forgot password\?/);

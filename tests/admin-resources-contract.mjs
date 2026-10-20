@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import handler from '../netlify/functions/admin-resources.mjs';
 import { createAdminSessionToken } from '../netlify/functions/_admin-auth.mjs';
@@ -11,11 +12,19 @@ const session = { sub: 'gxa-administrator' };
 const cookie = `gxa_admin_session=${createAdminSessionToken()}`;
 const calls = [];
 let failure = false, rateLimited = false, missing = false;
+const simulatedSensitiveDatabaseMessage = [
+  'postgres',
+  '://',
+  randomBytes(6).toString('hex'),
+  ':',
+  randomBytes(12).toString('hex'),
+  '@private.invalid/connection'
+].join('');
 const row = { id: 'identity-contract', name: 'Contract User', email: 'contract@example.test', provider: 'email', status: 'active', created_at: '2026-01-01T00:00:00Z', last_login_at: null };
 const sql = async (strings, ...values) => {
   const query = strings.join('?').replace(/\s+/gu, ' ').trim();
   calls.push({ query, values });
-  if (failure) { const error = new Error('postgres://secret:password@private/connection'); error.code = '42P01'; throw error; }
+  if (failure) { const error = new Error(simulatedSensitiveDatabaseMessage); error.code = '42P01'; throw error; }
   if (query.includes('INSERT INTO public.admin_rate_limits')) return rateLimited ? [] : [{ attempts: 1 }];
   if (query.startsWith('WITH changed') || query.startsWith('WITH existing')) return missing ? [] : [{ id: '7' }];
   if (query.includes('COUNT(*)::INTEGER AS total')) return [{ total: 41 }];

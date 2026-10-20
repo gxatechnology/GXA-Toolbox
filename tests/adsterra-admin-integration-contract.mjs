@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import {
   ADSTERRA_PLACEMENTS,
   ADSTERRA_WEBSITE_ID,
@@ -11,7 +12,7 @@ import { getAdminDateRange } from '../netlify/functions/_admin-integrations.mjs'
 process.env.NODE_ENV = 'test';
 resetAdsterraReportingCacheForTests();
 const dates = { start: '2026-10-01', end: '2026-10-07' };
-const token = 'test-only-adsterra-publisher-token';
+const token = randomBytes(24).toString('hex');
 const json = (payload, status = 200) => new Response(JSON.stringify(payload), { status, headers: { 'Content-Type':'application/json' } });
 
 let calls = [];
@@ -57,7 +58,8 @@ assert.equal(getAdsterraIntegrationState({}).status, 'configuration_required');
 for (const [httpStatus, expected] of [[401,'authentication_required'],[403,'permission_required'],[429,'rate_limited'],[503,'api_unavailable'],[400,'api_error']]) {
   const report = await loadAdsterraReport(dates, { cache:false, env:{ADSTERRA_API_TOKEN:token}, fetchImpl:async()=>json({message:'private provider detail'},httpStatus) });
   assert.equal(report.status, expected);
-  assert.doesNotMatch(JSON.stringify(report), /private provider detail|test-only-adsterra-publisher-token/);
+  assert.doesNotMatch(JSON.stringify(report), /private provider detail/);
+  assert.ok(!JSON.stringify(report).includes(token));
 }
 
 const empty = await loadAdsterraReport(dates, { cache:false, env:{ADSTERRA_API_TOKEN:token}, fetchImpl:async()=>json([]) });
@@ -72,5 +74,6 @@ for (const custom of [{start:'',end:'2026-10-20'},{start:'2026-02-30',end:'2026-
 }
 
 const source = JSON.stringify({ connected, missing });
-assert.doesNotMatch(source, /X-API-Key|ADSTERRA_API_TOKEN|test-only-adsterra-publisher-token/);
+assert.doesNotMatch(source, /X-API-Key|ADSTERRA_API_TOKEN/);
+assert.ok(!source.includes(token));
 console.log('Adsterra admin integration contract passed: protected token use, four report groups, status diagnostics, zero-activity units, and custom ranges.');
