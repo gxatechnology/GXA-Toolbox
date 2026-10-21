@@ -1,12 +1,12 @@
 # Adsterra integration — local implementation
 
-Historical native-only rollout below. As of 2026-10-20, all seven display units plus the approved Popunder and Social Bar are enabled centrally. Smartlink remains disabled. The current multi-zone policy, banner adapter, density limits, and validation are documented in [ADSTERRA_FULL_UNIT_ROLLOUT.md](ADSTERRA_FULL_UNIT_ROLLOUT.md).
+Historical native-only rollout below. The current production policy enables all seven display units and Social Bar centrally. Popunder and Smartlink are permanently disabled. The current multi-zone policy, banner adapter, density limits, and validation are documented in [ADSTERRA_FINAL_OPTIMIZATION.md](ADSTERRA_FINAL_OPTIMIZATION.md).
 
 Date: 2026-10-06. No commit, push or deployment. No live ad requests were made during QA. This is not a promise of future Google AdSense approval.
 
 ## Architecture and switch
 
-`public_html/assets/ad-config.js` is the single canonical configuration. `network` is `adsterra`; supported build selections are `adsterra`, `adsense`, and `off`. Approved unit IDs and URLs live here, not in tool definitions. `public_html/assets/ad-intrusive.js` initializes Popunder and Social Bar once per eligible document at the end of `body`, without custom click, popup, or redirect code.
+`public_html/assets/ad-config.js` is the single canonical configuration. `network` is `adsterra`; supported build selections are `adsterra`, `adsense`, and `off`. Approved unit IDs and URLs live here, not in tool definitions. `public_html/assets/ad-intrusive.js` initializes only Social Bar once per eligible document at the end of `body`. Popunder has no source URL or runtime initialization path.
 
 `config/ad-network.mjs` is consumed by the existing static generator. It selects the network after the generator has applied the central route eligibility decision. Adsterra production HTML receives one local config script, one local runtime and one stylesheet; it does not eagerly embed an external ad script. The existing AdSense block is omitted when Adsterra or off is selected. Raw source templates and the intermediate Vite HTML retain their AdSense configuration for future switching; Netlify must continue publishing **dist/**, not raw source/PHP or the intermediate Vite directory.
 
@@ -25,7 +25,7 @@ To switch later: change only `network` in `ad-config.js`, run the full build/tes
 | 468×60 | a141cf44861510c02f8b814719a223bf | Enabled; tablet top/content placement |
 | 160×600 | 983c84b73f5901c5877413ab9680312e | Enabled; extra-wide left rail |
 | 160×300 | 900dabd0bb67d683bd5dbc7486b6d25a | Enabled; desktop left rail |
-| Popunder | abscloud.org/1/3a66eef4b20eb6bc449cee178926437d | Enabled on ads-eligible public documents |
+| Popunder | Unit 31513006 retained as disabled inventory only | Permanently disabled; no source URL or approved routes |
 | Social Bar | bauval.org/14/fcd69a971630acd0557b6a7e1c55ba85 | Enabled on ads-eligible public documents |
 
 Native uses exactly the approved `/21/` URL, fixed `container-…` ID, `async`, and `data-cfasync="false"`. Banner `/22/` URLs are derived from the exact approved keys and stored centrally. Fixed banners are inventory only: enabling them later requires a reviewed banner adapter, not merely changing a boolean. No guessed iframe wrapper, `document.write`, global `atOptions`, or second Native instance was introduced.

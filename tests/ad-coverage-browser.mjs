@@ -13,7 +13,7 @@ const content = await loadContentPageRegistry();
 const eligible = ['', ...tools.filter(tool => quality[tool.id].adsEligible).map(tool => tool.id), ...content.filter(page => ['guide', 'category'].includes(page.kind)).map(page => page.id)];
 const excluded = content.filter(page => !['guide', 'category'].includes(page.kind)).map(page => page.id);
 const width = Number(process.argv[2] || 1920);
-assert.ok([390, 768, 1024, 1280, 1440, 1600, 1920].includes(width), 'Use one of the audited viewport widths');
+assert.ok([320, 360, 375, 390, 414, 430, 480, 600, 768, 1024, 1280, 1440, 1600, 1920].includes(width), 'Use one of the audited viewport widths');
 const server = createQaServer();
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -72,12 +72,11 @@ try {
       insideWorkspace: Boolean(node.closest('.tool-workspace, #edit-pdf-mount, #image-converter-mount, .premium-editor-workspace'))
     })));
     assert.equal(new Set(requests).size, requests.length, `${id || '/'} duplicated a provider request`);
-    assert.equal(requests.filter(url => url === config.intrusive.popunder.src).length, 1, `${id || '/'}: one Popunder bootstrap`);
+    assert.equal(requests.some(url => /abscloud\.org/.test(url)), false, `${id || '/'}: Popunder provider is disabled`);
     assert.equal(requests.filter(url => url === config.intrusive.socialBar.src).length, 1, `${id || '/'}: one Social Bar bootstrap`);
     assert.ok(!requests.includes(config.intrusive.smartlink.src));
     const routePath = `/${id ? `${id}/` : ''}`;
     assert.deepEqual(await page.evaluate(() => GxaAdIntrusive.status()), {
-      popunder: { unitId: 31513006, src: 'https://abscloud.org/1/3a66eef4b20eb6bc449cee178926437d', state: 'loaded', route: routePath },
       'social-bar': { unitId: 31513007, src: 'https://bauval.org/14/fcd69a971630acd0557b6a7e1c55ba85', state: 'loaded', route: routePath }
     });
     assert.ok(actual.every(slot => !slot.insideWorkspace));

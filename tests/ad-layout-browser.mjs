@@ -40,6 +40,8 @@ await context.route(/bauval\.org|abscloud\.org/, async route => {
   await route.fulfill({ contentType: 'application/javascript', body: `(function(){${check}${creative}})();` });
 });
 const page = await context.newPage(); page.setDefaultTimeout(30000); page.on('pageerror', error => errors.push(error.message));
+let popupCount = 0;
+page.on('popup', popup => { popupCount++; popup.close().catch(() => {}); });
 async function open(id, width) {
   requests = []; await page.setViewportSize({ width, height: 900 });
   await page.goto(`${origin}/${id}/`, { waitUntil: 'domcontentloaded' });
@@ -75,7 +77,7 @@ try {
   const routeFilter = process.argv.find(value => value.startsWith('--route='))?.slice(8) || process.env.GXA_AD_QA_ROUTE;
   const widthFilter = Number(process.argv.find(value => value.startsWith('--width='))?.slice(8) || process.env.GXA_AD_QA_WIDTH || 0);
   for (const id of ['image-converter', 'compress-image', 'compress-pdf', 'merge-pdf', 'split-pdf', 'edit-pdf', 'crop-image', 'gst-calculator', 'json-tool'].filter(id => !routeFilter || id === routeFilter)) {
-    for (const width of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1600, 1800, 1920, 2400].filter(width => !widthFilter || width === widthFilter)) {
+    for (const width of [320, 360, 375, 390, 414, 430, 480, 600, 768, 1024, 1280, 1440, 1600, 1800, 1920, 2400].filter(width => !widthFilter || width === widthFilter)) {
       await open(id, width);
       const workspaceWidth = await page.evaluate(() => document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect().width ?? null);
       const workspaceTopBefore = await page.evaluate(() => { const rect = document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect(); return rect ? rect.top + scrollY : null; });
@@ -91,6 +93,10 @@ try {
         const header = document.querySelector('.tool-header');
         const after = nodes.find(node => node.dataset.adLayoutZone === 'after-tool'), guide = document.querySelector('.tool-content-guide');
         return { zones: nodes.map(node => node.dataset.adLayoutZone), overflow: document.documentElement.scrollWidth > innerWidth + 1, overlaps,
+          margins: Object.fromEntries(nodes.map(node => [node.dataset.adLayoutZone, {
+            before: Number.parseFloat(getComputedStyle(node).marginBlockStart) || 0,
+            after: Number.parseFloat(getComputedStyle(node).marginBlockEnd) || 0
+          }])),
           afterBeforeGuide: !after || !guide || Boolean(after.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING),
           topOrdered: !top || (header.compareDocumentPosition(top) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
           insideControl: nodes.some(node => node.closest('.tool-workspace, #edit-pdf-mount, #image-converter-mount')),
@@ -99,7 +105,9 @@ try {
       assert.equal(result.overflow, false, `${id} ${width} overflow`); assert.equal(result.overlaps, false, `${id} ${width} overlap`);
       assert.equal(result.insideControl, false); assert.equal(result.topOrdered, true); assert.ok(result.nativeCount <= 1);
       assert.equal(result.afterBeforeGuide,true,`${id}: after-tool ad must precede guide, not interrupt result controls`);
-      assert.ok(result.zones.length <= (width < 768 ? 2 : width < 1280 ? 3 : ['edit-pdf','crop-image'].includes(id) ? 4 : 6));
+      assert.ok(result.zones.length <= (width < 768 ? 3 : width < 1280 ? 3 : ['edit-pdf','crop-image'].includes(id) ? 4 : 6));
+      if (result.margins['content-middle']) assert.ok(result.margins['content-middle'].before >= (width < 768 ? 48 : 52), `${id} ${width}: middle content ad spacing`);
+      if (result.margins['content-lower']) assert.ok(result.margins['content-lower'].before >= 64, `${id} ${width}: lower content ad spacing`);
       if (width < 1280) assert.ok(!result.zones.some(zone => ['left','right'].includes(zone)));
       assert.equal(new Set(requests).size, requests.length, 'One execution per key');
       if (result.zones.includes('top')) {
@@ -107,7 +115,7 @@ try {
         const unit = config.banners.find(item => item.width === expectedWidth);
         assert.ok(requests.includes(unit.src), `${id} ${width}: correct top banner`);
       }
-      assert.equal(requests.filter(url => url === config.intrusive.popunder.src).length, 1, 'One Popunder bootstrap per document');
+      assert.equal(requests.some(url => /abscloud\.org/.test(url)), false, 'Popunder provider must never be requested');
       assert.equal(requests.filter(url => url === config.intrusive.socialBar.src).length, 1, 'One Social Bar bootstrap per document');
       const before = requests.length; await page.evaluate(() => { for(let i=0;i<10;i++)GxaAdNetwork.sync(); }); assert.equal(requests.length, before);
       if (['compress-image', 'edit-pdf'].includes(id) && [390, 768, 1440, 1920].includes(width)) {
@@ -151,6 +159,7 @@ try {
     requests=[]; await page.goto(`${origin}/${id}/`); assert.equal(await page.locator('script[src="/assets/ad-network.js"]').count(),0); assert.equal(requests.length,0);
   }
   assert.deepEqual(errors,[]);
+  assert.equal(popupCount, 0, 'No advertising script may open a tab during local navigation and tool interactions');
 } finally {
   await writeFile(resolve(out,'results.json'),JSON.stringify({rows,errors,liveAdsExecuted:false},null,2));
   await context.close(); await browser.close(); await new Promise(done=>server.close(done));

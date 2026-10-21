@@ -184,14 +184,19 @@ button.layer-row { cursor: pointer; }
 
 .gxa-site-footer { padding: 52px 22px 24px; color: #cbd5e1; background: #0f172a; }
 .gxa-site-footer-inner { width: min(1180px, 100%); margin: auto; display: grid; grid-template-columns: 1.45fr repeat(3, 1fr); gap: 40px; }
-.gxa-site-footer-brand a { display: inline-flex; align-items: center; gap: 11px; color: white; font: 750 20px Outfit, Inter, sans-serif; }
+.gxa-site-footer-brand > a { display: inline-flex; align-items: center; gap: 11px; color: white; font: 750 20px Outfit, Inter, sans-serif; }
 .gxa-site-footer-brand img { width: 38px; height: 38px; object-fit: contain; border-radius: 10px; }
 .gxa-site-footer-brand p { margin: 14px 0 0; color: #94a3b8; font-size: 14px; }
 .gxa-site-footer-socials { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
-.gxa-site-footer-social-link { position: relative; width: 44px; height: 44px; flex: 0 0 44px; display: inline-flex; align-items: center; justify-content: center; color: #cbd5e1; background: rgba(255,255,255,.04); border: 1px solid rgba(148,163,184,.3); border-radius: 12px; transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease; }
+.gxa-site-footer-social-link { --social-color: #cbd5e1; position: relative; width: 44px; height: 44px; flex: 0 0 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--social-color); background: #f8fafc; border: 1px solid color-mix(in srgb, var(--social-color) 34%, #cbd5e1); border-radius: 12px; box-shadow: 0 2px 8px rgba(2,6,23,.22); transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease; }
 .gxa-site-footer-social-link svg { width: 21px; height: 21px; fill: currentColor; }
-.gxa-site-footer-social-link:hover, .gxa-site-footer-social-link:focus-visible { color: #fff; background: rgba(37,99,235,.24); border-color: #60a5fa; transform: translateY(-2px); }
-.gxa-site-footer-social-link:focus-visible { outline: 3px solid rgba(96,165,250,.38); outline-offset: 3px; }
+.gxa-site-footer-social-link[data-platform="reddit"] { --social-color: #ff4500; }
+.gxa-site-footer-social-link[data-platform="x"] { --social-color: #111111; }
+.gxa-site-footer-social-link[data-platform="facebook"] { --social-color: #1877f2; }
+.gxa-site-footer-social-link[data-platform="instagram"] { --social-color: #e4405f; }
+.gxa-site-footer-social-link[data-platform="linkedin"] { --social-color: #0a66c2; }
+.gxa-site-footer-social-link:hover, .gxa-site-footer-social-link:focus-visible { color: var(--social-color); background: color-mix(in srgb, var(--social-color) 10%, #ffffff); border-color: color-mix(in srgb, var(--social-color) 72%, #cbd5e1); transform: translateY(-2px); box-shadow: 0 9px 22px -12px color-mix(in srgb, var(--social-color) 80%, transparent); }
+.gxa-site-footer-social-link:focus-visible { outline: 3px solid color-mix(in srgb, var(--social-color) 46%, transparent); outline-offset: 3px; }
 .gxa-site-footer-social-link::before, .gxa-site-footer-social-link::after { position: absolute; left: 50%; z-index: 2; pointer-events: none; visibility: hidden; opacity: 0; transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease; }
 .gxa-site-footer-social-link::before { content: ''; bottom: calc(100% + 5px); width: 8px; height: 8px; background: #f8fafc; transform: translate(-50%, 4px) rotate(45deg); }
 .gxa-site-footer-social-link::after { content: attr(data-tooltip); bottom: calc(100% + 9px); width: max-content; max-width: min(260px, calc(100vw - 32px)); padding: 7px 10px; color: #0f172a; background: #f8fafc; border-radius: 7px; box-shadow: 0 12px 28px -14px rgba(2,6,23,.9); font-size: 12px; font-weight: 700; line-height: 1.3; white-space: normal; transform: translate(-50%, 4px); }

@@ -13,7 +13,7 @@ for (const tool of ['edit-pdf', 'crop-image', 'organize-pdf', 'background-remove
 for (const viewport of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1600, 1920]) {
   for (const tool of ['compress-pdf', 'edit-pdf', 'future-unknown-editor']) {
     const plan = layout.plan(config, { tool, viewport, inlineWidth: viewport - 48, leftSpace: 360, rightSpace: 360 });
-    assert.ok(plan.length <= (viewport < 768 ? 2 : tool === 'compress-pdf' ? 6 : 3));
+    assert.ok(plan.length <= (viewport < 768 ? 3 : tool === 'compress-pdf' ? 6 : 3));
     assert.equal(new Set(plan.map(item => item.unit.key || item.unit.containerId)).size, plan.length);
     assert.ok(plan.filter(item => item.unit.key).every(item => item.unit.width <= viewport - 48));
     if (viewport < 1280 || tool !== 'compress-pdf') assert.ok(!plan.some(item => ['left', 'right'].includes(item.zone)));
@@ -54,15 +54,16 @@ for (const unit of config.banners) {
   assert.equal(unit.enabled, true); assert.equal(unit.src, `https://bauval.org/22/${unit.key}`);
   assert.ok(unit.width > 0 && unit.height > 0);
 }
-assert.equal(config.intrusive.popunder.enabled, true); assert.equal(config.intrusive.socialBar.enabled, true);
+assert.equal(config.intrusive.popunder.enabled, false); assert.equal(config.intrusive.socialBar.enabled, true);
 assert.equal(config.intrusive.smartlink.enabled, false);
 assert.equal(config.intrusive.smartlink.unitId, 31822155);
 assert.equal(config.intrusive.popunder.unitId, 31513006);
 assert.equal(config.intrusive.socialBar.unitId, 31513007);
-assert.equal(config.intrusive.popunder.src, 'https://abscloud.org/1/3a66eef4b20eb6bc449cee178926437d');
+assert.equal(config.intrusive.popunder.src, undefined);
 assert.equal(config.intrusive.socialBar.src, 'https://bauval.org/14/fcd69a971630acd0557b6a7e1c55ba85');
 assert.deepEqual(config.intrusive.socialBar.approvedRoutes, ['*']);
-assert.deepEqual(config.intrusive.popunder.approvedRoutes, ['*']);
+assert.deepEqual(config.intrusive.popunder.approvedRoutes, []);
+assert.match(config.intrusive.popunder.activationBlockedReason, /Disabled by site policy/);
 for (const unit of config.banners) {
   const disabled = { ...config, banners: config.banners.map(item => ({ ...item, enabled: item.key !== unit.key })) };
   for (const viewport of [390, 1024, 1600, 1800, 1920, 2400]) {
@@ -92,6 +93,7 @@ assert.match(intrusiveRuntime, /GxaAdNetwork\?\.eligible\(\) === true/);
 assert.match(intrusiveRuntime, /document\.body\.append\(script\)/);
 assert.match(intrusiveRuntime, /gxa-adsterra-/);
 assert.doesNotMatch(intrusiveRuntime, /window\.open|location\s*=|addEventListener\(['"](?:click|pointerdown|mousedown|touchstart)/);
+assert.doesNotMatch(intrusiveRuntime, /popunder|abscloud\.org/, 'Popunder must not have an alternate runtime bootstrap');
 for (const viewport of [390, 768, 1440, 1920]) {
   const plan = layout.plan(config, { tool: 'compress-pdf', viewport, inlineWidth: viewport < 768 ? 342 : 1000, leftSpace: 400, rightSpace: 400 });
   const after = plan.find(item => item.zone === 'after-tool');
@@ -105,6 +107,10 @@ const longPage = layout.plan(config, { tool: 'compress-pdf', viewport: 1920, inl
 assert.deepEqual(longPage.map(item => item.zone), ['top', 'after-tool', 'right', 'left', 'content-middle', 'content-lower']);
 assert.equal(longPage.find(item => item.zone === 'after-tool').fallbackUnit, null, 'Reserved fixed key is never requested twice');
 assert.ok(!layout.plan(config, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200, leftSpace: 400, rightSpace: 400, guideSections: [100, 200, 100, 10] }).some(item => item.zone.startsWith('content-')));
+const longMobile = layout.plan(config, { tool: 'compress-pdf', viewport: 390, inlineWidth: 342, guideSections: [320, 440, 360, 240] });
+assert.deepEqual(longMobile.map(item => item.zone), ['top', 'after-tool', 'content-middle']);
+assert.deepEqual(longMobile.filter(item => item.unit.key).map(item => [item.unit.width, item.unit.height]), [[320, 50], [300, 250]]);
+assert.equal(longMobile.find(item => item.zone === 'after-tool').fallbackUnit, null, 'Long mobile content owns the 300x250 key; Native remains unique without a duplicate fallback');
 const tools = await loadToolRegistry(), quality = await loadToolQuality(), content = await loadContentPageRegistry();
 for (const id of config.railTools) assert.ok(tools.some(tool => tool.id === id), `${id}: rail allowlist must reference real registered routes`);
 let eligible = 0, denied = 0;
@@ -133,4 +139,4 @@ for (const network of ['adsterra', 'adsense', 'off']) {
 assert.equal(await read('dist/ads.txt'), await read('ads.txt'));
 const csp = (await read('_headers')).match(/Content-Security-Policy: (.+)/)?.[1];
 assert.ok(csp); assert.doesNotMatch(csp, /script-src|connect-src|frame-src/);
-console.log(`Adsterra contract passed: ${tools.length} tools, ${eligible} eligible/${denied} denied; seven display units plus once-per-document Popunder and Social Bar bootstraps; Smartlink disabled; three build switches; unchanged ads.txt/CSP. Editorial candidates: ${content.filter(p => ['guide', 'category'].includes(p.kind)).length}.`);
+console.log(`Adsterra contract passed: ${tools.length} tools, ${eligible} eligible/${denied} denied; seven display units plus one eligible-page Social Bar bootstrap; Popunder and Smartlink disabled; three build switches; unchanged ads.txt/CSP. Editorial candidates: ${content.filter(p => ['guide', 'category'].includes(p.kind)).length}.`);

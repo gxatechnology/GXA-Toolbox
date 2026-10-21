@@ -37,6 +37,12 @@
         && guideSections[1] >= 700 && guideSections[2] >= 450
         && guideSections[0] + guideSections[1] + guideSections[2] >= 1800
         && inlineWidth >= 320) add('content-lower', 320, 50);
+    } else if (config.zones.content && viewport < 768 && guideSections.length >= 4
+      && guideSections.reduce((total, length) => total + length, 0) >= 1200
+      && inlineWidth >= 300) {
+      // Long mobile guides can support one additional in-content rectangle.
+      // This stays outside the workspace and uses no desktop-only dimensions.
+      add('content-middle', 300, 250);
     }
     // A planned 320x50 lower unit owns that key. Native then collapses on
     // no-fill rather than issuing a duplicate fixed-unit fallback request.

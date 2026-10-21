@@ -38,7 +38,7 @@ await context.route(/bauval\.org|abscloud\.org/, async route => {
   if (mode === 'blocked') { await route.abort(); return; }
   const body = intrusive ? `document.documentElement.dataset.gxaFixture${intrusive.unitId}='loaded';` : mode === 'empty' ? '/* no fill */' : unit
     ? `const a=document.createElement('iframe');a.width='${unit.width}';a.height='${unit.height}';a.srcdoc='<a href="https://example.com/">LOCAL TEST FIXTURE</a>';(document.currentScript?.parentElement||document.querySelector('script[src="${unit.src}"]')?.parentElement)?.append(a);`
-    : `const c=document.getElementById('${config.native.containerId}');const a=document.createElement('a');a.href='https://example.com/';a.textContent='TEST FIXTURE — no live advertisement';a.style.cssText='display:block;box-sizing:border-box;width:100%;min-height:90px;padding:20px;border:1px solid #aaa;overflow-wrap:anywhere';c.append(a);`;
+    : `const c=document.getElementById('${config.native.containerId}');if(c){const a=document.createElement('a');a.href='https://example.com/';a.textContent='TEST FIXTURE — no live advertisement';a.style.cssText='display:block;box-sizing:border-box;width:100%;min-height:90px;padding:20px;border:1px solid #aaa;overflow-wrap:anywhere';c.append(a);}`;
   await route.fulfill({ contentType: 'application/javascript', body: `(function(){${body}})();` });
 });
 await context.route(url => url.origin === origin, async route => {
@@ -92,8 +92,8 @@ try {
     await page.setViewportSize({ width, height: 900 }); const before = requests; await open('crop-image');
     await requestSlot(); // The after-tool candidate may already be within the lazy-load margin.
     await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
-    assert.equal(requests, before + 3); assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1);
-    assert.equal(await page.locator(`#gxa-adsterra-popunder`).count(), 1);
+    assert.equal(requests, before + 2); assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1);
+    assert.equal(await page.locator(`#gxa-adsterra-popunder`).count(), 0);
     assert.equal(await page.locator(`#gxa-adsterra-social-bar`).count(), 1);
     assert.equal(await page.locator('script[src="' + config.native.src + '"]').count(), 1);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
@@ -102,7 +102,7 @@ try {
       return [...document.querySelectorAll('#crop-editor-workspace, #crop-download-button, #crop-mobile-download-button, #btn-download-result')].filter(e => e.getClientRects().length).every(e => e.getBoundingClientRect().bottom + 24 <= slot.top);
     }), 'Ad must be separated from all crop interaction/download areas');
     await page.evaluate(() => { for (let i = 0; i < 8; i++) GxaAdNetwork.sync(); setTheme(appState.theme === 'dark' ? 'light' : 'dark'); });
-    assert.equal(requests, before + 3, 'No display or provider-bootstrap remount requests');
+    assert.equal(requests, before + 2, 'No display or provider-bootstrap remount requests');
     await page.screenshot({ path: resolve(out, `crop-native-${width}.png`), animations: 'disabled' });
     rows.push({ route: 'crop-image', width, status: 'one lazy fixture, no overlap/overflow' });
   }
@@ -153,8 +153,8 @@ try {
     mode = failure; const before = requests; await open('resize-image'); await requestSlot();
     await page.waitForFunction(() => ['failed', 'empty'].includes(document.querySelector('.gxa-ad-network')?.dataset.adState), null, { timeout: 60000 });
     assert.equal(await page.locator('.gxa-ad-network').evaluate(e => e.getBoundingClientRect().height), 0);
-    assert.equal(requests, before + 4); assert.ok(await page.locator('#file-picker').count());
-    await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, before + 4);
+    assert.equal(requests, before + 3); assert.ok(await page.locator('#file-picker').count());
+    await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, before + 3);
     rows.push({ route: 'resize-image', status: failure + ': collapsed, no retry, uploader retained' });
   }
   assert.deepEqual(errors, []); assert.deepEqual(unexpected, []);

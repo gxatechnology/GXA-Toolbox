@@ -3280,6 +3280,7 @@ body {
 }
 
 .footer-social-link {
+  --social-color: var(--color-text-secondary);
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -3287,11 +3288,12 @@ body {
   width: 44px;
   height: 44px;
   flex: 0 0 44px;
-  color: var(--color-text-secondary);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
+  color: var(--social-color);
+  background: #f8fafc;
+  border: 1px solid color-mix(in srgb, var(--social-color) 34%, #cbd5e1);
   border-radius: 12px;
-  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 8%);
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 .footer-social-link svg {
@@ -3300,17 +3302,30 @@ body {
   fill: currentColor;
 }
 
+.footer-social-link[data-platform="reddit"] { --social-color: #ff4500; }
+.footer-social-link[data-platform="x"] { --social-color: #111111; }
+.footer-social-link[data-platform="facebook"] { --social-color: #1877f2; }
+.footer-social-link[data-platform="instagram"] { --social-color: #e4405f; }
+.footer-social-link[data-platform="linkedin"] { --social-color: #0a66c2; }
+
 .footer-social-link:hover,
 .footer-social-link:focus-visible {
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-  border-color: var(--color-primary);
+  color: var(--social-color);
+  background: color-mix(in srgb, var(--social-color) 10%, #ffffff);
+  border-color: color-mix(in srgb, var(--social-color) 72%, #cbd5e1);
   transform: translateY(-2px);
+  box-shadow: 0 8px 20px -12px color-mix(in srgb, var(--social-color) 72%, transparent);
 }
 
 .footer-social-link:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--social-color) 42%, transparent);
   outline-offset: 3px;
+}
+
+@media (min-width: 641px) {
+  .footer-bottom {
+    padding-inline-end: 132px;
+  }
 }
 
 .footer-social-link::before,
@@ -4572,8 +4587,9 @@ kbd {
 .command-empty { min-height: 230px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 7px; color: var(--color-text-muted); }
 .command-empty svg { width: 34px; height: 34px; }
 .command-empty strong { color: var(--color-text-primary); }
-.feedback-fab { position: fixed; z-index: 800; right: 22px; bottom: 22px; height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 7px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: #fff; background: #0f172a; box-shadow: 0 14px 34px -14px rgba(2,6,23,.7); font: 700 12px var(--font-body); cursor: pointer; }
+.feedback-fab { position: fixed; z-index: var(--z-feedback); right: calc(22px + env(safe-area-inset-right)); bottom: calc(22px + env(safe-area-inset-bottom)); height: 42px; padding: 0 15px; display: flex; align-items: center; gap: 7px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: #fff; background: #0f172a; box-shadow: 0 14px 34px -14px rgba(2,6,23,.7); font: 700 12px var(--font-body); cursor: pointer; }
 .feedback-fab:hover { transform: translateY(-2px); }
+.feedback-fab:focus-visible { outline: 3px solid var(--color-focus-ring); outline-offset: 3px; }
 .feedback-fab svg { width: 16px; height: 16px; }
 
 /* Marketing hero */
@@ -4820,13 +4836,14 @@ body.dark-mode .favorite-button:hover, body.dark-mode .favorite-button.active { 
 }
 
 @media (max-width: 640px) {
+  .footer-nav { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .container { padding-inline: 17px; }
   .header-nav .container { padding-inline: 14px; }
   .logo-text { display: block; font-size: 17px; }
   .logo-text .brand-suffix { display: none; }
   .nav-actions .lang-dropdown { display: none; }
   .command-trigger { display: inline-flex; }
-  .feedback-fab { right: 14px; bottom: 14px; width: 42px; padding: 0; justify-content: center; }
+  .feedback-fab { right: calc(14px + env(safe-area-inset-right)); bottom: calc(14px + env(safe-area-inset-bottom)); width: 42px; padding: 0; justify-content: center; }
   .feedback-fab span { display: none; }
   .premium-hero { padding: 62px 0 90px; }
   .premium-hero .hero-headline { font-size: clamp(38px, 12vw, 54px); }
@@ -7571,7 +7588,6 @@ body.studio-drawer-open {
 }
 
 @media (max-width: 760px) {
-  .feedback-fab { display: none; }
   .phase-one-studio-page { padding-inline: 10px; }
   .phase-one-studio-rail {
     top: calc(58px + env(safe-area-inset-top));

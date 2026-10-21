@@ -1,6 +1,6 @@
-# Adsterra full-unit rollout — local only
+# Adsterra full-unit rollout — superseded
 
-This report supersedes the breakpoint mapping in AD_LAYOUT_EXPANSION.md. No commit, push, deployment, provider-account change, or live ad interaction is authorized by this work.
+This historical report is superseded by [ADSTERRA_FINAL_OPTIMIZATION.md](ADSTERRA_FINAL_OPTIMIZATION.md). The current policy permanently disables Popunder, keeps Social Bar enabled, and keeps all seven display formats available. No commit, push, deployment, or provider-account change is authorized by this work.
 
 ## Inventory and central controls
 
@@ -16,9 +16,9 @@ This report supersedes the breakpoint mapping in AD_LAYOUT_EXPANSION.md. No comm
 | 160×300 | Enabled | Secondary gutter at 1600–1919 when it fits |
 | 160×600 | Enabled | Secondary gutter at ≥1920 when it fits |
 | Social Bar | Enabled | Official provider bootstrap once per ads-eligible public document |
-| Popunder | Enabled | Official provider bootstrap once per ads-eligible public document |
+| Popunder | Disabled | No source URL, approved routes, or runtime bootstrap |
 
-All nine selected units are enabled. The local bootstrap injects the exact Popunder and Social Bar provider scripts once per eligible document. It does not add custom click listeners, call `window.open`, force redirects, or claim control over provider-owned frequency or creative behavior. Smartlink remains disabled.
+Eight selected units are enabled: seven display formats plus Social Bar. The local bootstrap injects only the Social Bar provider script once per eligible document. It does not add custom click listeners, call `window.open`, force redirects, or claim control over provider-owned creative behavior. Popunder and Smartlink remain disabled.
 
 Adsterra documents [page-interaction Popunder behavior](https://adsterra.com/blog/popunder-traffic-monetization/) and [provider-controlled Social Bar formats](https://adsterra.com/blog/publishers-guide-to-social-bar/). Loading each bootstrap once prevents duplicate site initialization, but does not prove provider fill, popup frequency, creative quality, or safe overlay geometry. Those remain deployment-time provider/account checks. Interstitial remains disabled and is not one of the nine selected units.
 
@@ -34,7 +34,7 @@ Other eligible tools default to inline-only. Edit PDF, Crop Image, Organize PDF,
 
 | Viewport | Top format | Rails | Maximum placements |
 | --- | --- | --- | --- |
-| <768 | 320×50 if it fits | None | 2 |
+| <768 | 320×50 if it fits | None | 3 on sufficiently long pages; otherwise fewer |
 | 768–1279 | 468×60 if it fits | None | 3 |
 | 1280–1599 | 728×90 if it fits | Right 300×250 only with ≥324px measured free gutter | Simple 4; editor 3 |
 | 1600–1919 | 728×90 | Right as above; optional 160×300 with ≥184px free gutter | Simple 4; editor 3 |

@@ -39,6 +39,8 @@
 .gxa-ad-network[data-ad-state="loading"] { position: absolute; visibility: hidden; height: 0; margin-block: 0; padding: 0; border: 0; pointer-events: none; }
 .gxa-ad-banner-frame { display: block; margin: 0 auto; border: 0; max-width: 100%; }
 .gxa-ad-network.gxa-ad-rail { position: static; margin: 0; padding: 12px 0; }
+.gxa-ad-network[data-ad-layout-zone="content-middle"] { margin-block: 52px; }
+.gxa-ad-network[data-ad-layout-zone="content-lower"] { margin-block: 64px; }
 @media (max-width: 1279px) { .gxa-ad-network.gxa-ad-rail { display: none !important; } }
 .gxa-ad-layout-shell > .gxa-ad-sentinel:is([data-ad-sentinel-zone="left"], [data-ad-sentinel-zone="right"]),
 body.gxa-ad-background-rails > .gxa-ad-sentinel:is([data-ad-sentinel-zone="left"], [data-ad-sentinel-zone="right"]) { position: absolute; top: 0; left: 0; }
@@ -48,4 +50,8 @@ body.gxa-ad-background-rails > .gxa-ad-sentinel[data-ad-sentinel-zone="after-too
 .gxa-ad-network [data-ad-unit-mount] { width: 100%; min-width: 0; min-height: 0; }
 .gxa-ad-network .tool-ad-label, .gxa-ad-network .gxa-tool-ad-label { display: block; margin-bottom: 12px; font-size: 11px; text-align: center; color: var(--color-text-secondary, #64748b); }
 .gxa-ad-sentinel { height: 1px; margin: 0; padding: 0; pointer-events: none; }
-@media (max-width: 767px) { .gxa-ad-network:not([hidden]) { margin-block: 28px; } .gxa-ad-network[data-ad-state="loading"] { margin-block: 0; } }
+@media (max-width: 767px) {
+  .gxa-ad-network:not([hidden]) { margin-block: 32px; }
+  .gxa-ad-network[data-ad-layout-zone="content-middle"] { margin-block: 48px; }
+  .gxa-ad-network[data-ad-state="loading"] { margin-block: 0; }
+}

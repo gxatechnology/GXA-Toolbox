@@ -37,7 +37,6 @@
 
   function initialize() {
     if (!document.body || !publicRouteEligible()) return false;
-    request('popunder', config.intrusive.popunder);
     request('social-bar', config.intrusive.socialBar);
     return true;
   }

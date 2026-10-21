@@ -6,7 +6,7 @@
     providerSiteId: 6091425,
     maxPlacements: 6,
     zones: Object.freeze({ top: true, right: true, left: true, afterTool: true, content: true }),
-    limits: Object.freeze({ tool: 6, editor: 3, tablet: 3, mobile: 2, editorial: 1 }),
+    limits: Object.freeze({ tool: 6, editor: 3, tablet: 3, mobile: 3, editorial: 1 }),
     railTools: Object.freeze(['compress-pdf', 'merge-pdf', 'split-pdf', 'pdf-to-jpg', 'jpg-to-pdf', 'image-to-pdf', 'png-to-pdf', 'svg-to-png', 'compress-image', 'resize-image', 'image-converter', 'calculator', 'scientific-calculator', 'percentage-calculator', 'age-calculator', 'date-calculator', 'emi-calculator', 'loan-calculator', 'interest-calculator', 'gst-calculator', 'sip-calculator', 'bmi-calculator', 'discount-calculator', 'unit-converter', 'currency-converter', 'time-calculator', 'json-tool', 'hash-tool', 'word-counter', 'lorem-ipsum', 'diff-checker', 'regex-tester', 'timestamp-converter']),
     // Explicit opt-in rail list: unknown/new editors never acquire a sidebar.
     interstitial: Object.freeze({ enabled: false, frequencyMinutes: 30, reason: 'No approved interstitial unit; banners must not be repurposed.' }),
@@ -22,7 +22,7 @@
     ].map(unit => Object.freeze({ ...unit, enabled: true, src: `https://bauval.org/22/${unit.key}` }))),
     intrusive: Object.freeze({
       smartlink: Object.freeze({ enabled: false, unitId: 31822155, approvedRoutes: Object.freeze([]), activationBlockedReason: 'No approved website placement or verified outbound-link policy.' }),
-      popunder: Object.freeze({ enabled: true, unitId: 31513006, approvedRoutes: Object.freeze(['*']), src: 'https://abscloud.org/1/3a66eef4b20eb6bc449cee178926437d' }),
+      popunder: Object.freeze({ enabled: false, unitId: 31513006, approvedRoutes: Object.freeze([]), activationBlockedReason: 'Disabled by site policy to prevent provider-triggered advertising tabs during normal navigation and tool use.' }),
       socialBar: Object.freeze({ enabled: true, unitId: 31513007, approvedRoutes: Object.freeze(['*']), src: 'https://bauval.org/14/fcd69a971630acd0557b6a7e1c55ba85' })
     })
   });
