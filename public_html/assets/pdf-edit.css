@@ -95,7 +95,7 @@
 .pdf-edit-export { display: grid; gap: 12px; padding: 20px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); }
 .pdf-edit-export > label { font-weight: 600; font-size: 14px; }
 .pdf-edit-export select { width: min(100%, 320px); padding: 8px; }
-.pdf-edit-export-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.pdf-edit-preview-actions, .pdf-edit-export-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .pdf-edit-progress { width: 100%; height: 12px; accent-color: var(--color-primary); }
 .pdf-edit-signature-dialog { width: min(660px,calc(100% - 24px)); max-height: 90dvh; overflow: auto; margin: auto; padding: 24px; border: 1px solid var(--color-border); border-radius: 16px; color: var(--color-text-primary); background: var(--color-surface); }
 .pdf-edit-signature-dialog::backdrop { background: #0f172a99; }
@@ -119,8 +119,8 @@
   .pdf-edit-properties { grid-template-columns: minmax(0,1fr); }
   .pdf-edit-properties input, .pdf-edit-properties select, .pdf-edit-properties textarea { font-size: 16px; }
   .pdf-edit-export { padding: 14px; padding-bottom: max(14px, env(safe-area-inset-bottom)); }
-  .pdf-edit-export-actions { flex-direction: column; }
-  .pdf-edit-export-actions button { width: 100%; }
+  .pdf-edit-preview-actions, .pdf-edit-export-actions { flex-direction: column; }
+  .pdf-edit-preview-actions button, .pdf-edit-export-actions button { width: 100%; }
   .pdf-edit-resize { width: 28px; height: 28px; bottom: -14px; right: -14px; }
   .pdf-edit-signature-dialog { padding: 16px; }
 }

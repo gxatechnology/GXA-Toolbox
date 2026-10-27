@@ -38,7 +38,7 @@ try {
    assert.ok(result.states.includes('processing'),'Actual processing state observed');
    result.processing=true;result.result=true;
    const download=page.waitForEvent('download');
-   const button=page.locator('#btn-mobile-download-result'); await button.tap();
+   const button=page.locator('#btn-download-result'); await button.tap();
    const output=await download; assert.equal(await output.failure(),null); assert.ok((await readFile(await output.path())).length>0);
    result.download=true;
    await page.evaluate(()=>resetActiveTool());

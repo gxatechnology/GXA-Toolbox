@@ -52,7 +52,7 @@ try{
   await page.locator('.pdf-preview-controls').screenshot({path:resolve(out,'pdf-toolbar-mobile.png')});
   await page.locator('#btn-process-action').tap();
   await page.waitForFunction(()=>!document.getElementById('btn-download-result').disabled);
-  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#btn-mobile-download-result:visible, #btn-download-result:visible').first().tap()]);
+  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#btn-download-result:visible').tap()]);
   assert.equal(await download.failure(),null);assert.match(download.suggestedFilename(),/\.pdf$/i);
   const path=resolve(out,'selected-rotated-merged.pdf');await download.saveAs(path);
   const doc=await lib.PDFDocument.load(await readFile(path));
@@ -70,7 +70,7 @@ try{
   assert.ok(await page.locator('#btn-download-result').isDisabled());
   await page.locator('#merge-range-0').fill('1');await page.locator('#btn-process-action').tap();
   await page.waitForFunction(()=>!document.getElementById('btn-download-result').disabled);
-  const [retry]=await Promise.all([page.waitForEvent('download'),page.locator('#btn-mobile-download-result:visible, #btn-download-result:visible').first().tap()]);
+  const [retry]=await Promise.all([page.waitForEvent('download'),page.locator('#btn-download-result:visible').tap()]);
   const retryPath=resolve(out,'retry.pdf');await retry.saveAs(retryPath);
   assert.equal((await lib.PDFDocument.load(await readFile(retryPath))).getPageCount(),1);
   checks.push('Reset clears selections; invalid range produces no downloadable result; corrected range retries successfully');

@@ -35,7 +35,8 @@ for (const id of known) {
   assert.ok(!description.includes('Use it with GXA Toolbox.'), `${id}: legacy meta suffix`);
   if (quality[id]?.indexable) {
     checkedTools++;
-    for (const phrase of ['How to Use', 'About, Features and Practical Uses', 'Privacy, Formats and Limitations', 'Frequently Asked Questions', 'Related Tools and Guides']) assert.ok(html.includes(`<h2>${phrase}</h2>`), `${id}: missing static ${phrase}`);
+    const toolName = tools.find(tool => tool.id === id)?.name.replaceAll('&', '&amp;');
+    for (const phrase of [`How to Use ${toolName}`, `About ${toolName}`, `${toolName} Formats, Privacy and Limitations`, `Frequently Asked Questions About ${toolName}`, `Related ${toolName} Tools and Guides`]) assert.ok(html.includes(`<h2>${phrase}</h2>`), `${id}: missing static ${phrase}`);
     for (const phrase of ['Practical Use Cases', 'Supported Inputs and Outputs', 'Limitations and Important Notes', 'Worked Example']) assert.ok(html.includes(`<h3>${phrase}</h3>`), `${id}: missing specific ${phrase}`);
     assert.ok(content[id].relatedGuides.length > 0);
   }

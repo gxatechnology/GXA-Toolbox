@@ -10,6 +10,7 @@ import saveJobHandler from '../netlify/functions/auth-save-job.mjs';
 import sessionHandler from '../netlify/functions/auth-session.mjs';
 import contactHandler from '../netlify/functions/contact-support.mjs';
 import toolEventHandler from '../netlify/functions/tool-event.mjs';
+import toolRatingsHandler from '../netlify/functions/tool-ratings.mjs';
 import { loadInternalData } from '../netlify/functions/admin-data.mjs';
 import { loadToolRegistry } from '../scripts/tool-registry.mjs';
 
@@ -55,10 +56,10 @@ async function runPostgresAuthIntegration() {
     const tables = await database.sql`
       SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public'
-         AND table_name IN ('users', 'user_profiles', 'file_jobs', 'tool_analytics_events', 'auth_events', 'system_events', 'support_messages', 'admin_profiles', 'admin_audit_events', 'admin_rate_limits', 'admin_resource_reads', 'support_message_notes')
+         AND table_name IN ('users', 'user_profiles', 'file_jobs', 'tool_analytics_events', 'auth_events', 'system_events', 'support_messages', 'admin_profiles', 'admin_audit_events', 'admin_rate_limits', 'admin_resource_reads', 'support_message_notes', 'tool_ratings')
        ORDER BY table_name
     `;
-    assert.deepEqual(tables.map(row => row.table_name), ['admin_audit_events', 'admin_profiles', 'admin_rate_limits', 'admin_resource_reads', 'auth_events', 'file_jobs', 'support_message_notes', 'support_messages', 'system_events', 'tool_analytics_events', 'user_profiles', 'users']);
+    assert.deepEqual(tables.map(row => row.table_name), ['admin_audit_events', 'admin_profiles', 'admin_rate_limits', 'admin_resource_reads', 'auth_events', 'file_jobs', 'support_message_notes', 'support_messages', 'system_events', 'tool_analytics_events', 'tool_ratings', 'user_profiles', 'users']);
 
     const foreignKeys = await database.sql`
       SELECT constraint_name FROM information_schema.table_constraints
@@ -148,8 +149,19 @@ async function runPostgresAuthIntegration() {
     assert.equal(admin.support.summary.find(row=>row.status==='new').count,1);
     assert.equal(admin.support.rows[0].id,contact.reference_id);
     assert.equal(admin.system.error_count,0);
+    process.env.TOOL_RATINGS_ENABLED='true';
+    process.env.RATING_ABUSE_SECRET='isolated-postgres-rating-secret-at-least-32-characters';
+    const ratingResponse=await toolRatingsHandler(request('/api/tool-ratings',{tool_id:'merge-pdf',rating:4,review:''}));
+    assert.equal(ratingResponse.status,201);
+    const ratingBody=await ratingResponse.json();
+    assert.equal(ratingBody.aggregate.count,1);
+    assert.equal(ratingBody.aggregate.average,4);
+    const ratingAdmin=await loadInternalData(database.sql,from.toISOString(),until.toISOString());
+    assert.equal(ratingAdmin.ratings.available,true);
+    assert.equal(ratingAdmin.ratings.summary.total_ratings,1);
+    assert.equal(ratingAdmin.ratings.tools.find(row=>row.tool_id==='merge-pdf').average_rating,4);
     assert.equal((await loadInternalData(database.sql,'2000-01-01T00:00:00Z','2000-01-02T00:00:00Z')).overview.internal.tool_opens,0);
-    console.log('PostgreSQL Identity-profile, history, Contact Support, and admin analytics integration passed against an isolated Netlify development database.');
+    console.log('PostgreSQL Identity-profile, history, Contact Support, tool ratings, and admin analytics integration passed against an isolated Netlify development database.');
   } finally {
     await database?.pool.end();
     await localDatabase.stop();

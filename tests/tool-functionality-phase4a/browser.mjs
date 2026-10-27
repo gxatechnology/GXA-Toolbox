@@ -55,7 +55,7 @@ try {
   await page.locator('#btn-process-action').tap();
   await page.waitForFunction(() => !document.getElementById('btn-download-result')?.disabled);
   const mime = await page.evaluate(() => premiumEditorState.resultBlob?.type); assert.equal(mime, 'application/zip');
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-mobile-download-result:visible, #btn-download-result:visible').first().tap()]);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-download-result:visible').tap()]);
   assert.equal(await download.failure(), null); assert.match(download.suggestedFilename(), /\.zip$/i);
   const path = resolve(out, 'duplicate-unicode-files.zip'); await download.saveAs(path);
   const zip = await JSZip.loadAsync(await readFile(path), { checkCRC32: true });

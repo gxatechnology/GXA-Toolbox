@@ -44,7 +44,8 @@
 .image-converter__status.is-error { color: #b91c1c; font-weight: 600; }
 .image-converter__result-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(230px, .5fr); gap: 20px; }
 .image-converter__result .image-converter__stats { grid-template-columns: 1fr; margin-bottom: 16px; }
-.image-converter__download { width: 100%; }
+.image-converter__download { width: min(100%, 280px); }
+.image-converter__result .result-download-section { margin-top: 22px; }
 
 @media (max-width: 900px) {
   .image-converter__grid, .image-converter__result-grid { grid-template-columns: 1fr; }
@@ -60,6 +61,7 @@
   .image-converter__preview img { max-height: 370px; }
   .image-converter__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .image-converter__notice { padding: 12px; }
+  .image-converter__download { width: 100%; }
 }
 
 @media (max-width: 350px) {

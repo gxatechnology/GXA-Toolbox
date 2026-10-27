@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { toolSeoIntent } from './tool-seo-intents.mjs';
 
 const appUrl = new URL('../public_html/assets/app.js', import.meta.url);
 const contentPagesUrl = new URL('../public_html/assets/content-pages.js', import.meta.url);
@@ -102,12 +103,13 @@ export function canonicalContentUrl(pageId) {
 }
 
 export function toolTitle(tool) {
-  if (tool.id === 'image-ocr') return 'Image OCR - Extract Text from Images | GXA Toolbox';
-  if (tool.id === 'gps-map-camera') return 'GPS Map Camera & Geotag Photo Online | GXA Toolbox';
+  const intent = toolSeoIntent(tool.id);
+  if (intent) return intent.title;
   return `${tool.name} | GXA Toolbox`;
 }
 
 export function toolDescription(tool) {
-  if (tool.id === 'image-ocr') return 'Extract text from JPG, JPEG, PNG, and WEBP images using browser-based OCR with GXA Toolbox.';
+  const intent = toolSeoIntent(tool.id);
+  if (intent) return intent.description;
   return tool.desc;
 }

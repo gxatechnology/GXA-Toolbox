@@ -17,7 +17,12 @@ const failures = [], checks = [], fixtures = await createEditPdfFixtures();
 const out = resolve('test-results/edit-pdf-advanced'); await mkdir(out, { recursive: true });
 page.on('pageerror', error => failures.push(error.message)); page.on('dialog', dialog => dialog.accept());
 const settle = () => page.waitForFunction(() => document.querySelector('#edit-pdf-mount')?.getAttribute('aria-busy') === 'false');
-const act = async name => { await page.locator(`[data-action="${name}"]`).tap(); await settle(); };
+const act = async name => {
+  if (!['preview', 'download', 'back', 'reset'].includes(name) && await page.locator('[data-action="back"]').isVisible()) {
+    await page.locator('[data-action="back"]').tap(); await settle();
+  }
+  await page.locator(`[data-action="${name}"]`).tap(); await settle();
+};
 const upload = async name => {
   await page.locator('#pdf-edit-file').setInputFiles({ name, mimeType: 'application/pdf', buffer: Buffer.from(fixtures[name]) });
   await settle(); await page.waitForFunction(() => document.querySelector('.pdf-edit-document')?.hidden === false);
@@ -25,10 +30,14 @@ const upload = async name => {
 const advanced = async () => { const panel = page.locator('.pdf-edit-advanced').first(); if (!await panel.evaluate(el => el.open)) await panel.locator('summary').tap(); };
 const property = (name, value) => page.locator(`[data-property="${name}"]`).fill(String(value));
 const download = async name => {
+  // The existing result workflow intentionally reveals Download after preview.
+  await act('preview');
+  await page.locator('.result-download-section').waitFor({ state: 'visible' });
   const event = page.waitForEvent('download'); await act('download'); const file = await event;
   assert.equal(await file.failure(), null); assert.match(file.suggestedFilename(), /\.pdf$/);
   const path = resolve(out, name); await file.saveAs(path);
   const bytes = await readFile(path); assert.equal(bytes.subarray(0,5).toString(), '%PDF-');
+  await act('back');
   return lib.PDFDocument.load(bytes);
 };
 const streams = (doc, i) => (doc.getPage(i).node.Contents()?.asArray() || []).map(ref => Buffer.from(lib.decodePDFRawStream(doc.context.lookup(ref)).decode()).toString('latin1')).join('\n');
@@ -115,7 +124,7 @@ try {
     return canvas.toDataURL('image/png').split(',')[1];
   });
   const imageSettings = async () => { const panel = page.locator('.pdf-edit-image-settings'); if (!await panel.evaluate(el => el.open)) await panel.locator('summary').tap(); };
-  const selectImage = async () => { await page.locator('[aria-label^="image overlay"]').focus(); await page.keyboard.press('Enter'); };
+  const selectImage = async () => { await settle(); await page.locator('[aria-label^="image overlay"]').tap(); await page.locator('.pdf-edit-image-settings').waitFor(); };
   await imageSettings();
   const chooserPromise = page.waitForEvent('filechooser'); await act('replace-image');
   await (await chooserPromise).setFiles({ name: 'quadrants.png', mimeType: 'image/png', buffer: Buffer.from(colors,'base64') }); await settle();

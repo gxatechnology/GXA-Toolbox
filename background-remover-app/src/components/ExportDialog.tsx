@@ -3,6 +3,7 @@ import { useEditorStore } from '../store/editorStore';
 import { downloadBlob, exportImage } from '../utils/imageExport';
 import { trackBackgroundTool } from '../utils/analytics';
 import { Icon } from './Icon';
+import { ToolRating } from './ToolRating';
 
 interface ExportDialogProps {
   open: boolean;
@@ -16,6 +17,7 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
   const originalHeight = useEditorStore((state) => state.originalHeight);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [downloaded, setDownloaded] = useState(false);
   if (!open) return null;
   const runExport = async () => {
     setBusy(true);
@@ -24,7 +26,7 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
       const output = await exportImage(useEditorStore.getState());
       downloadBlob(output.blob, output.filename);
       trackBackgroundTool('tool_download', 'downloaded');
-      onClose();
+      setDownloaded(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Export failed.');
     } finally { setBusy(false); }
@@ -43,7 +45,8 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
           <label className="toggle-row"><span>Strip metadata</span><input type="checkbox" checked={settings.stripMetadata} onChange={(event) => setSettings({ stripMetadata: event.target.checked })} /></label>
           {error && <p className="dialog-error" role="alert">{error}</p>}
         </div>
-        <footer><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button type="button" className="primary-button" disabled={busy} onClick={runExport}><Icon name="download" />{busy ? 'Rendering…' : 'Download'}</button></footer>
+        <footer><button type="button" className="secondary-button" onClick={onClose}>{downloaded ? 'Close' : 'Cancel'}</button><button type="button" className="primary-button" disabled={busy} onClick={runExport}><Icon name="download" />{busy ? 'Rendering…' : downloaded ? 'Download again' : 'Download'}</button></footer>
+        <ToolRating active={downloaded} />
       </section>
     </div>
   );

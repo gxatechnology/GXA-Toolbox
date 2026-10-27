@@ -44,6 +44,7 @@ normalAuth.setDatabaseClientForTests({
   sql: async (strings, ...values) => {
     const statement = normalizeStatement(strings);
     if (statement.startsWith('SELECT 1 AS healthy')) return [{ healthy: 1 }];
+    if (statement.includes("to_regclass('public.tool_ratings')")) return [{ ratings_table: false }];
     if (statement.includes('COUNT(*)::INTEGER AS total_accounts')) {
       return [{ total_accounts: 4, signups_today: 1, signups_7d: 2, active_users: 3 }];
     }
@@ -158,7 +159,7 @@ const [adminHtml, adminCss, adminJs, migration, analytics, netlify, generator, p
 ]);
 assert.match(adminHtml, /GXA Toolbox[\s\S]*Admin Dashboard/);
 assert.match(adminHtml, /Secure Administration Portal/);
-for (const label of ['Overview', 'Analytics', 'Tool Analytics', 'SEO / Search Console', 'AdSense', 'Adsterra', 'Users', 'Support Messages', 'System', 'Administrator', 'Logout']) assert.ok(adminHtml.includes(label), `Admin navigation is missing ${label}.`);
+for (const label of ['Overview', 'Analytics', 'Tool Analytics', 'SEO / Search Console', 'AdSense', 'Adsterra', 'Users', 'Support Messages', 'Tool Ratings', 'System', 'Administrator', 'Logout']) assert.ok(adminHtml.includes(label), `Admin navigation is missing ${label}.`);
 assert.match(adminHtml, /<img src="\/gxa-logo\.png"/);
 assert.match(adminHtml, /<meta name="robots" content="noindex, nofollow, noarchive">/);
 assert.doesNotMatch(adminHtml + adminJs, /googletagmanager\.com|googlesyndication\.com|adsbygoogle|gtag\s*\(/i, 'Private admin assets must not load public advertising or tracking code.');

@@ -97,6 +97,13 @@ try {
   await page.locator('.pdf-edit-grid').screenshot({ path: resolve(output, 'desktop-form-edit.png') });
   await page.getByRole('button', { name: 'Preview Edited PDF', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('.pdf-edit-grid')?.classList.contains('is-preview'));
+  assert.equal(await page.locator('#edit-pdf-mount').getAttribute('data-result-ready'), 'true');
+  assert.equal(await page.locator('.result-download-section').isVisible(), true);
+  assert.ok(await page.evaluate(() => {
+    const ad = document.querySelector('[data-ad-trigger="result-ready"]');
+    const download = document.querySelector('.result-download-section');
+    return Boolean(ad && download && (ad.compareDocumentPosition(download) & Node.DOCUMENT_POSITION_FOLLOWING));
+  }), 'The gated result ad candidate must precede the labeled download section.');
   await page.locator('.pdf-edit-grid').screenshot({ path: resolve(output, 'desktop-form-output.png') });
   const editable = await filledDownload('editable-form.pdf');
   assert.equal(editable.doc.getPageCount(), 5);
@@ -110,6 +117,9 @@ try {
   await upload('reopened-form.pdf');
   assert.equal(await page.getByLabel('fullName', { exact: true }).inputValue(), 'Synthetic Browser User');
   await page.getByLabel('Filled form output').selectOption('flatten');
+  assert.equal(await page.locator('.result-download-section').isVisible(), false, 'Changing output mode invalidates the previous preview/download.');
+  await page.getByRole('button', { name: 'Preview Edited PDF', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('.result-download-section')?.getClientRects().length);
   const flattened = await filledDownload('flattened-form.pdf');
   assert.equal(flattened.doc.getForm().getFields().length, 0);
   assert.equal(flattened.doc.getPageCount(), 5);

@@ -507,7 +507,7 @@ const extraTools = [
   { id: 'markdown-to-pdf', name: 'Markdown to PDF', category: 'convert', desc: 'Render Markdown text files to formatted PDF pages.', icon: 'file-edit' },
   { id: 'pdf-to-markdown', name: 'PDF to Markdown', category: 'convert', desc: 'Parse PDF structure to clean, readable Markdown layout.', icon: 'text' },
   { id: 'svg-to-png', name: 'SVG to PNG', category: 'convert', desc: 'Render vector SVG graphics to high-resolution PNG format.', icon: 'image' },
-  { id: 'png-to-svg', name: 'PNG to SVG', category: 'convert', desc: 'Wrap raster images into scalable vector SVG markup.', icon: 'type' },
+  { id: 'png-to-svg', name: 'PNG to SVG', category: 'convert', desc: 'Trace PNG images into SVG paths with adjustable vectorization.', icon: 'type' },
   { id: 'webp-to-jpg', name: 'WEBP to JPG', category: 'convert', desc: 'Convert WEBP files to universal JPG format in browser.', icon: 'image' },
   { id: 'gif-to-png', name: 'GIF Frame Extractor', category: 'convert', desc: 'Extract individual sequence frames from animated GIFs.', icon: 'film' },
   { id: 'text-to-speech', name: 'Text-to-Speech Reader', category: 'utility', desc: 'Read text or documents aloud using native audio speech synthesis.', icon: 'volume-2' },
@@ -1473,6 +1473,7 @@ function renderFooter() {
 
 // --- Page Navigator (Routing) ---
 function navigate(pageId, { replace = false, scroll = true } = {}) {
+  window.GxaEngineJobs?.cancelAll();
   closeMobileNavigation();
   const isKnownTool = pageId.startsWith('tool-') && toolsList.some(tool => `tool-${tool.id}` === pageId);
   const isKnownContentPage = pageId.startsWith('content-') && contentPages.some(page => `content-${page.id}` === pageId);
@@ -2534,6 +2535,25 @@ function renderHome(container) {
       </div>
     </section>
 
+    <section class="trust-marquee" aria-label="GXA Toolbox capabilities">
+      <div class="trust-marquee__viewport" tabindex="0">
+        <div class="trust-marquee__track">
+          ${[
+            ['boxes','GXA Toolbox'],['building-2','GXA Technologies'],['file-text','Free PDF Tools'],['images','Image Conversion'],
+            ['file-pen-line','PDF Editing'],['combine','Merge PDF'],['minimize-2','Compress PDF'],['image-down','Image Compression'],
+            ['repeat-2','File Conversion'],['smartphone','Mobile Friendly'],['badge-check','No-Cost Utilities'],['download','Easy Downloads']
+          ].map(([icon,label]) => `<span class="trust-marquee__item"><i data-lucide="${icon}" aria-hidden="true"></i>${label}</span>`).join('')}
+          <span class="trust-marquee__copy" aria-hidden="true">
+            ${[
+              ['boxes','GXA Toolbox'],['building-2','GXA Technologies'],['file-text','Free PDF Tools'],['images','Image Conversion'],
+              ['file-pen-line','PDF Editing'],['combine','Merge PDF'],['minimize-2','Compress PDF'],['image-down','Image Compression'],
+              ['repeat-2','File Conversion'],['smartphone','Mobile Friendly'],['badge-check','No-Cost Utilities'],['download','Easy Downloads']
+            ].map(([icon,label]) => `<span class="trust-marquee__item"><i data-lucide="${icon}" aria-hidden="true"></i>${label}</span>`).join('')}
+          </span>
+        </div>
+      </div>
+    </section>
+
     <section class="command-search-section">
       <div class="container">
         <button class="home-command-search" onclick="openCommandPalette()" aria-label="Search all GXA Toolbox tools">
@@ -2855,13 +2875,25 @@ function getDirectResultDownloadLabel(toolId) {
 
 function renderToolAdPlacementPlaceholder(zone = 'ad-slot-content-1') {
   if (!window.GxaToolQuality.forPage(appState.currentPage, toolsList).adsEligible) return '';
+  const trigger = zone === 'ad-slot-after-tool' ? ' data-ad-trigger="result-ready"' : '';
   return `
-    <aside class="tool-ad-placement" data-ad-placement="tool-content" data-ad-zone="${zone}" data-ad-state="awaiting-ad-unit" aria-label="Advertisement" hidden>
+    <aside class="tool-ad-placement" data-ad-placement="tool-content" data-ad-zone="${zone}" data-ad-state="awaiting-ad-unit"${trigger} aria-label="Advertisement" hidden>
       <span class="tool-ad-label">Advertisement</span>
       <div class="tool-ad-unit-mount" data-ad-unit-mount></div>
     </aside>
   `;
 }
+
+function renderToolRatingPlaceholder(toolId, mode = 'workspace') {
+  if (toolId === 'ppt-to-pdf') return '';
+  return window.GxaToolRatings?.placeholder?.(toolId, mode)
+    || `<section class="tool-rating" data-tool-rating data-tool-id="${escapeHTML(toolId)}" data-rating-mode="${escapeHTML(mode)}" aria-label="Rate this tool" hidden></section>`;
+}
+
+window.GxaResultFlow = Object.freeze({
+  renderAdPlacement: () => renderToolAdPlacementPlaceholder('ad-slot-after-tool'),
+  renderRating: (toolId, mode = 'result') => renderToolRatingPlaceholder(toolId, mode)
+});
 
 function getToolResultType(toolId, category) {
   if (category === 'calculator') return 'numeric-summary';
@@ -3633,10 +3665,15 @@ function renderToolPage(container, toolId) {
       </div>
     `;
   } else if (toolId === 'png-to-svg') {
-    accepts = 'image/*';
+    accepts = 'image/png,.png';
     multiple = false;
     optionsHTML = `
-      <p style="font-size:12px; color:var(--color-text-secondary);">Wrap raster images into scalable vector SVG markup code.</p>
+      <p class="processing-disclosure">Trace PNG artwork into real SVG paths locally. Best for logos and flat colors, not photographs or complex gradients. The tracing raster is limited to 1024 pixels per side; the exported viewBox retains the original aspect ratio.</p>
+      <label class="form-label" for="opt-trace-mode">Tracing mode</label><select id="opt-trace-mode" class="form-input-text"><option value="color">Multicolor (16 colors)</option><option value="bw">Black and white</option></select>
+      <label class="form-label" for="opt-trace-threshold">Black/white threshold</label><input id="opt-trace-threshold" class="form-input-text" type="number" min="0" max="255" value="128">
+      <label class="form-label" for="opt-trace-smoothing">Path smoothing / simplification</label><input id="opt-trace-smoothing" class="form-input-text" type="number" min="0.1" max="5" step="0.1" value="1">
+      <label class="form-label" for="opt-trace-noise">Ignore small paths (pixels)</label><input id="opt-trace-noise" class="form-input-text" type="number" min="0" max="32" value="4">
+      <label class="form-label" for="opt-trace-background">Background</label><select id="opt-trace-background" class="form-input-text"><option value="transparent">Preserve transparency</option><option value="white">Flatten to white</option></select>
     `;
   } else if (toolId === 'webp-to-jpg') {
     accepts = 'image/webp';
@@ -4541,8 +4578,9 @@ function renderToolPage(container, toolId) {
     accepts = '.pdf';
     multiple = false;
     optionsHTML = `
-      <label class="form-label" for="opt-ocr-lang">OCR language<select id="opt-ocr-lang" class="form-input-text"><option value="eng">English</option></select></label>
-      <p class="processing-disclosure">PDF pages are rendered sequentially and recognized in a local Tesseract Web Worker. The output is extracted TXT, not a searchable PDF. The first run downloads the OCR core and English language model; the PDF itself is not uploaded.</p>
+      ${renderOcrControls('opt-ocr-lang')}
+      <label class="form-label" for="opt-ocr-output">Output<select id="opt-ocr-output" class="form-input-text"><option value="text">Extracted TXT</option><option value="pdf">Searchable PDF (rasterized pages)</option></select></label>
+      <p class="processing-disclosure">PDF pages are rendered sequentially and recognized in a local Tesseract Web Worker. TXT remains available. Searchable PDF creates rasterized pages with recognized text, not the original vector document; OCR errors remain possible. First use downloads the selected language data and core, never your file.</p>
     `;
   } else if (toolId === 'image-ocr') {
     accepts = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
@@ -4550,8 +4588,8 @@ function renderToolPage(container, toolId) {
     uploadFormatsLabel = 'JPG · JPEG · PNG · WEBP';
     uploadLimitLabel = 'Maximum file size: 20 MB · Maximum decoded image: 24 megapixels';
     optionsHTML = `
-      <label class="form-label" for="opt-image-ocr-lang">OCR language<select id="opt-image-ocr-lang" class="form-input-text"><option value="eng">English</option></select></label>
-      <p class="processing-disclosure">Your image stays in this browser. The OCR core and English language data are downloaded when needed. Output is plain extracted text and does not preserve the image layout.</p>
+      ${renderOcrControls('opt-image-ocr-lang')}
+      <p class="processing-disclosure">Your image stays in this browser. The OCR core and selected language data are downloaded when needed. Output is plain extracted text, not the original layout. Optional preprocessing may help scanned text but can harm photographs; compare with Original.</p>
     `;
   } else if (toolId === 'image-to-pdf') {
     accepts = 'image/*';
@@ -4796,20 +4834,22 @@ function renderToolPage(container, toolId) {
               <div class="complete-icon"><i data-lucide="check" style="width:36px; height:36px; stroke-width:3;"></i></div>
               <h3 class="complete-title" id="tool-result-title">${t('complete')}</h3>
               <p class="upload-subtitle" style="margin-bottom:20px;">Your processed output is ready. Review the real result and download it when ready.</p>
-              <div class="premium-mobile-result-action">
-                <button class="btn btn-primary btn-lg" id="btn-mobile-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
-              </div>
               <div id="premium-result-preview" class="premium-result-preview" aria-live="polite" aria-labelledby="tool-result-title" data-result-type="${resultType}"></div>
               
               <!-- Image compression comparisons if applicable -->
               <div id="comparison-metric-mount" class="complete-comparison hidden"></div>
               
               <div id="premium-result-stats" class="premium-result-stats" aria-label="Output statistics"></div>
-              <div class="premium-result-actions">
-                <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
-                ${['split-pdf', 'organize-pdf'].includes(toolId) ? '<button type="button" class="btn btn-secondary btn-lg" onclick="resumePdfPageTool()">Adjust settings</button>' : ''}
-                <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> ${toolId === 'compress-pdf' ? 'Compress another PDF' : 'Start Over'}</button>
-              </div>
+              ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
+              <section class="result-download-section" aria-labelledby="result-download-title">
+                <div class="result-download-copy"><span class="tool-category-label">Download</span><h4 id="result-download-title">Save your finished result</h4><p>Your validated output is ready to save to this device.</p></div>
+                <div class="premium-result-actions">
+                  <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
+                  ${['split-pdf', 'organize-pdf'].includes(toolId) ? '<button type="button" class="btn btn-secondary btn-lg" onclick="resumePdfPageTool()">Adjust settings</button>' : ''}
+                  <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> ${toolId === 'compress-pdf' ? 'Compress another PDF' : 'Start Over'}</button>
+                </div>
+              </section>
+              ${needsFiles ? renderToolRatingPlaceholder(tool.id, 'result') : ''}
             </div>
           </div>
           
@@ -4835,14 +4875,15 @@ function renderToolPage(container, toolId) {
         </div>
       </div>
 
+      ${needsFiles ? '' : renderToolRatingPlaceholder(tool.id, 'workspace')}
+
       ${needsFiles ? `<section class="premium-session-panel" aria-labelledby="premium-session-title">
         <div><span class="tool-category-label">This browser session</span><h3 id="premium-session-title">Recent results</h3></div>
         <div id="premium-session-history" class="premium-session-history"><span>No results created in this session yet.</span></div>
       </section>` : ''}
 
-      ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${renderToolContentSections(tool.id)}
-      ${renderToolAdPlacementPlaceholder()}
+      ${needsFiles ? '' : renderToolAdPlacementPlaceholder()}
 
       <!-- Related Tools section -->
       <div class="related-tools-section" style="margin-top: 60px; padding-top: 40px; border-top: 1px solid var(--color-border);">
@@ -5149,9 +5190,7 @@ async function renderEditPdfPage(container, tool) {
     <section class="container tool-container edit-pdf-page">
       ${renderEditorToolHeader(tool)}
       <div id="edit-pdf-mount"><p role="status">Loading PDF editor…</p></div>
-      ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${renderToolContentSections(tool.id)}
-      ${renderToolAdPlacementPlaceholder()}
       <section class="related-tools-section"><h2>Related Tools</h2><div class="tools-grid" id="related-tools-grid"></div></section>
       <section class="faq-section"><h2 class="faq-title">Frequently Asked Questions</h2><div class="faq-list">${faqs.map(faq => `<details class="edit-pdf-faq"><summary>${escapeHTML(faq.q)}</summary><p>${escapeHTML(faq.a)}</p></details>`).join('')}</div></section>
     </section>`;
@@ -5187,9 +5226,7 @@ async function renderImageConverterPage(container, tool) {
       ${renderEditorToolHeader(tool, 'Universal Image Converter')}
       ${renderToolPreworkspaceIntro(tool.id)}
       <div id="image-converter-mount" aria-busy="true"><p role="status">Loading image converter…</p></div>
-      ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
       ${renderToolContentSections(tool.id)}
-      ${renderToolAdPlacementPlaceholder()}
       <section class="related-tools-section"><h2>Related Tools</h2><div class="tools-grid" id="related-tools-grid"></div></section>
       <section class="faq-section"><h2 class="faq-title">Frequently Asked Questions</h2><div class="faq-list">${faqs.map(faq => `<details><summary>${escapeHTML(faq.q)}</summary><p>${escapeHTML(faq.a)}</p></details>`).join('')}</div></section>
     </section>`;
@@ -5224,7 +5261,6 @@ async function renderGpsMapCameraPage(container, tool) {
       ${renderToolPreworkspaceIntro(tool.id)}
       <div id="gps-map-camera-mount" aria-busy="true"><p role="status">Loading GPS photo workspace…</p></div>
       ${renderToolContentSections(tool.id)}
-      ${renderToolAdPlacementPlaceholder()}
       <section class="related-tools-section"><h2>Related Tools</h2><div class="tools-grid" id="related-tools-grid"></div></section>
       <section class="faq-section"><h2 class="faq-title">Frequently Asked Questions</h2><div class="faq-list">${faqs.map(faq => `<details><summary>${escapeHTML(faq.q)}</summary><p>${escapeHTML(faq.a)}</p></details>`).join('')}</div></section>
     </section>`;
@@ -5495,9 +5531,6 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
           <div><span class="tool-category-label">Export ready</span><h2 id="crop-result-title">Your cropped image is ready</h2></div>
           <span class="crop-result-check"><i data-lucide="check"></i></span>
         </div>
-        <div class="crop-mobile-result-action">
-          <button id="crop-mobile-download-button" type="button" class="btn btn-primary btn-lg" onclick="downloadCropResult()"><i data-lucide="download"></i> Download Cropped Image</button>
-        </div>
         <div class="crop-result-compare">
           <figure><div class="crop-result-image-wrap"><img id="crop-before-image" alt="Original image before cropping"></div><figcaption>Before</figcaption></figure>
           <figure><div class="crop-result-image-wrap checkerboard"><img id="crop-after-image" alt="Cropped image result"></div><figcaption>After</figcaption></figure>
@@ -5507,16 +5540,20 @@ function renderCropImageEditor(container, tool, processingProfile, faqHTML) {
           <div><span>Actual output size</span><strong id="crop-result-size">—</strong></div>
           <div><span>Format</span><strong id="crop-result-format">—</strong></div>
         </div>
-        <div class="crop-result-actions">
-          <button id="crop-download-button" type="button" class="btn btn-primary btn-lg" onclick="downloadCropResult()"><i data-lucide="download"></i> Download Cropped Image</button>
-          <button type="button" class="btn btn-secondary btn-lg" onclick="returnToCropEditor()"><i data-lucide="arrow-left"></i> Edit Crop Again</button>
-          <button type="button" class="btn btn-ghost btn-lg" onclick="cropAnotherImage()"><i data-lucide="image-plus"></i> Crop another</button>
-          <button type="button" class="btn btn-ghost btn-lg" onclick="resetCropImageTool()"><i data-lucide="refresh-cw"></i> Reset</button>
-        </div>
+        ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
+        <section class="result-download-section" aria-labelledby="crop-download-title">
+          <div class="result-download-copy"><span class="tool-category-label">Download</span><h3 id="crop-download-title">Save your cropped image</h3><p>The preview and output details above reflect the file that will be downloaded.</p></div>
+          <div class="crop-result-actions">
+            <button id="crop-download-button" type="button" class="btn btn-primary btn-lg" onclick="downloadCropResult()"><i data-lucide="download"></i> Download Cropped Image</button>
+            <button type="button" class="btn btn-secondary btn-lg" onclick="returnToCropEditor()"><i data-lucide="arrow-left"></i> Edit Crop Again</button>
+            <button type="button" class="btn btn-ghost btn-lg" onclick="cropAnotherImage()"><i data-lucide="image-plus"></i> Crop another</button>
+            <button type="button" class="btn btn-ghost btn-lg" onclick="resetCropImageTool()"><i data-lucide="refresh-cw"></i> Reset</button>
+          </div>
+        </section>
+        ${renderToolRatingPlaceholder(tool.id, 'result')}
       </section>
 
       ${renderToolContentSections(tool.id)}
-      ${renderToolAdPlacementPlaceholder()}
 
       <div class="related-tools-section crop-support-section">
         <h3>Related Utilities</h3><div class="tools-grid" id="related-tools-grid"></div>
@@ -6106,10 +6143,8 @@ async function createCropImageResult() {
     document.getElementById('crop-result-dimensions').textContent = outputWidth + ' × ' + outputHeight + ' px';
     document.getElementById('crop-result-size').textContent = formatCropBytes(blob.size);
     document.getElementById('crop-result-format').textContent = settings.extension.toUpperCase();
-    ['crop-download-button', 'crop-mobile-download-button'].forEach(id => {
-      const downloadButton = document.getElementById(id);
-      if (downloadButton) downloadButton.title = 'Download ' + cropEditorState.resultFilename;
-    });
+    const downloadButton = document.getElementById('crop-download-button');
+    if (downloadButton) downloadButton.title = 'Download ' + cropEditorState.resultFilename;
     window.GxaPhaseOneStudios?.closeDrawer?.();
     document.getElementById('crop-result-panel').classList.remove('hidden');
     document.getElementById('crop-editor-workspace').classList.add('hidden');
@@ -6293,15 +6328,20 @@ function renderBackgroundRemoverRoute(container, tool, processingProfile, faqHTM
                   <h2 class="complete-title">Background Remover Editor</h2>
                   <p class="upload-subtitle">Refine the generated alpha mask, replace the background, crop, style, and export.</p>
                 </div>
-                <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> Download</button>
               </div>
               <div id="premium-result-preview" class="premium-result-preview" aria-live="polite"></div>
               <div id="comparison-metric-mount" class="complete-comparison hidden"></div>
               <div id="premium-result-stats" class="premium-result-stats" aria-label="Output statistics"></div>
-              <div class="premium-result-actions bg-remover-result-actions">
-                <button class="btn btn-secondary btn-lg" id="btn-copy-result-link" onclick="copyPremiumResultLink()" disabled><i data-lucide="link"></i> Copy local link</button>
-                <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> Start Over</button>
-              </div>
+              ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
+              <section class="result-download-section" aria-labelledby="background-download-title">
+                <div class="result-download-copy"><span class="tool-category-label">Export</span><h3 id="background-download-title">Save your refined cutout</h3><p>Review the composition and export settings before downloading.</p></div>
+                <div class="premium-result-actions bg-remover-result-actions">
+                  <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> Download</button>
+                  <button class="btn btn-secondary btn-lg" id="btn-copy-result-link" onclick="copyPremiumResultLink()" disabled><i data-lucide="link"></i> Copy local link</button>
+                  <button class="btn btn-ghost btn-lg" onclick="resetActiveTool()"><i data-lucide="refresh-cw"></i> Start Over</button>
+                </div>
+              </section>
+              ${renderToolRatingPlaceholder(tool.id, 'result')}
             </div>
           </div>
         </main>
@@ -6825,7 +6865,7 @@ function resumePdfPageTool() {
   premiumEditorState.auxiliaryUrls.forEach(url => URL.revokeObjectURL(url));
   premiumEditorState.auxiliaryUrls = [];
   document.getElementById('premium-result-preview')?.replaceChildren();
-  for (const id of ['btn-download-result', 'btn-mobile-download-result']) {
+  for (const id of ['btn-download-result']) {
     const button = document.getElementById(id);
     if (button) { button.disabled = true; button.onclick = null; }
   }
@@ -7208,6 +7248,7 @@ function updateProcessingStage(stage) {
 }
 
 function cancelActiveBatch() {
+  window.GxaEngineJobs?.cancelAll();
   premiumEditorState.batchCancelled = true;
   if (premiumEditorState.activeOcrWorker) {
     Promise.resolve(premiumEditorState.activeOcrWorker.terminate()).catch(() => undefined);
@@ -7325,7 +7366,6 @@ async function runFileProcessingPipeline() {
   const progressBar = document.getElementById('global-progress-bar');
   const stageLabel = document.getElementById('processing-stage-label');
   const downloadBtn = document.getElementById('btn-download-result');
-  const mobileDownloadBtn = document.getElementById('btn-mobile-download-result');
   const cancelBtn = document.getElementById('btn-cancel-processing');
   premiumEditorState.startedAt = performance.now();
   recordToolAnalytics('tool_start', { status: 'started' });
@@ -7336,12 +7376,8 @@ async function runFileProcessingPipeline() {
   processingMount.classList.remove('hidden');
   downloadBtn.disabled = true;
   downloadBtn.onclick = null;
-  if (mobileDownloadBtn) {
-    mobileDownloadBtn.disabled = true;
-    mobileDownloadBtn.onclick = null;
-  }
   if (cancelBtn) {
-    const supportsBatchCancel = (appState.activeFiles.length > 1 && ['compress-image', 'resize-image', 'webp-to-jpg', 'gif-maker'].includes(toolId)) || ['ocr-pdf', 'image-ocr', 'pdf-to-ppt'].includes(toolId);
+    const supportsBatchCancel = (appState.activeFiles.length > 1 && ['compress-image', 'resize-image', 'webp-to-jpg', 'gif-maker'].includes(toolId)) || ['ocr-pdf', 'image-ocr', 'pdf-to-ppt', 'png-to-svg'].includes(toolId);
     cancelBtn.classList.toggle('hidden', !supportsBatchCancel);
     cancelBtn.disabled = false;
     cancelBtn.textContent = toolId === 'image-ocr' ? 'Cancel OCR' : ['ocr-pdf', 'pdf-to-ppt'].includes(toolId) ? 'Cancel after current page' : 'Cancel after current file';
@@ -7370,7 +7406,6 @@ async function runFileProcessingPipeline() {
     completeMount.classList.remove('hidden');
     cancelBtn?.classList.add('hidden');
     downloadBtn.disabled = false;
-    if (mobileDownloadBtn) mobileDownloadBtn.disabled = false;
     recordToolAnalytics('tool_complete', {
       status: 'completed',
       durationBucket: durationBucket(premiumEditorState.startedAt)
@@ -7412,8 +7447,6 @@ function registerToolResult(downloadButton, blob, filename) {
   downloadButton.classList.remove('hidden');
   const download = () => saveBlob(blob, filename);
   downloadButton.onclick = download;
-  const mobileDownloadButton = document.getElementById('btn-mobile-download-result');
-  if (mobileDownloadButton) mobileDownloadButton.onclick = download;
   renderPremiumToolResult(blob, filename, premiumEditorState.resultUrl);
 }
 
@@ -7432,8 +7465,6 @@ function registerExternalToolResult(downloadButton, url, filename, size) {
     recordToolAnalytics('tool_download', { status: 'downloaded' });
   };
   downloadButton.onclick = download;
-  const mobileDownloadButton = document.getElementById('btn-mobile-download-result');
-  if (mobileDownloadButton) mobileDownloadButton.onclick = download;
   renderPremiumToolResult(null, filename, url, Number(size) || 0);
 }
 
@@ -7960,7 +7991,7 @@ async function executeToolAlgorithm() {
     const outputName = file.name.split('.')[0] + '_embedded.svg';
     registerToolResult(downloadBtn, svgBlob, outputName);
     logHistory(outputName, 'PNG to SVG', (svgBlob.size / 1024).toFixed(2) + ' KB');
-    showToast('Raster image embedded in an SVG file. No vector tracing is performed.', 'success');
+    showToast('SVG paths traced locally. Review simplified edges and colors before use.', 'success');
   } else if (toolId === 'webp-to-jpg') {
     const files = appState.activeFiles;
     const file = files[0];
@@ -8166,10 +8197,10 @@ async function executeToolAlgorithm() {
     const originalFile = appState.activeFiles[0];
     const lang = document.getElementById('opt-ocr-lang')?.value || 'eng';
     const processedBlob = await runPDFOCR(originalFile, lang);
-    const outputName = originalFile.name.replace(/\.pdf$/i, '') + '_ocr.txt';
+    const outputName = originalFile.name.replace(/\.pdf$/i, '') + (processedBlob.type === 'application/pdf' ? '_searchable.pdf' : '_ocr.txt');
     registerToolResult(downloadBtn, processedBlob, outputName);
     logHistory(outputName, 'OCR PDF', (processedBlob.size / (1024*1024)).toFixed(2) + ' MB');
-    showToast('OCR text extracted locally and is ready to download.', 'success');
+    showToast('OCR output created locally. Review recognition accuracy before sharing.', 'success');
   } else if (toolId === 'image-ocr') {
     const originalFile = appState.activeFiles[0];
     const lang = document.getElementById('opt-image-ocr-lang')?.value || 'eng';
@@ -8184,7 +8215,7 @@ async function executeToolAlgorithm() {
       copyButton.onclick = copyImageOcrText;
     }
     logHistory(outputName, 'Image OCR', (result.blob.size / 1024).toFixed(1) + ' KB');
-    showToast('Text extracted from the image and is ready to copy or download.', 'success');
+    showToast(`Text extracted. OCR confidence: ${Math.round(result.confidence)}% (engine estimate, not guaranteed accuracy).`, 'success');
   } else if (toolId === 'image-to-pdf') {
     const size = document.getElementById('opt-img2pdf-size').value || 'a4';
     const processedBlob = await runJPGToPDF(size, 'portrait');
@@ -8789,38 +8820,36 @@ function downloadBarcodeSVGFile() {
 }
 
 // --- ALGORITHM: IMAGE COLOR EXTRACTION ---
-function runColorExtraction(file, colorCount) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 100;
-        canvas.height = 100; // Downscale to cluster quickly
-        ctx.drawImage(img, 0, 0, 100, 100);
-        
-        const imgData = ctx.getImageData(0, 0, 100, 100).data;
-        const colorBuckets = {};
-        
-        // Loop over pixels (stride = 4)
-        for (let i = 0; i < imgData.length; i += 4) {
-          const r = Math.round(imgData[i] / 16) * 16;
-          const g = Math.round(imgData[i+1] / 16) * 16;
-          const b = Math.round(imgData[i+2] / 16) * 16;
-          const hex = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-          colorBuckets[hex] = (colorBuckets[hex] || 0) + 1;
-        }
-        
-        // Sort keys by frequency
-        const sorted = Object.keys(colorBuckets).sort((a,b) => colorBuckets[b] - colorBuckets[a]);
-        resolve(sorted.slice(0, colorCount));
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+async function runColorExtraction(file, colorCount = 5) {
+  if (!file?.size || file.size > 20 * 1024 * 1024) throw new Error('Select a non-empty image up to 20 MB.');
+  const count = Number(colorCount);
+  if (!Number.isInteger(count) || count < 1 || count > 20) throw new Error('Choose between 1 and 20 palette colors.');
+  const image = await loadDecodedImageSource(file);
+  const canvas = document.createElement('canvas');
+  try {
+    if (image.width * image.height > 24000000) throw new Error('Palette extraction supports images up to 24 megapixels.');
+    const scale = Math.min(1, 160 / Math.max(image.width, image.height));
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Canvas is required to inspect image colors.');
+    ctx.drawImage(image.source, 0, 0, canvas.width, canvas.height);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const buckets = new Map();
+    for (let i = 0; i < pixels.length; i += 4) {
+      const weight = pixels[i + 3] / 255;
+      if (!weight) continue; // Transparent pixels do not contribute a visible color.
+      const key = ((pixels[i] >> 4) << 8) | ((pixels[i + 1] >> 4) << 4) | (pixels[i + 2] >> 4);
+      const bucket = buckets.get(key) || [0, 0, 0, 0];
+      bucket[0] += weight;
+      for (let c = 0; c < 3; c++) bucket[c + 1] += pixels[i + c] * weight;
+      buckets.set(key, bucket);
+    }
+    if (!buckets.size) throw new Error('This image has no visible pixels to sample.');
+    // Average actual channels within each cluster: never round 255 up to 256.
+    return [...buckets.values()].sort((a, b) => b[0] - a[0]).slice(0, count)
+      .map(bucket => '#' + bucket.slice(1).map(sum => Math.round(sum / bucket[0]).toString(16).padStart(2, '0')).join(''));
+  } finally { image.close(); canvas.width = canvas.height = 0; }
 }
 
 function setPaletteCount(count, btn) {
@@ -9421,7 +9450,9 @@ async function runGIFMaker(speed) {
 async function runZIPExtractor() {
   const file = appState.activeFiles[0];
   const buffer = await file.arrayBuffer();
-  const zip = await JSZip.loadAsync(buffer);
+  const { inspectZipDirectory } = await import('/assets/archive-safety.mjs');
+  inspectZipDirectory(buffer);
+  const zip = await JSZip.loadAsync(buffer, { checkCRC32: true });
   
   zipExtractorFiles = [];
   const results = [];
@@ -10298,23 +10329,30 @@ async function runSvgToPng(file, targetWidth) {
 }
 
 // --- ALGORITHM: PNG TO SVG ---
-function runPngToSvg(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = event => {
-      const image = new Image();
-      image.onload = () => {
-        const width = Math.max(1, image.naturalWidth);
-        const height = Math.max(1, image.naturalHeight);
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><image href="${event.target.result}" width="${width}" height="${height}" /></svg>`;
-        resolve(new Blob([svg], { type: 'image/svg+xml' }));
-      };
-      image.onerror = () => reject(new Error('The selected raster image is corrupted or unsupported by this browser.'));
-      image.src = event.target.result;
-    };
-    reader.onerror = () => reject(new Error('The selected image could not be read.'));
-    reader.readAsDataURL(file);
-  });
+async function runPngToSvg(file) {
+  if (!file || !file.size || file.size > 20 * 1024 * 1024) throw new Error('Choose a non-empty PNG up to 20 MB.');
+  const header = new Uint8Array(await file.slice(0, 24).arrayBuffer());
+  if (![137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => header[index] === byte) || header.length < 24) throw new Error('Choose a valid PNG image.');
+  const view = new DataView(header.buffer);
+  if (view.getUint32(16) * view.getUint32(20) > 24000000) throw new Error('PNG tracing supports at most 24 megapixels.');
+  const decoded = await loadDecodedImageSource(file);
+  const canvas = document.createElement('canvas');
+  try {
+    const scale = Math.min(1, 1024 / Math.max(decoded.width, decoded.height));
+    canvas.width = Math.max(1, Math.round(decoded.width * scale));
+    canvas.height = Math.max(1, Math.round(decoded.height * scale));
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Canvas is required for vector tracing.');
+    context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
+    const input = context.getImageData(0, 0, canvas.width, canvas.height);
+    const value = (id, fallback) => document.getElementById(id)?.value ?? fallback;
+    const { runJob } = await import('/assets/engine-jobs.js');
+    const svg = await runJob('trace', { width: input.width, height: input.height, data: input.data }, {
+      mode: value('opt-trace-mode', 'color'), threshold: value('opt-trace-threshold', 128),
+      smoothing: value('opt-trace-smoothing', 1), noise: value('opt-trace-noise', 4), background: value('opt-trace-background', 'transparent')
+    }, 'trace', 30000);
+    return new Blob([svg], { type: 'image/svg+xml' });
+  } finally { decoded.close(); canvas.width = canvas.height = 0; }
 }
 
 // --- ALGORITHM: WEBP TO JPG ---
@@ -10469,7 +10507,11 @@ async function runExifViewer(file) {
 
 // --- GENERATORS IMPLEMENTATIONS ---
 function generateLoremIpsum() {
-  const count = parseInt(document.getElementById('opt-lorem-count').value) || 3;
+  const count = Number(document.getElementById('opt-lorem-count').value);
+  if (!Number.isInteger(count) || count < 1 || count > 100) {
+    window.GxaToolSafety.textResult(document.getElementById('generator-preview-mount'), 'Invalid paragraph count', 'Choose a whole number from 1 to 100.', '', false);
+    return;
+  }
   const phrases = [
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
     "Mauris vel nisl sed leo pretium porttitor sed in leo.",
@@ -10500,7 +10542,9 @@ function generateLoremIpsum() {
   }
 }
 function downloadLoremText() {
-  const txt = document.getElementById('generated-lorem-display').value;
+  const output = document.getElementById('generated-lorem-display');
+  if (!output) { showToast('Generate valid text before downloading.', 'error'); return; }
+  const txt = output.value;
   const blob = new Blob([txt], { type: 'text/plain' });
   saveBlob(blob, 'lorem_ipsum_generator.txt');
   logHistory('lorem_ipsum_generator.txt', 'Lorem Ipsum', '0.0 KB');
@@ -10538,6 +10582,10 @@ function generateDiffCheck() {
   const origLines = orig.split('\n');
   const modLines = mod.split('\n');
   const max = Math.max(origLines.length, modLines.length);
+  if (orig.length + mod.length > 1000000 || max > 5000) {
+    window.GxaToolSafety.textResult(preview, 'Comparison limit', 'Compare up to 5,000 lines and 1,000,000 characters in total.', '', false);
+    return;
+  }
   preview.innerHTML = `
     <div class="diff-editor-result">
       <div class="json-result-header"><h5>Side-by-side comparison</h5><span id="diff-summary" class="json-validation-badge"></span></div>
@@ -10578,14 +10626,28 @@ function generateUserAgent() {
 }
 
 function generateCronExplanation() {
-  const exp = (document.getElementById('opt-cron-exp').value || '*/5 * * * *').trim();
+  const exp = document.getElementById('opt-cron-exp').value.trim();
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
   
   const fields = exp.split(/\s+/);
   let desc = "";
+  const bounds = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]];
+  const names = [{}, {}, {}, { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 }, { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 }];
+  const validField = (field, index) => field.toUpperCase().split(',').every(part => {
+    const normalized = part.replace(/[A-Z]+/g, name => names[index][name] ?? name);
+    const match = /^(\*|\d+(?:-\d+)?)(?:\/(\d+))?$/.exec(normalized);
+    if (!match) return false;
+    const [low, high] = bounds[index];
+    if (match[2] && (Number(match[2]) < 1 || Number(match[2]) > high - low + 1)) return false;
+    if (match[1] === '*') return true;
+    const [start, end = start] = match[1].split('-').map(Number);
+    return start >= low && end <= high && start <= end;
+  });
   if (fields.length !== 5) {
     desc = "Invalid cron expression. Expected 5 fields (minute hour day-of-month month day-of-week).";
+  } else if (exp.length > 500 || !fields.every(validField)) {
+    desc = 'Invalid cron field. Use in-range values, lists, increasing ranges, or positive steps in the five-field Unix format.';
   } else {
     const [min, hour, dom, month, dow] = fields;
     let minDesc = min === '*' ? 'every minute' : min.startsWith('*/') ? `every ${min.split('/')[1]} minutes` : `at minute ${min}`;
@@ -10600,28 +10662,25 @@ function generateCronExplanation() {
     if (exp === '0 0 * * *') desc = "At 00:00 (Midnight) every day.";
     if (exp === '0 * * * *') desc = "At the start of every hour.";
     if (exp === '0 9 * * 1-5') desc = "At 09:00 AM, Monday through Friday.";
+    if (dom !== '*' && dow !== '*') desc += ' Unix cron matches day-of-month OR day-of-week when both are restricted; schedulers may differ.';
   }
   
   window.GxaToolSafety.textResult(preview, "Cron Schedule Description", desc, "", false);
 }
 
-function generateRegexTest() {
+async function generateRegexTest() {
   const exp = document.getElementById('opt-regex-exp').value;
   const flags = document.getElementById('opt-regex-flags').value;
   const subject = document.getElementById('opt-regex-subject').value;
   const preview = document.getElementById('generator-preview-mount');
   if (!preview) return;
+  const revision = (preview.regexRevision || 0) + 1;
+  preview.regexRevision = revision;
   try {
-    const normalizedFlags = flags.includes('g') ? flags : flags + 'g';
-    const regex = new RegExp(exp, normalizedFlags);
-    const matches = [];
-    let match;
-    let count = 0;
-    while ((match = regex.exec(subject)) !== null && count < 100) {
-      matches.push({ value: match[0], index: match.index, groups: Array.from(match).slice(1) });
-      count++;
-      if (match[0] === '') regex.lastIndex += 1;
-    }
+    const { runJob } = await import('/assets/engine-jobs.js');
+    if (!preview.isConnected || preview.regexRevision !== revision) return;
+    const matches = await runJob('regex', { pattern: exp, flags, subject }, {}, 'regex', 1500);
+    if (!preview.isConnected || preview.regexRevision !== revision) return;
     preview.innerHTML = `
       <div class="regex-editor-result">
         <div class="json-result-header"><h5>Matches Found (${matches.length})</h5><span class="json-validation-badge valid">Pattern valid</span></div>
@@ -10651,6 +10710,7 @@ function generateRegexTest() {
       groups.appendChild(item);
     });
   } catch(e) {
+    if (e.name === 'AbortError' || !preview.isConnected || preview.regexRevision !== revision) return;
     preview.innerHTML = '<div class="preview-error-state" role="alert"><strong>Invalid regular expression</strong><p>' + escapeHTML(e.message) + '</p></div>';
   }
 }
@@ -10679,41 +10739,44 @@ function downloadMarkdownFile() {
   saveBlob(blob, 'editor_export.md');
 }
 
+async function formatCodePreview(kind, inputId, outputId, title) {
+  try {
+    const engine = await import('/assets/engine-jobs.js');
+    await engine.formatInto(kind, inputId, outputId, title);
+  } catch (error) {
+    const preview = document.getElementById('generator-preview-mount');
+    if (preview && document.getElementById(inputId)) window.GxaToolSafety.textResult(preview, 'Formatting unavailable', error.message, '', false);
+  }
+}
 function generateCssBeautify() {
-  const css = document.getElementById('opt-css-raw').value;
-  const preview = document.getElementById('generator-preview-mount');
-  if (!preview) return;
-  const formatted = css.replace(/{\s*/g, ' {\n  ').replace(/;\s*/g, ';\n  ').replace(/\s*}\s*/g, '\n}\n\n').trim();
-  window.GxaToolSafety.textResult(preview, "Formatted CSS", formatted, "generated-css-display", false);
+  return formatCodePreview('css', 'opt-css-raw', 'generated-css-display', 'Formatted CSS');
 }
 function downloadCssFile() {
-  const css = document.getElementById('generated-css-display').value;
+  const output = document.getElementById('generated-css-display');
+  if (!output) return;
+  const css = output.value;
   const blob = new Blob([css], { type: 'text/css' });
   saveBlob(blob, 'beautified_layout.css');
 }
 
 function generateJsBeautify() {
-  const js = document.getElementById('opt-js-raw').value;
-  const preview = document.getElementById('generator-preview-mount');
-  if (!preview) return;
-  const formatted = js.replace(/{\s*/g, ' {\n  ').replace(/;\s*/g, ';\n  ').replace(/\n\s*}\s*/g, '\n}\n').trim();
-  window.GxaToolSafety.textResult(preview, "Formatted JS Output", formatted, "generated-js-display", false);
+  return formatCodePreview('javascript', 'opt-js-raw', 'generated-js-display', 'Formatted JS Output');
 }
 function downloadJsFile() {
-  const js = document.getElementById('generated-js-display').value;
+  const output = document.getElementById('generated-js-display');
+  if (!output) return;
+  const js = output.value;
   const blob = new Blob([js], { type: 'text/javascript' });
   saveBlob(blob, 'beautified_script.js');
 }
 
 function generateHtmlBeautify() {
-  const html = document.getElementById('opt-html-beaut-raw').value;
-  const preview = document.getElementById('generator-preview-mount');
-  if (!preview) return;
-  const formatted = html.replace(/></g, '>\n<').replace(/^(.*)$/gm, '  $1').trim();
-  window.GxaToolSafety.textResult(preview, "Formatted HTML", formatted, "generated-html-beaut-display", false);
+  return formatCodePreview('html', 'opt-html-beaut-raw', 'generated-html-beaut-display', 'Formatted HTML');
 }
 function downloadHtmlBeautFile() {
-  const html = document.getElementById('generated-html-beaut-display').value;
+  const output = document.getElementById('generated-html-beaut-display');
+  if (!output) return;
+  const html = output.value;
   const blob = new Blob([html], { type: 'text/html' });
   saveBlob(blob, 'beautified_document.html');
 }
@@ -11019,21 +11082,7 @@ function downloadJsonFile() {
 
 // --- Live SQL Beautifier/Formatter ---
 function generateSqlBeautify() {
-  const sql = document.getElementById('opt-sql-raw').value;
-  const preview = document.getElementById('generator-preview-mount');
-  if (!preview) return;
-  
-  let formatted = sql;
-  if (sql.trim() !== '') {
-    formatted = sql
-      .replace(/\s+/g, ' ')
-      .replace(/\b(select|from|where|left join|inner join|right join|group by|order by|having|limit|union|and|or)\b/gi, (match) => {
-        return '\n' + match.toUpperCase();
-      })
-      .trim();
-  }
-  
-  window.GxaToolSafety.textResult(preview, "Formatted SQL Query", formatted, "generated-sql-display", false);
+  return formatCodePreview('sql', 'opt-sql-raw', 'generated-sql-display', 'Formatted SQL Query');
 }
 function downloadSqlFile() {
   const display = document.getElementById('generated-sql-display');
@@ -11052,6 +11101,8 @@ function generateXmlToJson() {
   let jsonResult = '';
   if (xmlStr.trim() !== '') {
     try {
+      if (xmlStr.length > 1000000) throw new Error('XML input is limited to one million characters.');
+      if (/<!DOCTYPE|<!ENTITY/i.test(xmlStr)) throw new Error('DTD and entity declarations are not supported.');
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlStr, "application/xml");
       
@@ -11059,46 +11110,33 @@ function generateXmlToJson() {
       if (parserError) {
         jsonResult = "Error parsing XML: " + parserError.textContent;
       } else {
-        const parseNode = (node) => {
-          const obj = {};
-          if (node.nodeType === 1) { 
-            if (node.attributes.length > 0) {
-              obj["@attributes"] = {};
-              for (let j = 0; j < node.attributes.length; j++) {
-                const attribute = node.attributes.item(j);
-                obj["@attributes"][attribute.nodeName] = attribute.nodeValue;
-              }
-            }
-          } else if (node.nodeType === 3) { 
-            return node.nodeValue.trim();
-          }
-          
-          if (node.hasChildNodes()) {
-            for (let i = 0; i < node.childNodes.length; i++) {
-              const item = node.childNodes.item(i);
-              const nodeName = item.nodeName;
-              if (nodeName === "#text") {
-                const val = item.nodeValue.trim();
-                if (val !== "") return val;
-              } else {
-                if (typeof(obj[nodeName]) === "undefined") {
-                  obj[nodeName] = parseNode(item);
-                } else {
-                  if (typeof(obj[nodeName].push) === "undefined") {
-                    const old = obj[nodeName];
-                    obj[nodeName] = [];
-                    obj[nodeName].push(old);
-                  }
-                  obj[nodeName].push(parseNode(item));
-                }
-              }
+        let nodes = 0;
+        const parseNode = (node, depth = 0) => {
+          if (++nodes > 10000 || depth > 100) throw new Error('XML exceeds the safe node or nesting limit.');
+          const obj = Object.create(null);
+          if (node.attributes.length) obj['@attributes'] = Object.fromEntries(Array.from(node.attributes, attr => [attr.nodeName, attr.nodeValue]));
+          const children = Array.from(node.childNodes).filter(child => [1, 3, 4].includes(child.nodeType));
+          const elements = children.filter(child => child.nodeType === 1);
+          const text = children.filter(child => child.nodeType !== 1).map(child => child.nodeValue).join('');
+          if (!elements.length) {
+            if (!node.attributes.length) return text;
+            obj['#text'] = text;
+          } else if (text.trim()) {
+            // Ordered mixed content retains text, CDATA, attributes and child elements.
+            obj['#content'] = children.map(child => child.nodeType === 1 ? { [child.nodeName]: parseNode(child, depth + 1) } : child.nodeValue);
+          } else {
+            for (const child of elements) {
+              const value = parseNode(child, depth + 1), name = child.nodeName;
+              if (!Object.hasOwn(obj, name)) obj[name] = value;
+              else if (Array.isArray(obj[name])) obj[name].push(value);
+              else obj[name] = [obj[name], value];
             }
           }
           return obj;
         };
         
         const root = xmlDoc.documentElement;
-        const resultObj = {};
+        const resultObj = Object.create(null);
         resultObj[root.nodeName] = parseNode(root);
         jsonResult = JSON.stringify(resultObj, null, 2);
       }
@@ -11415,8 +11453,21 @@ async function runPDFRepair(file) {
 }
 
 // --- ALGORITHM: OCR PDF ---
+function renderOcrControls(languageId) {
+  return `<label class="form-label" for="${languageId}">OCR language<select id="${languageId}" class="form-input-text"><option value="eng">English</option><option value="spa">Español</option><option value="fra">Français</option><option value="deu">Deutsch</option><option value="hin">हिन्दी</option></select></label>
+    <label class="form-label" for="opt-ocr-preprocess">Image preparation<select id="opt-ocr-preprocess" class="form-input-text"><option value="original">Original (recommended first)</option><option value="contrast">Grayscale + contrast</option><option value="adaptive">Adaptive threshold</option></select></label>
+    <label class="form-label" for="opt-ocr-rotation">Correct orientation<select id="opt-ocr-rotation" class="form-input-text"><option value="0">No rotation</option><option value="90">90° clockwise</option><option value="180">180°</option><option value="270">270° clockwise</option></select></label>
+    <p class="processing-disclosure">Preprocessing is limited to 8 megapixels and may remove faint details. Rotation is manual; handwriting and complex reading order are not guaranteed.</p>`;
+}
+
 async function runPDFOCR(file, lang) {
   if (file.size > 30 * 1024 * 1024) throw new Error('OCR PDF supports files up to 30 MB in this browser.');
+  const ocr = await import('/assets/ocr-tools.js');
+  const langPath = ocr.languagePath(lang);
+  const searchable = document.getElementById('opt-ocr-output')?.value === 'pdf';
+  const outputPdf = searchable ? await PDFLib.PDFDocument.create() : null;
+  const preparation = document.getElementById('opt-ocr-preprocess')?.value || 'original';
+  const rotation = Number(document.getElementById('opt-ocr-rotation')?.value || 0);
   await window.GxaWorkspace.loadScriptOnce('/assets/vendor/tesseract/tesseract.min.js', 'Tesseract');
   const stage = document.getElementById('processing-stage-label');
   let worker;
@@ -11425,11 +11476,12 @@ async function runPDFOCR(file, lang) {
     worker = await window.Tesseract.createWorker(lang, 1, {
       workerPath: '/assets/vendor/tesseract/worker.min.js',
       corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v7.0.0',
-      langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int',
+      langPath,
       logger(message) {
         if (stage && message?.status) stage.textContent = `${message.status}${Number.isFinite(message.progress) ? ` ${Math.round(message.progress * 100)}%` : ''}`;
       }
     });
+    premiumEditorState.activeOcrWorker = worker;
     await window.GxaWorkspace.renderPdfPages(file, {
       scale: 1.5,
       maximumPages: 20,
@@ -11438,16 +11490,29 @@ async function runPDFOCR(file, lang) {
       onPage: async (page, total) => {
         if (premiumEditorState.batchCancelled) throw new Error(`OCR cancelled after ${text.length} page${text.length === 1 ? '' : 's'}.`);
         if (stage) stage.textContent = `Recognizing page ${page.pageNumber} of ${total}…`;
-        const result = await worker.recognize(page.canvas);
-        text.push(`--- Page ${page.pageNumber} ---\n${result.data.text.trim()}`);
+        const prepared = await ocr.prepare(page.canvas, page.width, page.height, preparation, rotation);
+        try {
+          const result = await worker.recognize(prepared, { pdfTitle: 'GXA Toolbox OCR', pdfTextOnly: false }, { text: true, pdf: searchable });
+          if (premiumEditorState.batchCancelled) throw new Error('OCR was cancelled.');
+          text.push(`--- Page ${page.pageNumber} ---\n${result.data.text.trim()}`);
+          if (outputPdf) {
+            if (!result.data.pdf) throw new Error('The OCR engine did not return a searchable PDF page.');
+            const [embedded] = await outputPdf.embedPdf(new Uint8Array(result.data.pdf), [0]);
+            const width = prepared.width / 1.5, height = prepared.height / 1.5;
+            const outputPage = outputPdf.addPage([width, height]);
+            outputPage.drawPage(embedded, { x: 0, y: 0, width, height });
+          }
+        } finally { prepared.width = prepared.height = 0; }
         const progress = document.getElementById('global-progress-bar');
         if (progress) progress.style.width = `${25 + Math.round((page.pageNumber / total) * 55)}%`;
       },
       onProgress: (pageNumber, total) => { if (stage) stage.textContent = `Completed OCR page ${pageNumber} of ${total}`; }
     });
   } finally {
-    if (worker) await worker.terminate();
+    if (premiumEditorState.activeOcrWorker === worker) premiumEditorState.activeOcrWorker = null;
+    if (worker) await Promise.resolve(worker.terminate()).catch(() => undefined);
   }
+  if (outputPdf) return new Blob([await outputPdf.save()], { type: 'application/pdf' });
   return new Blob([text.join('\n\n')], { type: 'text/plain;charset=utf-8' });
 }
 
@@ -11466,6 +11531,8 @@ function assertImageOcrInput(file) {
 
 async function runImageOCR(file, lang) {
   assertImageOcrInput(file);
+  const ocr = await import('/assets/ocr-tools.js');
+  const langPath = ocr.languagePath(lang);
   const decoded = await loadDecodedImageSource(file);
   try {
     if (!decoded.width || !decoded.height) throw new Error('The selected image has invalid dimensions.');
@@ -11477,12 +11544,13 @@ async function runImageOCR(file, lang) {
   await window.GxaWorkspace.loadScriptOnce('/assets/vendor/tesseract/tesseract.min.js', 'Tesseract');
   const stage = document.getElementById('processing-stage-label');
   let worker;
+  let prepared;
   try {
     if (premiumEditorState.batchCancelled) throw new Error('Image OCR was cancelled.');
     worker = await window.Tesseract.createWorker(lang, 1, {
       workerPath: '/assets/vendor/tesseract/worker.min.js',
       corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v7.0.0',
-      langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int',
+      langPath,
       logger(message) {
         if (stage && message?.status) stage.textContent = `${message.status}${Number.isFinite(message.progress) ? ` ${Math.round(message.progress * 100)}%` : ''}`;
       }
@@ -11490,15 +11558,23 @@ async function runImageOCR(file, lang) {
     premiumEditorState.activeOcrWorker = worker;
     if (premiumEditorState.batchCancelled) throw new Error('Image OCR was cancelled.');
     if (stage) stage.textContent = 'Extracting text from image…';
-    const result = await worker.recognize(file);
+    const preparation = document.getElementById('opt-ocr-preprocess')?.value || 'original';
+    const rotation = Number(document.getElementById('opt-ocr-rotation')?.value || 0);
+    if (preparation !== 'original' || rotation) {
+      const source = await loadDecodedImageSource(file);
+      try { prepared = await ocr.prepare(source.source, source.width, source.height, preparation, rotation); }
+      finally { source.close(); }
+    }
+    const result = await worker.recognize(prepared || file);
     if (premiumEditorState.batchCancelled) throw new Error('Image OCR was cancelled.');
     const text = String(result?.data?.text || '').trim();
     if (!text) throw new Error('No readable text was detected in this image.');
-    return { text, blob: new Blob([text], { type: 'text/plain;charset=utf-8' }) };
+    return { text, confidence: Number.isFinite(result.data.confidence) ? result.data.confidence : 0, blob: new Blob([text], { type: 'text/plain;charset=utf-8' }) };
   } catch (error) {
     if (premiumEditorState.batchCancelled) throw new Error('Image OCR was cancelled.');
     throw error;
   } finally {
+    if (prepared) prepared.width = prepared.height = 0;
     if (premiumEditorState.activeOcrWorker === worker) premiumEditorState.activeOcrWorker = null;
     if (worker) await Promise.resolve(worker.terminate()).catch(() => undefined);
   }

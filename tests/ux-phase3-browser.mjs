@@ -68,7 +68,7 @@ try {
     if (id === 'crop-image') {
       await page.locator('#crop-apply-button').click();
       await page.locator('#crop-result-panel').waitFor({ state: 'visible' });
-      await download('#crop-mobile-download-button:visible, #crop-download-button:visible', id);
+      await download('#crop-download-button:visible', id);
       await page.evaluate(() => resetCropImageTool());
     } else if (id === 'image-converter') {
       await page.locator('.image-converter__convert').click();
@@ -82,7 +82,7 @@ try {
       });
       await page.locator('#btn-process-action').click();
       await page.waitForFunction(() => !document.getElementById('btn-download-result')?.disabled, { }, { timeout: 180000 });
-      await download('#btn-mobile-download-result:visible, #btn-download-result:visible', id);
+      await download('#btn-download-result:visible', id);
       await page.evaluate(() => resetActiveTool());
     }
     await page.waitForFunction(() => document.querySelector('[data-disclosure]')?.dataset.disclosure === 'upload');

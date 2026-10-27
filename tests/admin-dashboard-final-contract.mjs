@@ -37,8 +37,10 @@ assert.deepEqual(safeRecentEvents([{tool_id:tools[0].id,event_type:'tool_complet
 const queries=[];
 const sql=async(strings,...values)=>{const query=strings.join('$param');queries.push({query,values});return [];};
 const result=await loadInternalData(sql,'2026-08-01T00:00:00Z','2026-09-01T00:00:00Z');
-assert.equal(queries.length,11);
-for(const {query,values} of queries){assert.match(query,/SELECT/);assert.doesNotMatch(query,/INSERT|UPDATE|DELETE|DROP/);assert.ok(values.includes('2026-08-01T00:00:00Z'));assert.ok(values.includes('2026-09-01T00:00:00Z'));}
+assert.equal(queries.length,12);
+for(const {query,values} of queries){assert.match(query,/SELECT/);assert.doesNotMatch(query,/INSERT|UPDATE|DELETE|DROP/);if(!query.includes("to_regclass('public.tool_ratings')")){assert.ok(values.includes('2026-08-01T00:00:00Z'));assert.ok(values.includes('2026-09-01T00:00:00Z'));}}
+assert.equal(result.ratings.available,false);
+assert.equal(result.ratings.reason,'migration_required');
 assert.equal(result.toolAnalytics.rows.length,tools.length);
 assert.match(queries.find(item=>item.query.includes('AS total_count')).query,/SUM\(COUNT\(\*\)\) OVER/);
 assert.match(queries.find(item=>item.query.includes('SELECT tool_id, event_type')).query,/LIMIT 50/);

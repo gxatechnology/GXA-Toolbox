@@ -46,6 +46,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/tool-ratings"
+  to = "/.netlify/functions/tool-ratings"
+  status = 200
+
+[[redirects]]
   from = "/api/location-geocode"
   to = "/.netlify/functions/location-geocode"
   status = 200

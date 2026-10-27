@@ -57,14 +57,34 @@ async function requestSlot() {
   await page.evaluate(() => document.querySelector('.gxa-ad-sentinel')?.scrollIntoView({ block: 'center' }));
   await page.waitForFunction(() => window.GxaAdNetwork.hasRequested());
 }
+async function revealResultSlot() {
+  const state = await page.evaluate(() => {
+    const marker = document.querySelector('[data-ad-trigger="result-ready"]');
+    if (!marker) return { marker: false };
+    marker.closest('#tool-complete-mount, .crop-result-panel')?.classList.remove('hidden');
+    const result = marker.closest('.image-converter__result, .gps-studio__result, .result-download-section');
+    if (result) result.hidden = false;
+    const editor = marker.closest('#edit-pdf-mount');
+    if (editor) {
+      editor.dataset.resultReady = 'true';
+      const download = marker.parentElement?.querySelector('.result-download-section');
+      if (download) download.hidden = false;
+      window.GxaAdNetwork?.sync();
+      return { marker: true, editor: true, download: Boolean(download), hidden: download?.hidden };
+    }
+    window.GxaAdNetwork?.sync();
+    return { marker: true, editor: false };
+  });
+  if (state.editor) assert.deepEqual(state, { marker: true, editor: true, download: true, hidden: false });
+}
 try {
   const quality = await loadToolQuality();
   for (const [id] of Object.entries(quality).filter(([, q]) => q.adsEligible)) {
     await open(id);
     await page.waitForSelector('.gxa-ad-network', { state: 'attached' });
     assert.equal(await page.locator('.gxa-ad-network').count(), 1, id);
-    assert.equal(await page.locator('.tool-workspace .gxa-ad-network, #crop-editor-workspace .gxa-ad-network, .premium-editor-workspace .gxa-ad-network').count(), 0, `${id}: no interaction-area placement`);
-    rows.push({ route: id, status: 'eligible editorial candidate outside workspace' });
+    assert.equal(await page.locator('.tool-workspace .gxa-ad-network:not([data-ad-trigger="result-ready"]), #crop-editor-workspace .gxa-ad-network:not([data-ad-trigger="result-ready"]), .premium-editor-workspace .gxa-ad-network:not([data-ad-trigger="result-ready"])').count(), 0, `${id}: only a gated result placement may live in the result workspace`);
+    rows.push({ route: id, status: 'eligible candidate; result candidate remains gated until processing succeeds' });
     console.log(`${id}: eligible candidate checked`);
   }
   for (const [id, policy] of Object.entries(quality).filter(([, q]) => !q.adsEligible)) {
@@ -90,6 +110,7 @@ try {
   }
   for (const width of [320, 360, 390, 430, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 }); const before = requests; await open('crop-image');
+    await revealResultSlot();
     await requestSlot(); // The after-tool candidate may already be within the lazy-load margin.
     await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
     assert.equal(requests, before + 2); assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1);
@@ -99,8 +120,10 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     assert.ok(await page.evaluate(() => {
       const slot = document.querySelector('.gxa-ad-network').getBoundingClientRect();
-      return [...document.querySelectorAll('#crop-editor-workspace, #crop-download-button, #crop-mobile-download-button, #btn-download-result')].filter(e => e.getClientRects().length).every(e => e.getBoundingClientRect().bottom + 24 <= slot.top);
-    }), 'Ad must be separated from all crop interaction/download areas');
+      const preview = document.querySelector('.crop-result-meta')?.getBoundingClientRect();
+      const download = document.querySelector('.result-download-section')?.getBoundingClientRect();
+      return (!preview || preview.bottom + 24 <= slot.top) && (!download || slot.bottom + 24 <= download.top);
+    }), 'Ad must sit between result details and download with safe spacing');
     await page.evaluate(() => { for (let i = 0; i < 8; i++) GxaAdNetwork.sync(); setTheme(appState.theme === 'dark' ? 'light' : 'dark'); });
     assert.equal(requests, before + 2, 'No display or provider-bootstrap remount requests');
     await page.screenshot({ path: resolve(out, `crop-native-${width}.png`), animations: 'disabled' });
@@ -109,25 +132,37 @@ try {
   await page.evaluate(() => { window.testDocument = true; navigate('tool-resize-image'); });
   await page.waitForURL('**/resize-image/'); await page.waitForFunction(() => typeof navigate === 'function');
   assert.equal(await page.evaluate(() => window.testDocument), undefined, 'Loaded ad must not follow an SPA route');
+  await revealResultSlot();
   await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
   await page.evaluate(() => navigate('tool-uuid-generator')); await page.waitForURL('**/uuid-generator/');
   assert.equal(await page.locator('script[src="/assets/ad-network.js"]').count(), 0);
   await page.goBack(); await page.waitForFunction(() => typeof navigate === 'function');
   assert.ok(await page.locator(`#${config.native.containerId}`).count() <= 1);
-  for (const id of ['edit-pdf', 'compress-pdf', 'merge-pdf', 'split-pdf', 'image-converter']) {
+  // Edit PDF is not force-readied here: its real result requires a generated
+  // preview and is covered by the editor browser suite plus the result-layout
+  // contract. This provider-lifecycle fixture must not fabricate editor output.
+  for (const id of ['compress-pdf', 'merge-pdf', 'split-pdf', 'image-converter']) {
     for (const width of [320, 768, 1280, 1440]) {
       await page.setViewportSize({ width, height: 900 }); await open(id);
-      if (id === 'edit-pdf') await page.locator('.pdf-edit-upload').waitFor();
+      if (id === 'edit-pdf') {
+        await page.locator('.pdf-edit-upload').waitFor();
+        await page.waitForTimeout(500);
+      }
       if (id === 'image-converter') await page.locator('.image-converter__drop').waitFor();
+      await revealResultSlot();
       await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
-      assert.ok(await page.evaluate(() => {
+      const resultGeometry = await page.evaluate(() => {
         const ad = document.querySelector('.gxa-ad-network').getBoundingClientRect();
-        const workspace = document.querySelector('#edit-pdf-mount, #image-converter-mount, .tool-workspace').getBoundingClientRect();
-        return ad.top >= workspace.bottom + 24 && document.documentElement.scrollWidth <= innerWidth + 1;
-      }), `${id} ${width}: filled native must stay below workspace with safe spacing`);
-      rows.push({ route: id, width, status: 'filled native below complete workspace, no rail or overflow' });
+        const download = document.querySelector('.result-download-section')?.getBoundingClientRect();
+        return { ad: { top: ad.top, bottom: ad.bottom, height: ad.height }, download: download ? { top: download.top, bottom: download.bottom, height: download.height } : null, overflow: document.documentElement.scrollWidth > innerWidth + 1 };
+      });
+      assert.ok((!resultGeometry.download || resultGeometry.ad.bottom + 24 <= resultGeometry.download.top) && !resultGeometry.overflow, `${id} ${width}: filled native must remain separated above the download section: ${JSON.stringify(resultGeometry)}`);
+      rows.push({ route: id, width, status: 'filled result fixture above download, no overlap or overflow' });
     }
   }
+  await open('edit-pdf');
+  await page.locator('.pdf-edit-upload').waitFor();
+  assert.equal(await page.locator('[data-ad-trigger="result-ready"]').getAttribute('data-ad-state'), 'waiting', 'Edit PDF result ad stays gated before a real preview exists');
   for (const id of ['', 'guides/pdf-compression', 'background-remover']) {
     await open(id);
     await page.evaluate(() => { for (let i = 0; i < 8; i++) window.GxaAdNetwork.sync(); });
@@ -144,13 +179,13 @@ try {
   const suppressedRequests = requests;
   await page.evaluate(() => GxaAdNetwork.sync());
   assert.equal(requests, suppressedRequests, 'Closing a dialog must not refresh a requested unit');
-  await open('resize-image'); await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
+  await open('resize-image'); await revealResultSlot(); await requestSlot(); await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
   await page.evaluate(() => showAuthModal('login'));
   await page.waitForFunction(() => document.querySelector('.gxa-ad-network')?.hidden === true);
   await page.evaluate(() => closeModal());
   const afterModal = requests; await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, afterModal);
   for (const failure of ['blocked', 'empty']) {
-    mode = failure; const before = requests; await open('resize-image'); await requestSlot();
+    mode = failure; const before = requests; await open('resize-image'); await revealResultSlot(); await requestSlot();
     await page.waitForFunction(() => ['failed', 'empty'].includes(document.querySelector('.gxa-ad-network')?.dataset.adState), null, { timeout: 60000 });
     assert.equal(await page.locator('.gxa-ad-network').evaluate(e => e.getBoundingClientRect().height), 0);
     assert.equal(requests, before + 3); assert.ok(await page.locator('#file-picker').count());

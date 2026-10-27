@@ -809,7 +809,10 @@
 
   async function renderZipPreview(file, stage, details) {
     if (!window.JSZip) throw new Error('ZIP preview library is unavailable.');
-    const archive = await window.JSZip.loadAsync(await file.arrayBuffer(), { checkCRC32: true });
+    const bytes = await file.arrayBuffer();
+    const { inspectZipDirectory } = await import('/assets/archive-safety.mjs');
+    inspectZipDirectory(bytes);
+    const archive = await window.JSZip.loadAsync(bytes, { checkCRC32: true });
     const entries = Object.values(archive.files).slice(0, 100);
     const summary = document.createElement('div');
     summary.className = 'archive-summary';
@@ -949,10 +952,17 @@
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
     const zip = new window.JSZip();
     const imageFormat = format === 'jpg' ? 'jpeg' : 'png';
+    let totalPixels = 0;
+    try {
+    if (pdf.numPages > 100) throw new Error('Page image export supports up to 100 pages per run.');
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement('canvas');
+      try {
+      const pixels = Math.ceil(viewport.width) * Math.ceil(viewport.height);
+      totalPixels += pixels;
+      if (pixels > 12000000 || totalPixels > 60000000) throw new Error('Page image export exceeds the safe pixel budget. Split the PDF first.');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
       const context = canvas.getContext('2d', { alpha: imageFormat === 'png' });
@@ -963,22 +973,36 @@
       await page.render({ canvasContext: context, viewport }).promise;
       const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Page image generation failed.')), `image/${imageFormat}`, 0.92));
       zip.file(`page-${String(pageNumber).padStart(3, '0')}.${format === 'jpg' ? 'jpg' : 'png'}`, blob);
+      } finally {
       canvas.width = 0;
       canvas.height = 0;
+      page.cleanup?.();
+      }
     }
-    return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    } finally { await pdf.destroy?.(); }
   }
 
   async function extractPdfText(file) {
     const pdfjsLib = await ensurePdfJs();
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
     const pages = [];
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      pages.push(content.items.map((item) => item.str).join(' ').replace(/\s+/g, ' ').trim());
-    }
-    return pages;
+    let characters = 0;
+    try {
+      if (pdf.numPages > 500) throw new Error('Text extraction supports up to 500 pages per run.');
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        try {
+          const content = await page.getTextContent();
+          // Respect source line endings; do not flatten every paragraph into one line.
+          const text = content.items.map(item => (item.str || '') + (item.hasEOL ? '\n' : ' ')).join('').replace(/[\t ]+\n/g, '\n').trim();
+          characters += text.length;
+          if (characters > 5000000) throw new Error('Extracted text exceeds the five-million-character browser limit.');
+          pages.push(text);
+        } finally { page.cleanup?.(); }
+      }
+      return pages;
+    } finally { await pdf.destroy?.(); }
   }
 
   async function renderPdfPages(file, options = {}) {
@@ -987,10 +1011,10 @@
     const scale = Math.max(0.75, Math.min(2, Number(options.scale) || 1.35));
     const maximumPages = Math.max(1, Number(options.maximumPages) || 60);
     const maximumTotalPixels = Math.max(1_000_000, Number(options.maximumTotalPixels) || 24_000_000);
-    if (pdf.numPages > maximumPages) throw new Error(`This browser workflow supports up to ${maximumPages} PDF pages per run.`);
     const results = [];
     let totalPixels = 0;
     try {
+      if (pdf.numPages > maximumPages) throw new Error(`This browser workflow supports up to ${maximumPages} PDF pages per run.`);
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
         if (options.isCancelled?.()) throw new Error(`Processing cancelled after page ${pageNumber - 1}.`);
         const page = await pdf.getPage(pageNumber);
@@ -1034,29 +1058,33 @@
   async function extractPdfTextRows(file) {
     const pdfjsLib = await ensurePdfJs();
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-    if (pdf.numPages > 100) throw new Error('PDF to Excel supports up to 100 pages per browser run.');
     const pages = [];
     let totalTextItems = 0;
+    try {
+    if (pdf.numPages > 100) throw new Error('PDF to Excel supports up to 100 pages per browser run.');
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
+      try {
       const content = await page.getTextContent();
       totalTextItems += content.items.length;
       if (totalTextItems > 200_000) throw new Error('This PDF exceeds the safe 200,000 positioned-text-item spreadsheet limit.');
       const sorted = content.items
         .filter(item => String(item.str || '').trim())
         .map(item => ({ text: String(item.str).trim(), x: item.transform[4], y: item.transform[5] }))
-        .sort((a, b) => Math.abs(b.y - a.y) > 3 ? b.y - a.y : a.x - b.x);
+        .filter(item => Number.isFinite(item.x) && Number.isFinite(item.y))
+        .sort((a, b) => b.y - a.y || a.x - b.x);
       const rows = [];
       sorted.forEach(item => {
-        let row = rows.find(candidate => Math.abs(candidate.y - item.y) <= 3);
+        let row = rows[rows.length - 1];
+        if (row && Math.abs(row.y - item.y) > 3) row = null;
         if (!row) { row = { y: item.y, items: [] }; rows.push(row); }
         row.items.push(item);
       });
       pages.push(rows.map(row => row.items.sort((a, b) => a.x - b.x).map(item => item.text)));
-      page.cleanup?.();
+      } finally { page.cleanup?.(); }
     }
-    await pdf.destroy?.();
     return pages;
+    } finally { await pdf.destroy?.(); }
   }
 
   async function extractEmbeddedPdfImages(file) {

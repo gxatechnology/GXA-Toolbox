@@ -17,6 +17,10 @@ export const EXPECTED_PUBLIC_TABLES = Object.freeze([
   'users'
 ]);
 
+export const EXPECTED_OPTIONAL_TABLES = Object.freeze([
+  'tool_ratings'
+]);
+
 export const EXPECTED_MIGRATIONS = Object.freeze([
   '0001_create_auth_schema',
   '0002_repair_auth_schema_after_site_reconnect',
@@ -25,7 +29,8 @@ export const EXPECTED_MIGRATIONS = Object.freeze([
   '0005_create_support_messages',
   '0006_admin_accounts',
   '0007_admin_resource_workflows',
-  '0008_recover_expected_application_schema'
+  '0008_recover_expected_application_schema',
+  '0009_create_tool_ratings'
 ]);
 
 function diagnosticsFailure(error) {
@@ -62,12 +67,14 @@ export default async function handler(request) {
         SELECT table_schema, table_name
           FROM information_schema.tables
          WHERE table_type = 'BASE TABLE'
-           AND table_name = ANY(${expected}::TEXT[])
+           AND table_name = ANY(${[...expected, ...EXPECTED_OPTIONAL_TABLES]}::TEXT[])
          ORDER BY table_schema, table_name
       `;
       const publicTables = found.filter(row => row.table_schema === 'public').map(row => row.table_name);
       const publicSet = new Set(publicTables);
       const missingTables = expected.filter(name => !publicSet.has(name));
+      const optionalTables = EXPECTED_OPTIONAL_TABLES.filter(name => publicSet.has(name));
+      const missingOptionalTables = EXPECTED_OPTIONAL_TABLES.filter(name => !publicSet.has(name));
       const otherSchemas = found
         .filter(row => row.table_schema !== 'public')
         .map(row => ({ schema: row.table_schema, table: row.table_name }));
@@ -95,9 +102,11 @@ export default async function handler(request) {
           status,
           identity: identityRows[0] || null,
           expected_table_count: expected.length,
-          public_table_count: publicTables.length,
-          public_tables: publicTables,
+          public_table_count: expected.filter(name => publicSet.has(name)).length,
+          public_tables: expected.filter(name => publicSet.has(name)),
           missing_tables: missingTables,
+          optional_tables: optionalTables,
+          missing_optional_tables: missingOptionalTables,
           expected_tables_in_other_schemas: otherSchemas,
           migration_tracking_available: appliedMigrations !== null,
           applied_migrations: appliedMigrations,

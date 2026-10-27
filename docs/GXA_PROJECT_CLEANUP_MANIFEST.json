@@ -1,0 +1,103 @@
+{
+  "auditDate": "2026-10-27",
+  "mode": "audit-only",
+  "head": "fa0d7691c54d5cf50b28e05da46b9b139188968f",
+  "counts": {
+    "registeredTools": 95,
+    "sitemapUrls": 109,
+    "generatedHtmlDocuments": 126,
+    "distFiles": 245,
+    "distBytes": 164141763,
+    "trackedPaths": 521,
+    "untrackedPathsBeforeAudit": 27,
+    "modifiedPathsBeforeAudit": 49,
+    "deletedPathsBeforeAudit": 2
+  },
+  "generatedLocal": [
+    {"path":"dist/","classification":"IGNORE_IN_GIT_REGENERATE","files":245,"bytes":164141763,"safeToDeleteLocally":true,"productionImpact":"Must be rebuilt before deployment"},
+    {"path":"node_modules/","classification":"IGNORE_IN_GIT_SAFE_LOCAL_DELETE","files":17089,"bytes":479434960,"safeToDeleteLocally":true,"productionImpact":"None after npm ci"},
+    {"path":"test-results/","classification":"IGNORE_IN_GIT_SAFE_LOCAL_DELETE","files":711,"bytes":150010177,"safeToDeleteLocally":true,"productionImpact":"None; retain if QA evidence is needed"},
+    {"path":".netlify/","classification":"IGNORE_IN_GIT_REQUIRES_REVIEW","files":1005,"bytes":28127836,"safeToDeleteLocally":false,"productionImpact":"May remove useful local CLI diagnostic state"}
+  ],
+  "candidates": [
+    {
+      "paths":["public_html/background-remover/assets/index-B8W2S71-.js","public_html/background-remover/assets/index-DjTkVYiM.css"],
+      "classification":"SAFE_DELETE_FROM_RELEASE",
+      "bytes":421994,
+      "reason":"Superseded content-hashed bundles; updated index references replacement bundles and verified builds pass"
+    },
+    {
+      "path":"public_html/assets/models/background-remover/u2netp.onnx",
+      "classification":"ARCHIVE_OR_MOVE_OUT_REQUIRES_REVIEW",
+      "estimatedBytes":4574861,
+      "reason":"Original incompatible model retained for provenance; no runtime load reference found"
+    },
+    {
+      "paths":["public_html/assets/models/background-remover/u2netp-web.onnx","public_html/background-remover/models/u2netp-web.onnx"],
+      "classification":"REQUIRES_REVIEW",
+      "duplicateBytes":4574267,
+      "reason":"Byte-identical but consumed through separate main-site and React URL roots"
+    },
+    {
+      "paths":["public_html/background-remover/assets/ort-wasm-simd-threaded.asyncify-CvvOzbbq.wasm","public_html/background-remover/vendor/ort/ort-wasm-simd-threaded.asyncify.wasm"],
+      "classification":"KEEP_REQUIRES_RUNTIME_REFACTOR",
+      "duplicateBytes":24254953,
+      "reason":"Vite-emitted and runtime vendor paths participate in different loader branches"
+    },
+    {
+      "path":"public_html/**/*.php",
+      "classification":"MOVE_OUT_OF_PUBLISH_ALREADY_ARCHIVE_REVIEW",
+      "reason":"Legacy PHP hosting compatibility; excluded from dist; deletion requires owner decision"
+    },
+    {
+      "path":"database.sql",
+      "classification":"ARCHIVE_REQUIRES_REVIEW",
+      "reason":"Legacy schema reference; Netlify migrations are authoritative"
+    },
+    {
+      "path":"netlify/database/migrations/0001-0009",
+      "classification":"KEEP",
+      "reason":"Append-only database migration history"
+    },
+    {
+      "path":"tests/",
+      "classification":"KEEP_EXCLUDE_FROM_PRODUCTION",
+      "reason":"Build, security, SEO, engine and browser contracts depend on these files"
+    },
+    {
+      "path":"docs/",
+      "classification":"KEEP_EXCLUDE_FROM_PRODUCTION",
+      "reason":"Release, compliance and audit evidence; absent from dist"
+    }
+  ],
+  "productionBoundary": {
+    "forbiddenDeveloperFilesInDist": 0,
+    "sourceMapsInDist": 0,
+    "phpInDist": 0,
+    "sqlInDist": 0,
+    "liveSensitiveProbes": {
+      "/.env": 404,
+      "/package.json": 404,
+      "/netlify.toml": 404,
+      "/database.sql": 404,
+      "/netlify/database/migrations/0001_create_auth_schema.sql": 404,
+      "/tests/repository-audit.mjs": 404,
+      "/public_html/index.php": 404,
+      "/api/login.php": 405
+    }
+  },
+  "sizeAssessment": {
+    "safeImmediateGitReductionBytes": 421994,
+    "safeImmediateProductionReductionBytes": 0,
+    "potentialReviewedProductionReductionBytes": 33404081,
+    "warning":"Potential reduction is not approved; it requires runtime consolidation and cross-browser verification"
+  },
+  "decisions": {
+    "broadCleanup": "NO_GO",
+    "generatedCacheCleanup": "GO_AFTER_RELEASE_EVIDENCE_REVIEW",
+    "supersededHashedBundleCleanup": "GO",
+    "phpRetirement": "REQUIRES_OWNER_DECISION",
+    "onnxWasmConsolidation": "REQUIRES_DEDICATED_TESTED_REFACTOR",
+    "deploymentAuthorized": false
+  }
+}

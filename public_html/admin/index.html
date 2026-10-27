@@ -61,6 +61,7 @@
         <button class="nav-item" type="button" data-section="adsterra"><span aria-hidden="true">▥</span>Adsterra</button>
         <button class="nav-item" type="button" data-section="users"><span aria-hidden="true">◉</span>Users</button>
         <button class="nav-item" type="button" data-section="support"><span aria-hidden="true">✉</span>Support Messages</button>
+        <button class="nav-item" type="button" data-section="ratings"><span aria-hidden="true">★</span>Tool Ratings</button>
         <button class="nav-item" type="button" data-section="system"><span aria-hidden="true">◇</span>System</button>
         <a class="nav-item mobile-only-nav" href="/admin/profile"><span aria-hidden="true">●</span>My Profile</a>
         <a class="nav-item mobile-only-nav" href="/admin/settings"><span aria-hidden="true">⚙</span>Settings</a>
@@ -126,16 +127,68 @@
       </div>
 
       <main id="admin-main" class="dashboard-main" tabindex="-1">
-        <div class="dashboard-heading">
-          <div><h2>GXA Toolbox Dashboard</h2><p>Administration, Analytics &amp; Revenue Control Center</p></div>
-          <p id="data-timestamp" class="timestamp" aria-live="polite"></p>
-        </div>
+        <section class="control-hero" aria-labelledby="control-hero-title">
+          <div class="control-hero-copy">
+            <p class="control-eyebrow">GXA TECHNOLOGIES · SECURE CONTROL CENTER</p>
+            <h2 id="control-hero-title">Good <span id="day-period">day</span>, <span data-admin-name>Administrator</span></h2>
+            <p>Monitor product operations, audience health and revenue integrations from one protected workspace.</p>
+          </div>
+          <div class="control-identity" aria-label="Current administrator">
+            <span class="administrator-mark administrator-mark-large" data-avatar aria-hidden="true">A</span>
+            <div><strong data-admin-name>Administrator</strong><span class="role-badge">Administrator</span></div>
+            <button id="open-profile" class="secondary-button" type="button">My profile</button>
+          </div>
+          <div class="control-status-strip" aria-label="Control center status">
+            <span id="database-status-chip" class="control-status"><i aria-hidden="true"></i><b>Database</b><em>Checking</em></span>
+            <span class="control-status"><i aria-hidden="true"></i><b>Session</b><em>Secure</em></span>
+            <span id="auto-sync-status" class="control-status"><i aria-hidden="true"></i><b>Auto-sync</b><em>Every 2 min</em></span>
+            <span id="data-timestamp" class="control-status control-status-wide" aria-live="polite"><i aria-hidden="true"></i><b>Last updated</b><em>No recent sync</em></span>
+          </div>
+        </section>
         <div id="dashboard-status" class="status-message" role="status">Loading protected dashboard data…</div>
         <div id="action-status" class="status-message" role="status" aria-live="polite" hidden></div>
         <div id="dashboard-content" hidden></div>
       </main>
     </div>
   </div>
+
+  <dialog id="profile-dialog" class="admin-dialog" aria-labelledby="profile-dialog-title">
+    <form id="profile-form" class="admin-dialog-card">
+      <header class="dialog-header"><div><p>ADMINISTRATOR ACCOUNT</p><h2 id="profile-dialog-title">My profile</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close profile">×</button></header>
+      <div class="profile-summary">
+        <span class="administrator-mark profile-avatar" data-avatar aria-hidden="true">A</span>
+        <div><strong data-admin-name>Administrator</strong><span class="role-badge">Administrator</span><small id="profile-session-detail">Protected session</small></div>
+      </div>
+      <div class="avatar-actions">
+        <label class="secondary-button file-button">Change photo<input id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <button id="remove-profile-photo" class="text-button" type="button">Remove photo</button>
+        <small>JPEG, PNG or WebP · maximum 5 MB. Metadata is removed server-side.</small>
+      </div>
+      <div class="form-grid">
+        <label>Full name<input id="profile-full-name" name="full_name" maxlength="120" autocomplete="name"></label>
+        <label>Display name<input id="profile-display-name" name="display_name" maxlength="80"></label>
+        <label>Phone<input id="profile-phone" name="phone" type="tel" maxlength="40" autocomplete="tel"></label>
+        <label>Appearance<select id="profile-theme" name="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+      </div>
+      <div id="profile-status" class="inline-feedback" role="status" aria-live="polite"></div>
+      <footer class="dialog-actions"><button class="secondary-button" type="button" data-close-dialog>Cancel</button><button class="primary-button" type="submit">Save profile</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="create-user-dialog" class="admin-dialog" aria-labelledby="create-user-title">
+    <form id="create-user-form" class="admin-dialog-card">
+      <header class="dialog-header"><div><p>IDENTITY-PROTECTED WORKFLOW</p><h2 id="create-user-title">Create user</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close create user">×</button></header>
+      <p class="dialog-note">GXA Toolbox user authentication is owned by Netlify Identity. This form validates the intended account, but provisioning remains disabled until a server-side Identity invitation endpoint is configured. No incomplete database-only account will be created.</p>
+      <div class="form-grid">
+        <label>Full name<input id="create-user-name" maxlength="120" autocomplete="off" required></label>
+        <label>Email address<input id="create-user-email" type="email" maxlength="254" autocomplete="off" required></label>
+        <label>Role<select id="create-user-role"><option value="user">User</option></select></label>
+        <label>Status<select id="create-user-status"><option value="invite">Send secure invitation</option></select></label>
+      </div>
+      <div id="create-user-status-message" class="inline-feedback warning" role="status" aria-live="polite">Provisioning endpoint not configured. Existing users can still register through the public Identity sign-up flow.</div>
+      <footer class="dialog-actions"><button class="secondary-button" type="button" data-close-dialog>Close</button><button class="primary-button" type="submit">Validate invitation</button></footer>
+    </form>
+  </dialog>
 
   <script src="/admin/admin.js" defer></script>
 </body>

@@ -33,7 +33,10 @@
       </div>
       <section class="image-converter__panel image-converter__result" hidden aria-labelledby="image-converter-result-title">
         <div class="image-converter__panel-head"><div><p class="image-converter__eyebrow">Result</p><h2 id="image-converter-result-title">Converted image</h2></div></div>
-        <div class="image-converter__result-grid"><div class="image-converter__preview"><img alt="Converted image preview"></div><div><dl class="image-converter__stats"><div><dt>Output format</dt><dd data-result="format">—</dd></div><div><dt>Dimensions</dt><dd data-result="dimensions">—</dd></div><div><dt>File size</dt><dd data-result="size">—</dd></div></dl><button type="button" class="btn btn-primary btn-lg image-converter__download"><i data-lucide="download" aria-hidden="true"></i> Download</button></div></div>
+        <div class="image-converter__result-grid"><div class="image-converter__preview"><img alt="Converted image preview"></div><dl class="image-converter__stats"><div><dt>Output format</dt><dd data-result="format">—</dd></div><div><dt>Dimensions</dt><dd data-result="dimensions">—</dd></div><div><dt>File size</dt><dd data-result="size">—</dd></div></dl></div>
+          ${global.GxaResultFlow?.renderAdPlacement?.() || ''}
+          <section class="result-download-section" aria-labelledby="image-converter-download-title"><div class="result-download-copy"><span class="image-converter__eyebrow">Download</span><h3 id="image-converter-download-title">Save your converted image</h3><p>The format, dimensions and file size above describe this output.</p></div><button type="button" class="btn btn-primary btn-lg image-converter__download"><i data-lucide="download" aria-hidden="true"></i> Download</button></section>
+          ${global.GxaResultFlow?.renderRating?.('image-converter') || ''}
       </section>
     </section>`;
 

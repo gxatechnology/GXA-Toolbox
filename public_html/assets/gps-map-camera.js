@@ -75,7 +75,7 @@
           </div>
         </section>
       </div>
-      <section class="gps-studio__panel gps-studio__result" hidden aria-labelledby="gps-result-heading"><div><p class="gps-studio__eyebrow">Result</p><h2 id="gps-result-heading">Your photo is ready</h2></div><p class="gps-studio__result-meta"></p><button type="button" class="btn btn-primary btn-lg gps-studio__download"><i data-lucide="download" aria-hidden="true"></i> Download Photo</button></section>
+      <section class="gps-studio__panel gps-studio__result" hidden aria-labelledby="gps-result-heading"><div><p class="gps-studio__eyebrow">Result</p><h2 id="gps-result-heading">Your photo is ready</h2></div><p class="gps-studio__result-meta"></p>${global.GxaResultFlow?.renderAdPlacement?.() || ''}<section class="result-download-section" aria-labelledby="gps-download-title"><div class="result-download-copy"><span class="gps-studio__eyebrow">Download</span><h3 id="gps-download-title">Save your geotagged photo</h3><p>The selected export mode and verified file details appear above.</p></div><button type="button" class="btn btn-primary btn-lg gps-studio__download"><i data-lucide="download" aria-hidden="true"></i> Download Photo</button></section>${global.GxaResultFlow?.renderRating?.('gps-map-camera') || ''}</section>
     </section>`;
 
   function setStatus(state, message, error = false) { state.elements.status.textContent = message; state.elements.status.classList.toggle('is-error', error); }

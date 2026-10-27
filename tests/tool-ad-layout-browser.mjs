@@ -61,8 +61,18 @@ try {
     await page.locator('#file-picker').setInputFiles({ name: 'layout-test.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await doc.save({ useObjectStreams: false })) });
     await page.locator('#btn-process-action').click();
     await page.waitForFunction(() => document.getElementById('btn-download-result')?.disabled === false, null, { timeout: 180000 });
+    const resultState = await page.evaluate(() => ({
+      error: document.body.dataset.gxaLastProcessingError || '',
+      completeHidden: document.getElementById('tool-complete-mount')?.classList.contains('hidden'),
+      downloadVisible: Boolean(document.getElementById('btn-download-result')?.getClientRects().length),
+      handler: typeof document.getElementById('btn-download-result')?.onclick
+    }));
+    assert.equal(resultState.error, '', JSON.stringify(resultState));
+    assert.equal(resultState.completeHidden, false, JSON.stringify(resultState));
+    assert.equal(resultState.downloadVisible, true, JSON.stringify(resultState));
+    assert.equal(resultState.handler, 'function', JSON.stringify(resultState));
     await page.waitForFunction(() => document.querySelector('[data-ad-zone="ad-slot-after-tool"]')?.classList.contains('gxa-ad-network'));
-    const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-mobile-download-result:visible, #btn-download-result:visible').first().click()]);
+    const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-download-result:visible').click()]);
     assert.equal(await download.failure(), null);
     await download.saveAs(resolve(out, 'compressed.pdf'));
     const { readFile } = await import('node:fs/promises');
@@ -70,7 +80,9 @@ try {
     assert.ok(await page.evaluate(() => {
       const result = document.querySelector('#tool-complete-mount');
       const slot = document.querySelector('[data-ad-zone="ad-slot-after-tool"]');
-      return !result.querySelector('.gxa-ad-network') && Boolean(result.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const downloadSection = result.querySelector('.result-download-section');
+      return result.contains(slot)
+        && Boolean(slot.compareDocumentPosition(downloadSection) & Node.DOCUMENT_POSITION_FOLLOWING);
     }));
     await page.getByRole('button', { name: 'Compress another PDF' }).click();
     await page.waitForFunction(() => document.querySelector('[data-disclosure]')?.dataset.disclosure === 'upload');

@@ -31,6 +31,17 @@ function sourceFunction(name) {
   return next < 0 ? tail : tail.slice(0, next + 1);
 }
 context.appState = { activeToolOptions: { mode: 'decode' } };
+// Exercise the real asynchronous parser engines while retaining DOM/XSS assertions.
+const prettier = await import('prettier');
+const { format: formatSql } = await import('sql-formatter');
+context.formatCodePreview = async (kind, inputId, outputId, title) => {
+  const mount = context.document.getElementById('generator-preview-mount');
+  try {
+    const input = context.document.getElementById(inputId).value;
+    const result = kind === 'sql' ? formatSql(input) : await prettier.format(input, { parser: { javascript: 'babel', css: 'css', html: 'html' }[kind] });
+    safety.textResult(mount, title, result, outputId, true);
+  } catch (error) { safety.textResult(mount, 'Parse error', error.message); }
+};
 vm.runInContext(sourceFunction('convertBase64Text'), context);
 const payload = '</textarea><img src=x onerror="globalThis.injected=1"><svg onload="globalThis.injected=1"></svg>';
 function input(id, value) {
@@ -54,7 +65,7 @@ input('opt-case-type', 'lower');
 for (const [name, id, value] of cases) {
   if (id) input(id, value);
   vm.runInContext(sourceFunction(name), context);
-  context[name]();
+  await context[name]();
   const mount = context.document.getElementById('generator-preview-mount');
   assert.equal(mount.querySelectorAll('img,svg,script,[onerror],[onload]').length, 0, `${name} parsed user content as markup`);
   assert.ok(mount.textContent || mount.querySelector('textarea')?.value, `${name} lost output`);

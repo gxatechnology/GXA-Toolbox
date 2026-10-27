@@ -6,6 +6,9 @@
   let requested = false, requestedPath = null, plannedPath = null, pending = false, resizeTimer = null;
   let lastGuide = null, lastGuideSignature = '', lastAfterMarker = null;
   const visible = element => element.getClientRects().length && !element.closest('[hidden], .hidden');
+  const resultReady = state => state.node.dataset.adTrigger !== 'result-ready' || Boolean(state.node.closest(
+    '[data-result-ready="true"], #tool-complete-mount:not(.hidden), .crop-result-panel:not(.hidden), .image-converter__result:not([hidden]), .gps-studio__result:not([hidden])'
+  ));
   function eligible() {
     if (/noindex/i.test(document.querySelector('meta[name="robots"]')?.content || '')) return false;
     const id = location.pathname.replace(/^\/+|\/+$/g, ''), policy = window.GxaToolQuality;
@@ -72,7 +75,7 @@
   }
   function loadFixed(state) {
     return new Promise(resolve => {
-      if (state.terminal || !state.node.isConnected || !eligible() || blocked()) { collapse(state, 'suppressed'); resolve(); return; }
+      if (state.terminal || !state.node.isConnected || !resultReady(state) || !eligible() || blocked()) { collapse(state, 'suppressed'); resolve(); return; }
       // Exact official embed pair, directly in the intended slot. Serialize pairs
       // so the provider-global atOptions object cannot race another unit.
       const options = document.createElement('script');
@@ -120,7 +123,7 @@
     delete state.node.dataset.adCollapseReason;
   }
   function request(state) {
-    if (state.started || state.terminal || !state.node.isConnected || !eligible() || blocked()) return;
+    if (state.started || state.terminal || !state.node.isConnected || !resultReady(state) || !eligible() || blocked()) return;
     const key = state.unit.key || state.unit.containerId;
     if (used.has(key)) return;
     used.add(key); state.started = true; requested = true; requestedPath = location.pathname;
@@ -161,7 +164,7 @@
       updateRailLayout(node.closest('.tool-container') || (node.parentElement === document.body ? document.body : null));
     }
     if (!window.IntersectionObserver) return;
-    state.intersection = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) request(state); }, { rootMargin: '200px 0px' });
+    state.intersection = new IntersectionObserver(entries => { if (resultReady(state) && entries.some(entry => entry.isIntersecting)) request(state); }, { rootMargin: '200px 0px' });
     state.intersection.observe(sentinel);
   }
   function editorial(main, id) {
@@ -265,7 +268,7 @@
     for (const state of slots.values()) {
       if (!state.node.isConnected && !state.terminal) collapse(state, 'removed');
       if (state.started && !state.terminal && state.container) ready(state, state.container);
-      if (!state.started && !state.terminal && window.IntersectionObserver && state.sentinel.isConnected) {
+      if (!state.started && !state.terminal && resultReady(state) && window.IntersectionObserver && state.sentinel.isConnected) {
         const rect = state.sentinel.getBoundingClientRect();
         if (rect.bottom >= -200 && rect.top <= innerHeight + 200) request(state);
       }
@@ -284,7 +287,7 @@
   const schedule = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; sync(); }); };
   window.GxaAdNetwork = Object.freeze({ sync, eligible, hasRequested: () => requested });
   function start() {
-    new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'data-gxa-last-processing-error'] });
+    new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'data-result-ready', 'data-gxa-last-processing-error'] });
     document.addEventListener('focusout', schedule);
     // Browser capture/orientation can briefly report a 1px viewport. Only retire
     // an impression after dimensions settle; never remount it to recover.

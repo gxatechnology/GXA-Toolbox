@@ -72,7 +72,11 @@ for (const tool of expected) {
   for (const related of entry.relatedTools) assert.ok(tools.some(item => item.id === related), `${tool.id} links to unknown tool ${related}.`);
   const html = await readFile(join(root, 'dist', tool.id, 'index.html'), 'utf8');
   assert.match(html, /class="tool-preworkspace-intro"/, `${tool.id} needs a useful static intro before its workspace hydrates.`);
-  for (const heading of ['About, Features and Practical Uses', 'What You Can Do', 'How to Use', 'Practical Use Cases', 'Privacy, Formats and Limitations', 'Privacy and File Processing', 'Supported Inputs and Outputs', 'Limitations and Important Notes', 'Frequently Asked Questions', 'Related Tools and Guides']) assert.ok(html.includes(heading), `${tool.id} is missing ${heading}.`);
+  const escapedToolName = tool.name.replaceAll('&', '&amp;');
+  const sectionHeadings = quality[tool.id].indexable
+    ? [`About ${escapedToolName}`, `How to Use ${escapedToolName}`, `${escapedToolName} Formats, Privacy and Limitations`, `Frequently Asked Questions About ${escapedToolName}`, `Related ${escapedToolName} Tools and Guides`]
+    : ['About, Features and Practical Uses', 'How to Use', 'Privacy, Formats and Limitations', 'Frequently Asked Questions', 'Related Tools and Guides'];
+  for (const heading of [...sectionHeadings, 'What You Can Do', 'Practical Use Cases', 'Privacy and File Processing', 'Supported Inputs and Outputs', 'Limitations and Important Notes']) assert.ok(html.includes(heading), `${tool.id} is missing ${heading}.`);
   assert.match(html, /"@type": "FAQPage"/, `${tool.id} needs visible FAQ schema.`);
   assert.match(html, new RegExp(`<link rel="canonical" href="https://gxatoolbox\\.in/${tool.id}/"\\s*/?>`));
   assert.match(html, new RegExp(`<meta name="robots" content="${quality[tool.id].indexable ? 'index' : 'noindex'}, follow"\\s*\\/?>`), `${tool.id} must follow the central indexing policy.`);

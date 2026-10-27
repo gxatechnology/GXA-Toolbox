@@ -37,7 +37,7 @@ async function processDownload(name) {
   if (await adjust.isVisible()) await adjust.click();
   await page.locator('#btn-process-action').click();
   await page.waitForFunction(() => !document.getElementById('btn-download-result').disabled);
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-mobile-download-result:visible, #btn-download-result:visible').first().click()]);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-download-result:visible').click()]);
   assert.equal(await download.failure(), null);
   const path = resolve(out, name); await download.saveAs(path);
   return { bytes: await readFile(path), name: download.suggestedFilename() };
@@ -60,7 +60,12 @@ async function widthSweep(route) {
     assert.ok(await page.locator('#btn-process-action').isVisible());
     assert.ok(await page.locator('.tool-options-panel .preset-btn').evaluateAll(buttons => buttons.every(button => button.getBoundingClientRect().height >= 44)), 'Mode/rotation buttons retain 44px touch height');
     assert.equal(await page.locator('.gxa-ad-network[data-ad-layout-zone="after-tool"]').count(), 1, 'Existing eligible after-tool slot remains unique');
-    assert.ok(await page.locator('.gxa-ad-network').count() <= 4, 'Current multi-zone policy retains its density limit');
+    const densityLimit = await page.evaluate(() => Math.min(GxaAdConfig.maxPlacements,
+      innerWidth < 768 ? GxaAdConfig.limits.mobile : innerWidth < 1280 ? GxaAdConfig.limits.tablet : GxaAdConfig.limits.tool));
+    const slots = await page.locator('.gxa-ad-network').evaluateAll(elements => elements.map(el => ({ zone: el.dataset.adLayoutZone, state: el.dataset.adState, height: el.getBoundingClientRect().height })));
+    // Failed/resized slots are retained as lifecycle tombstones to prevent reinjection.
+    assert.ok(slots.length <= await page.evaluate(() => GxaAdConfig.maxPlacements), 'Retained slot identities must stay within the document limit');
+    assert.ok(slots.filter(slot => slot.height > 0).length <= densityLimit, `Visible density exceeds ${width}px policy: ${JSON.stringify(slots)}`);
     const emptyAds = await page.locator('.gxa-ad-network').evaluateAll(elements => elements.every(el => el.dataset.adState !== 'mounted' && el.getBoundingClientRect().height === 0));
     assert.ok(emptyAds, 'Unfilled ads must stay collapsed');
     checks.push(`${route}: populated ${width}px layout, visible processing, no body overflow or empty ad gap`);

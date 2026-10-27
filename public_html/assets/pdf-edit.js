@@ -103,7 +103,10 @@
           </div>
           <div class="pdf-edit-export"><label for="pdf-edit-form-mode">Filled form output</label><select id="pdf-edit-form-mode"><option value="editable">Keep fields editable</option><option value="flatten">Flatten filled form</option></select>
             <p>Form text is fitted to its original field on export; check the actual PDF preview. Signatures added here are visual marks, not certificate-backed digital signatures.</p>
-            <div class="pdf-edit-export-actions"><button type="button" data-action="preview" class="btn btn-secondary">Preview Edited PDF</button><button type="button" data-action="back" hidden>Back to editing</button><button type="button" data-action="download" class="btn btn-primary">Download Edited PDF</button></div>
+            <div class="pdf-edit-preview-actions"><button type="button" data-action="preview" class="btn btn-secondary">Preview Edited PDF</button><button type="button" data-action="back" hidden>Back to editing</button></div>
+            ${window.GxaResultFlow?.renderAdPlacement?.() || ''}
+        <section class="result-download-section" aria-labelledby="pdf-edit-download-title" hidden><div class="result-download-copy"><span class="tool-category-label">Download</span><h3 id="pdf-edit-download-title">Save your edited PDF</h3><p>Preview the generated document before downloading the validated output.</p></div><div class="pdf-edit-export-actions"><button type="button" data-action="download" class="btn btn-primary">Download Edited PDF</button></div></section>
+        ${window.GxaResultFlow?.renderRating?.('edit-pdf') || ''}
             <progress class="pdf-edit-progress" aria-label="Preparing edited PDF" hidden></progress>
           </div>
         </div>
@@ -139,6 +142,7 @@
     }
     function clearOutput() {
       root.removeAttribute('data-result-ready');
+      $('.result-download-section').hidden = true;
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = '';
       previewPdf?.destroy();
@@ -578,6 +582,7 @@
         if (!alive || token!==loadRevision) { previewPdf.destroy(); return false; }
         previewUrl=URL.createObjectURL(blob);
         root.setAttribute('data-result-ready', 'true');
+        $('.result-download-section').hidden = false;
         callbacks.onComplete?.(blob.size); event('tool_complete','completed');
         status(`Edited PDF ready · ${info.pages.length} pages · ${window.GxaWorkspace.formatBytes(blob.size)}. Check the preview before sharing.`);
         return true;

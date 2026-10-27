@@ -63,7 +63,9 @@ async function open(id, width) {
 }
 async function loadSlots() {
   // A snapshot avoids looping when observers remove sentinels after requesting.
-  const zones = await page.locator('.gxa-ad-network').evaluateAll(nodes => nodes.map(node => node.dataset.adLayoutZone));
+  const zones = await page.locator('.gxa-ad-network').evaluateAll(nodes => nodes
+    .filter(node => node.dataset.adTrigger !== 'result-ready' || node.closest('[data-result-ready="true"], #tool-complete-mount:not(.hidden), .crop-result-panel:not(.hidden), .image-converter__result:not([hidden]), .gps-studio__result:not([hidden])'))
+    .map(node => node.dataset.adLayoutZone));
   for (const zone of zones) {
     await page.evaluate(zone => {
       const node = document.querySelector(`[data-ad-layout-zone="${zone}"]`);
@@ -71,7 +73,7 @@ async function loadSlots() {
     }, zone);
     await page.waitForFunction(zone => document.querySelector(`[data-ad-layout-zone="${zone}"]`)?.dataset.adState !== 'waiting', zone);
   }
-  await page.waitForFunction(() => [...document.querySelectorAll('.gxa-ad-network')].every(node => !['waiting', 'loading'].includes(node.dataset.adState)), null, { timeout: 60000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('.gxa-ad-network')].filter(node => node.dataset.adTrigger !== 'result-ready' || node.closest('[data-result-ready="true"], #tool-complete-mount:not(.hidden), .crop-result-panel:not(.hidden), .image-converter__result:not([hidden]), .gps-studio__result:not([hidden])')).every(node => !['waiting', 'loading'].includes(node.dataset.adState)), null, { timeout: 60000 });
 }
 try {
   const routeFilter = process.argv.find(value => value.startsWith('--route='))?.slice(8) || process.env.GXA_AD_QA_ROUTE;
@@ -150,7 +152,8 @@ try {
   await picker.setFiles({name:'ad-layout.pdf',mimeType:'application/pdf',buffer:Buffer.from(await pdf.save({useObjectStreams:false}))});
   await page.locator('#btn-process-action').click();
   await page.waitForFunction(()=>document.getElementById('btn-download-result')?.disabled===false,null,{timeout:180000});
-  const [download] = await Promise.all([page.waitForEvent('download'),page.locator('#btn-mobile-download-result:visible, #btn-download-result:visible').first().click()]);
+  await loadSlots();
+  const [download] = await Promise.all([page.waitForEvent('download'),page.locator('#btn-download-result:visible').click()]);
   assert.equal(await download.failure(),null); await download.saveAs(resolve(out,'compressed.pdf'));
   assert.equal((await PDFDocument.load(await readFile(resolve(out,'compressed.pdf')))).getPageCount(),3);
   rows.push({id:'compress-pdf',width:390,status:'real upload, processing, downloaded PDF reopened with 3 pages; ads initially filled'});

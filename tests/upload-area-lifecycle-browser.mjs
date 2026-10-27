@@ -61,7 +61,7 @@ try {
         // Exercise the bounded editing stage as well as the new natural upload state.
         const apply=page.locator(width<768 ? '#crop-mobile-apply-button':'#crop-apply-button');
         await apply.click();
-        const downloadButton = page.locator(width<768 ? '#crop-mobile-download-button':'#crop-download-button');
+        const downloadButton = page.locator('#crop-download-button');
         await downloadButton.waitFor({state:'visible'});
         const download=page.waitForEvent('download');
         await downloadButton.click();

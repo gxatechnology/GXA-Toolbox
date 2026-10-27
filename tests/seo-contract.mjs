@@ -8,6 +8,7 @@ import {
   ADSENSE_TEMPLATE_TOKEN
 } from '../config/adsense-config.mjs';
 import { AD_NETWORK } from '../config/ad-network.mjs';
+import { TOOL_SEO_INTENTS } from '../scripts/tool-seo-intents.mjs';
 import {
   PRODUCTION_ORIGIN,
   canonicalContentUrl,
@@ -185,6 +186,13 @@ assert.equal(contentPages.filter(page => page.kind === 'guide').length, 13, 'Pha
 assert.equal(contentPages.filter(page => page.kind === 'category').length, 5, 'All five substantive category routes must remain registered.');
 assert.equal(contentPages.length, 27, 'Seven established and twenty editorial/category routes must remain registered.');
 assert.deepEqual([...blockedIds].sort(), ['qr-reader', 'barcode-reader', 'base64-tool', 'url-tool', 'case-converter', 'cron-generator', 'css-beautifier', 'js-beautifier', 'html-beautifier', 'sql-formatter', 'xml-to-json', 'user-agent', 'html-to-pdf', 'uuid-generator'].sort(), 'The Phase 2 publication review must exclude the 14 audited routes without deleting them.');
+assert.equal(Object.keys(TOOL_SEO_INTENTS).length, 81, 'Reviewed SEO metadata must cover exactly the 81 indexable tools.');
+assert.deepEqual(new Set(Object.keys(TOOL_SEO_INTENTS)), new Set(tools.filter(tool => !blockedIds.has(tool.id)).map(tool => tool.id)), 'Reviewed SEO metadata must match the indexable tool policy exactly.');
+for (const [id, intent] of Object.entries(TOOL_SEO_INTENTS)) {
+  assert.ok(intent.title.length <= 60, `${id}: reviewed title exceeds 60 characters.`);
+  assert.ok(intent.description.length >= 70 && intent.description.length <= 160, `${id}: reviewed description is outside the 70-160 character quality range.`);
+  assert.doesNotMatch(intent.description, /…$/, `${id}: reviewed description must not end in a generated truncation mark.`);
+}
 assert.match(netlify, /publish\s*=\s*["']dist["']/, 'Netlify must publish the generated dist directory.');
 assert.doesNotMatch(netlify, /from\s*=\s*["']\/\*["']/, 'Netlify must not restore a broad SPA catch-all.');
 assertGoogleTagManager(rootTemplate, 'root HTML template');

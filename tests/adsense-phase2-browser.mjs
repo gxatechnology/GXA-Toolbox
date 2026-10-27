@@ -41,7 +41,7 @@ try {
   await page.locator('#opt-html-raw').fill('<h1>Browser export</h1>' + '<p>Full paragraph text remains visible in the export.</p>'.repeat(90) + '<p>FINAL_BROWSER_SENTINEL</p>');
   await page.evaluate(() => processEnteredHtml());
   await page.waitForFunction(() => document.querySelector('#btn-download-result')?.disabled === false && !document.querySelector('#tool-complete-mount')?.classList.contains('hidden'));
-  const exportButton = page.locator('#btn-mobile-download-result:visible, #btn-download-result:visible').first();
+  const exportButton = page.locator('#btn-download-result:visible');
   const [exported] = await Promise.all([page.waitForEvent('download'), exportButton.click()]);
   await exported.saveAs(resolve(screenshots, 'html-reflow.pdf'));
   assert.equal(await exported.failure(), null);

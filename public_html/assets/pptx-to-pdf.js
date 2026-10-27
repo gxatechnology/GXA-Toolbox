@@ -33,11 +33,15 @@
     return parts.join('/');
   }
   function colour(xml, fallback) {
-    const hex = /<(?:a:)?srgbClr\\b[^>]*\\bval=["']([0-9a-f]{6})["']/i.exec(xml || '')?.[1];
+    const hex = /<(?:a:)?srgbClr\b[^>]*\bval=["']([0-9a-f]{6})["']/i.exec(xml || '')?.[1];
     return hex ? `#${hex}` : fallback;
   }
   function num(value, fallback) { const parsed = Number(value); return value !== '' && Number.isFinite(parsed) ? parsed : fallback; }
-  function textSafe(value) { return decode(value).replace(/[\r\n\t]+/g, ' ').replace(/[^\x20-\x7e\xa0-\xff]/g, '?').trim(); }
+  function textSafe(value) {
+    const text = decode(value).replace(/[\r\n\t]+/g, ' ').trim();
+    if (/[^\x20-\x7e\xa0-\xff]/.test(text)) error('This presentation contains characters unsupported by the built-in PDF font. No text was replaced or incomplete PDF exported.');
+    return text;
+  }
   function extractText(shape) { return elements(shape, 'a:t').map(node => textSafe(node.replace(/<[^>]+>/g, ''))).filter(Boolean).join(' '); }
   function dimensions(node, width, height) {
     const xfrm = elements(node, 'a:xfrm')[0] || '';
@@ -124,7 +128,8 @@
         const fontColour = colour(run, '#111827');
         const fit = Math.max(1, Math.floor(box.width / Math.max(1, size * 0.55)));
         const lines = text.match(new RegExp(`.{1,${fit}}(?:\\s|$)|\\S+?(?=\\s|$)`, 'g')) || [text];
-        lines.slice(0, Math.max(1, Math.floor(box.height / (size * 1.25)))).forEach((line, index) => page.drawText(line.trim(), { x: box.x + 2, y: box.y + box.height - size - 2 - index * size * 1.25, size, font, color: rgb(...hex(fontColour)), maxWidth: Math.max(1, box.width - 4) }));
+        if (lines.length > Math.max(1, Math.floor(box.height / (size * 1.25)))) error('Slide text exceeds its supported text box. Simplify the slide; no truncated PDF was exported.');
+        lines.forEach((line, index) => page.drawText(line.trim(), { x: box.x + 2, y: box.y + box.height - size - 2 - index * size * 1.25, size, font, color: rgb(...hex(fontColour)), maxWidth: Math.max(1, box.width - 4) }));
         if (!['rect', 'ellipse', 'roundRect'].includes(geom)) warnings.add('Some advanced PowerPoint shapes were simplified.');
       }
       if (/<(?:p:)?graphicFrame\b|<(?:p:)?grpSp\b|<(?:p:)?transition\b|<(?:p:)?timing\b/i.test(slide)) warnings.add('Charts, grouped content, animations, transitions, and embedded media are not reproduced.');

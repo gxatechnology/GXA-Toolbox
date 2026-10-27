@@ -31,6 +31,13 @@ assert.equal(multi.warnings.length, 0, `Basic text/image slides should not need 
 assert.equal((await PDFLib.PDFDocument.load(await multi.blob.arrayBuffer())).getPageCount(), 2, 'PDF must contain one page for every slide.');
 assert.ok(multi.blob.size > 800, 'Generated PDF must contain actual rendered content.');
 const portrait = await engine.convert(await presentation([{ text: 'Portrait slide' }], true));
+await assert.rejects(() => presentation([{ text: 'हिन्दी' }]).then(file => engine.convert(file)), /unsupported.*font/i);
+await assert.rejects(() => presentation([{ text: 'Overflow '.repeat(200) }]).then(file => engine.convert(file)), /text exceeds/i);
+const colored = await engine.convert(await presentation([{ text: 'Red background', bg: 'FF0000' }]));
+const coloredDoc = await PDFLib.PDFDocument.load(await colored.blob.arrayBuffer());
+const streams = coloredDoc.getPage(0).node.Contents().asArray();
+const operators = streams.map(ref => Buffer.from(PDFLib.decodePDFRawStream(coloredDoc.context.lookup(ref)).decode()).toString('latin1')).join('');
+assert.match(operators, /1 0 0 rg/, 'PPTX background color must not silently become white.');
 const portraitPage = (await PDFLib.PDFDocument.load(await portrait.blob.arrayBuffer())).getPage(0).getSize();
 assert.ok(portraitPage.height > portraitPage.width, 'Portrait PPTX dimensions must produce a portrait PDF page.');
 for (const file of [{ name: 'legacy.ppt', size: 1, arrayBuffer: async () => new ArrayBuffer(1) }, { name: 'wrong.txt', size: 1, arrayBuffer: async () => new ArrayBuffer(1) }, { name: 'mime-mismatch.pptx', type: 'text/plain', size: 1, arrayBuffer: async () => new ArrayBuffer(1) }, { name: 'empty.pptx', size: 0, arrayBuffer: async () => new ArrayBuffer(0) }, { name: 'broken.pptx', size: 3, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer }, { name: 'large.pptx', size: engine.MAX_BYTES + 1, arrayBuffer: async () => new ArrayBuffer(1) }]) await assert.rejects(() => engine.convert(file));

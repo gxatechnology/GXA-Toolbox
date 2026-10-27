@@ -1,8 +1,10 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { generateAdminSnapshot } from './generate-admin-snapshot.mjs';
+import { copyEngineVendors } from './copy-engine-vendors.mjs';
 import { applyAdNetwork } from '../config/ad-network.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { toolSeoIntent } from './tool-seo-intents.mjs';
 import {
   ADSENSE_PUBLISHER_ID,
   ADSENSE_SELLER_LINE,
@@ -157,6 +159,8 @@ function applyMetadata(template, { title, description, canonical, robots, graph,
 }
 
 function toolStaticContent(tool, content, tools) {
+  const hasReviewedIntent = Boolean(toolSeoIntent(tool.id));
+  const heading = (existing, reviewed) => hasReviewedIntent ? reviewed : existing;
   const section = (title, body) => body ? `<section class="tool-info-section"><h2>${escapeHtml(title)}</h2>${body}</section>` : '';
   const topic = (title, body) => body ? `<div class="tool-guide-topic"><h3>${escapeHtml(title)}</h3>${body}</div>` : '';
   const cards = items => items?.length ? `<div class="tool-info-card-grid">${items.map(item => `<article><h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.description)}</p></article>`).join('')}</div>` : '';
@@ -167,8 +171,8 @@ function toolStaticContent(tool, content, tools) {
         </section>` : '';
   const guide = content ? `<article class="tool-content-guide" aria-label="${escapeHtml(tool.name)} guide">
         ${tool.id === 'edit-pdf' ? intro : ''}
-        ${section('How to Use', `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHtml(item.title)}</h3>${item.description.trim().replace(/[.!?]+$/, '') === item.title.trim().replace(/[.!?]+$/, '') ? '' : `<p>${escapeHtml(item.description)}</p>`}</div></li>`).join('')}</ol>`)}
-        ${section('About, Features and Practical Uses', `
+        ${section(heading('How to Use', `How to Use ${tool.name}`), `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHtml(item.title)}</h3>${item.description.trim().replace(/[.!?]+$/, '') === item.title.trim().replace(/[.!?]+$/, '') ? '' : `<p>${escapeHtml(item.description)}</p>`}</div></li>`).join('')}</ol>`)}
+        ${section(heading('About, Features and Practical Uses', `About ${tool.name}`), `
           ${content.about.slice(1).map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('')}
           ${topic('What You Can Do', cards(content.features))}
           ${topic('Practical Use Cases', cards(content.useCases))}
@@ -177,14 +181,14 @@ function toolStaticContent(tool, content, tools) {
           ${topic('Understanding the Result', content.resultExplanation ? `<p>${escapeHtml(content.resultExplanation)}</p>` : '')}
           ${topic('Worked Example', content.examples?.map(item => `<div class="tool-example"><p>${escapeHtml(item)}</p></div>`).join(''))}
           ${topic('Helpful Tips', content.tips?.length ? `<ul>${content.tips.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '')}`)}
-        ${section('Privacy, Formats and Limitations', `
+        ${section(heading('Privacy, Formats and Limitations', `${tool.name} Formats, Privacy and Limitations`), `
           ${topic('Privacy and File Processing', `<div class="tool-info-note"><strong>${escapeHtml(content.privacy.processingMode)}</strong><p>${escapeHtml(content.privacy.description)}</p></div>`)}
           ${topic('Supported Inputs and Outputs', `<div class="tool-format-grid"><div><h4>Input</h4><ul>${content.supportedFormats.input.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div><div><h4>Output</h4><ul>${content.supportedFormats.output.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div></div>`)}
           ${topic('Assumptions', content.assumptions?.length ? `<ul>${content.assumptions.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '')}
           ${topic('Quality and Fidelity', content.quality ? `<p>${escapeHtml(content.quality)}</p>` : '')}
           ${topic('Limitations and Important Notes', `<ul>${content.limitations.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`)}`)}
-        ${section('Frequently Asked Questions', `<div class="faq-list">${content.faqs.map(item => `<article class="faq-item"><h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer)}</p></article>`).join('')}</div>`)}
-        ${section('Related Tools and Guides', `<div class="content-related-links">${content.relatedTools.map(id => `<a href="/${escapeHtml(id)}/">${escapeHtml(tools.find(item => item.id === id)?.name || id.replace(/-/g, ' '))}</a>`).join('')}${(content.relatedGuides || []).map(link => `<a href="/${escapeHtml(link.id)}/">${escapeHtml(link.label)}</a>`).join('')}</div>`)}
+        ${section(heading('Frequently Asked Questions', `Frequently Asked Questions About ${tool.name}`), `<div class="faq-list">${content.faqs.map(item => `<article class="faq-item"><h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer)}</p></article>`).join('')}</div>`)}
+        ${section(heading('Related Tools and Guides', `Related ${tool.name} Tools and Guides`), `<div class="content-related-links">${content.relatedTools.map(id => `<a href="/${escapeHtml(id)}/">${escapeHtml(tools.find(item => item.id === id)?.name || id.replace(/-/g, ' '))}</a>`).join('')}${(content.relatedGuides || []).map(link => `<a href="/${escapeHtml(link.id)}/">${escapeHtml(link.label)}</a>`).join('')}</div>`)}
       </article>` : '';
   return `      <section class="container tool-container static-route-shell" data-static-route-shell>
         <nav class="breadcrumb" aria-label="Breadcrumb"><a class="breadcrumb-link" href="/">Home</a><span aria-hidden="true">&gt;</span><span>${escapeHtml(tool.name)}</span></nav>
@@ -382,6 +386,7 @@ async function main() {
   await rm(distRoot, { recursive: true, force: true });
   await mkdir(distRoot, { recursive: true });
   await cp(join(projectRoot, 'public_html', 'assets'), join(distRoot, 'assets'), { recursive: true });
+  await copyEngineVendors(join(distRoot, 'assets', 'vendor'));
   const zxingDestination = join(distRoot, 'assets', 'vendor', 'zxing');
   await mkdir(zxingDestination, { recursive: true });
   await cp(join(projectRoot, 'node_modules', '@zxing', 'library', 'umd', 'index.min.js'), join(zxingDestination, 'index.min.js'));
