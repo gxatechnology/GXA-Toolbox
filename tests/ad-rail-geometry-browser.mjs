@@ -95,6 +95,7 @@ try {
     const target = row.background?.drop || row.workspaceParent || row.workspace;
     assert.ok(target, `${id} ${width}: functional workspace exists`);
     assert.equal(row.bodyOverflow, false, `${id} ${width}: no horizontal overflow`);
+    assert.ok(Math.abs(target.x + target.width / 2 - width / 2) <= 3, `${id} ${width}: functional workspace is centered`);
     assert.ok(row.right, `${id} ${width}: right rail exists`);
     assert.ok(Math.abs(row.right.y - target.y) <= 80, `${id} ${width}: right rail beside functional workspace`);
     assert.ok(row.right.x >= target.x + target.width + 20, `${id} ${width}: right rail separated from workspace`);
@@ -103,8 +104,8 @@ try {
       assert.ok(Math.abs(row.left.y - target.y) <= 80, `${id} ${width}: left rail beside functional workspace`);
       assert.ok(row.left.x + row.left.width + 20 <= target.x, `${id} ${width}: left rail separated from workspace`);
     } else assert.equal(row.left, null, `${id} ${width}: no squeezed left rail`);
-    const expectedRight = '2cc9598f48bdcb102277c47352490483';
-    const expectedLeft = width >= 1920 ? '983c84b73f5901c5877413ab9680312e' : '900dabd0bb67d683bd5dbc7486b6d25a';
+    const expectedRight = width >= 1440 ? '2cc9598f48bdcb102277c47352490483' : '900dabd0bb67d683bd5dbc7486b6d25a';
+    const expectedLeft = width >= 1600 ? '983c84b73f5901c5877413ab9680312e' : '900dabd0bb67d683bd5dbc7486b6d25a';
     if (!realProvider) {
       assert.equal(requested.filter(url => url.includes(expectedRight)).length, 1, `${id} ${width}: one right provider request`);
       if (width >= 1440) assert.equal(requested.filter(url => url.includes(expectedLeft)).length, 1, `${id} ${width}: one left provider request`);

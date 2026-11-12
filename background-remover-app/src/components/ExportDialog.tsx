@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { downloadBlob, exportImage } from '../utils/imageExport';
 import { trackBackgroundTool } from '../utils/analytics';
+import { AdPlacementPlaceholder } from './AdPlacementPlaceholder';
 import { Icon } from './Icon';
 import { ToolRating } from './ToolRating';
 
@@ -44,6 +45,7 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
           {settings.format === 'webp' && <label className="toggle-row"><span>Preserve transparency</span><input type="checkbox" checked={settings.preserveTransparency} onChange={(event) => setSettings({ preserveTransparency: event.target.checked })} /></label>}
           <label className="toggle-row"><span>Strip metadata</span><input type="checkbox" checked={settings.stripMetadata} onChange={(event) => setSettings({ stripMetadata: event.target.checked })} /></label>
           {error && <p className="dialog-error" role="alert">{error}</p>}
+          <div data-result-ready="true"><AdPlacementPlaceholder /></div>
         </div>
         <footer><button type="button" className="secondary-button" onClick={onClose}>{downloaded ? 'Close' : 'Cancel'}</button><button type="button" className="primary-button" disabled={busy} onClick={runExport}><Icon name="download" />{busy ? 'Rendering…' : downloaded ? 'Download again' : 'Download'}</button></footer>
         <ToolRating active={downloaded} />

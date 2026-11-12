@@ -18,17 +18,26 @@ for (const viewport of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1600, 1920]) 
     assert.ok(plan.filter(item => item.unit.key).every(item => item.unit.width <= viewport - 48));
     if (viewport < 1280 || tool !== 'compress-pdf') assert.ok(!plan.some(item => ['left', 'right'].includes(item.zone)));
     if (viewport < 1440) assert.ok(!plan.some(item => item.zone === 'left'));
-    if (viewport >= 768 && viewport < 1280) { assert.ok(plan.length <= 3); assert.equal(plan.find(item => item.zone === 'top')?.unit.width, 468); }
+    if (viewport >= 768 && viewport < 1280) { assert.ok(plan.length <= 3); assert.equal(plan.find(item => item.zone === 'top')?.unit.width, 320); }
     const right = plan.find(item => item.zone === 'right');
-    if (right) assert.deepEqual([right.unit.width, right.unit.height], [300, 250]);
+    if (right) assert.deepEqual([right.unit.width, right.unit.height], viewport >= 1440 ? [300, 250] : [160, 300]);
     assert.ok(plan.filter(item => item.unit.width === 160).length <= 1);
   }
 }
 const uploadRails = layout.plan(config, { tool: 'organize-pdf', viewport: 1440, inlineWidth: 1200, leftSpace: 200, rightSpace: 324, railEligible: true });
-assert.deepEqual(uploadRails.map(item => item.zone), ['top', 'after-tool', 'right', 'left']);
+assert.deepEqual(uploadRails.map(item => item.zone), ['after-tool', 'top', 'right', 'left']);
+assert.equal(uploadRails.find(item => item.zone === 'left').unit.height, 300);
+const wideUploadRails = layout.plan(config, { tool: 'organize-pdf', viewport: 1600, inlineWidth: 1200, leftSpace: 200, rightSpace: 324, railEligible: true });
+assert.equal(wideUploadRails.find(item => item.zone === 'left').unit.height, 600);
+const utilityPlan = layout.plan(config, { tool: 'json-tool', viewport: 1440, inlineWidth: 1000, resultPriority: false });
+assert.equal(utilityPlan.find(item => item.zone === 'top')?.unit.width, 728, 'Non-download utilities retain the desktop leaderboard.');
+assert.equal(utilityPlan.find(item => item.zone === 'after-tool')?.unit.containerId, config.native.containerId, 'Non-download utilities retain their Native after-tool placement.');
 assert.ok(!layout.plan(config, { tool: 'organize-pdf', viewport: 1280, inlineWidth: 1200, leftSpace: 100, rightSpace: 324, railEligible: true }).some(item => item.zone === 'left'));
+assert.deepEqual(layout.plan(config, { tool: 'organize-pdf', viewport: 1280, inlineWidth: 1200, leftSpace: 220, rightSpace: 220, railEligible: true }).find(item => item.zone === 'right')?.unit.width, 160);
 assert.deepEqual(layout.plan({ ...config, network: 'off' }, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200 }), []);
-assert.ok(!layout.plan(config, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200, leftSpace: 180, rightSpace: 180 }).some(item => ['left', 'right'].includes(item.zone)));
+const narrowGutters = layout.plan(config, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200, leftSpace: 180, rightSpace: 180 });
+assert.equal(narrowGutters.find(item => item.zone === 'right')?.unit.width, 160);
+assert.ok(!narrowGutters.some(item => item.zone === 'left'));
 assert.equal(config.native.src, 'https://bauval.org/21/b1b26904317d94da1830e1f5dd69d6d9');
 assert.equal(config.native.containerId, 'container-b1b26904317d94da1830e1f5dd69d6d9');
 assert.equal(config.native.unitId, 31513079);
@@ -97,20 +106,20 @@ assert.doesNotMatch(intrusiveRuntime, /popunder|abscloud\.org/, 'Popunder must n
 for (const viewport of [390, 768, 1440, 1920]) {
   const plan = layout.plan(config, { tool: 'compress-pdf', viewport, inlineWidth: viewport < 768 ? 342 : 1000, leftSpace: 400, rightSpace: 400 });
   const after = plan.find(item => item.zone === 'after-tool');
-  assert.ok(after?.fallbackUnit, `${viewport}: Native placement has one fixed fallback`);
-  assert.equal(after.fallbackUnit.width, viewport < 768 ? 300 : 320);
+  const expected = viewport < 768 ? [320, 50] : viewport < 1280 ? [468, 60] : [728, 90];
+  assert.deepEqual([after?.unit.width, after?.unit.height], expected, `${viewport}: result placement uses the approved responsive fixed banner`);
+  assert.equal(after?.fallbackUnit, undefined);
 }
 const expanded = layout.plan(config, { tool: 'compress-pdf', viewport: 1440, inlineWidth: 1020, leftSpace: 64, rightSpace: 324, guideSections: [500, 500, 300, 120] });
-assert.deepEqual(expanded.map(item => item.zone), ['top', 'after-tool', 'right', 'content-middle']);
-assert.equal(expanded.find(item => item.zone === 'content-middle').unit.width, 468);
+assert.deepEqual(expanded.map(item => item.zone), ['after-tool', 'top', 'right', 'content-middle']);
 const longPage = layout.plan(config, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200, leftSpace: 400, rightSpace: 400, guideSections: [500, 1100, 800, 120] });
-assert.deepEqual(longPage.map(item => item.zone), ['top', 'after-tool', 'right', 'left', 'content-middle', 'content-lower']);
-assert.equal(longPage.find(item => item.zone === 'after-tool').fallbackUnit, null, 'Reserved fixed key is never requested twice');
+assert.deepEqual(longPage.map(item => item.zone), ['after-tool', 'top', 'right', 'left', 'content-middle', 'content-lower']);
+assert.equal(new Set(longPage.map(item => item.unit.key || item.unit.containerId)).size, longPage.length, 'A provider unit is never requested twice');
 assert.ok(!layout.plan(config, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200, leftSpace: 400, rightSpace: 400, guideSections: [100, 200, 100, 10] }).some(item => item.zone.startsWith('content-')));
 const longMobile = layout.plan(config, { tool: 'compress-pdf', viewport: 390, inlineWidth: 342, guideSections: [320, 440, 360, 240] });
-assert.deepEqual(longMobile.map(item => item.zone), ['top', 'after-tool', 'content-middle']);
+assert.deepEqual(longMobile.map(item => item.zone), ['after-tool', 'top', 'content-middle']);
 assert.deepEqual(longMobile.filter(item => item.unit.key).map(item => [item.unit.width, item.unit.height]), [[320, 50], [300, 250]]);
-assert.equal(longMobile.find(item => item.zone === 'after-tool').fallbackUnit, null, 'Long mobile content owns the 300x250 key; Native remains unique without a duplicate fallback');
+assert.equal(longMobile.find(item => item.zone === 'after-tool').fallbackUnit, undefined);
 const tools = await loadToolRegistry(), quality = await loadToolQuality(), content = await loadContentPageRegistry();
 for (const id of config.railTools) assert.ok(tools.some(tool => tool.id === id), `${id}: rail allowlist must reference real registered routes`);
 let eligible = 0, denied = 0;

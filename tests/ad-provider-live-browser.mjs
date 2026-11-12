@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createQaServer } from './browser-qa-server.mjs';
 import config from '../public_html/assets/ad-config.js';
+import { PDFDocument } from 'pdf-lib';
 
 const server = createQaServer();
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -31,6 +32,25 @@ page.on('console', message => {
 try {
   await page.goto(`${origin}/compress-pdf/`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.GxaAdNetwork && document.querySelector('[data-ad-layout-zone="content-lower"]')));
+  // Request the empty-state rails before processing replaces that workspace.
+  // A missing rail request after processing is expected, not provider no-fill.
+  for (const zone of ['left', 'right']) {
+    await page.evaluate(zone => document.querySelector(`[data-ad-layout-zone="${zone}"]`)?.previousElementSibling?.scrollIntoView({ block: 'center' }), zone);
+    await page.waitForTimeout(1500);
+  }
+  await page.waitForTimeout(36000);
+  const preProcessingRails = await page.locator('.gxa-ad-rail').evaluateAll(nodes => nodes.map(node => ({
+    zone: node.dataset.adLayoutZone, unitId: Number(node.dataset.adUnitId), state: node.dataset.adState,
+    format: node.dataset.adFormat, width: node.getBoundingClientRect().width,
+    reason: node.dataset.adCollapseReason || null,
+    iframeSizes: [...node.querySelectorAll('iframe')].map(frame => ({ width: frame.getBoundingClientRect().width, height: frame.getBoundingClientRect().height }))
+  })));
+  const preProcessingRequests = requests.slice();
+  const pdf = await PDFDocument.create();
+  pdf.addPage().drawText('Local result-ad provider diagnostic');
+  await page.locator('#file-picker').setInputFiles({ name: 'ad-provider-diagnostic.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await pdf.save({ useObjectStreams: false })) });
+  await page.locator('#btn-process-action').click();
+  await page.waitForFunction(() => document.getElementById('btn-download-result')?.disabled === false && !document.getElementById('tool-complete-mount')?.classList.contains('hidden'), null, { timeout: 180000 });
   const zones = await page.locator('.gxa-ad-network').evaluateAll(nodes => nodes.map(node => node.dataset.adLayoutZone));
   for (const zone of zones) {
     await page.evaluate(zone => {
@@ -84,6 +104,8 @@ try {
       nonDisplayUnits: Object.entries(config.intrusive).map(([name, unit]) => ({ name, unitId: unit.unitId, enabled: unit.enabled, src: unit.src || null, reason: unit.activationBlockedReason || null }))
     },
     csp,
+    preProcessingRails,
+    preProcessingRequests,
     state,
     requests,
     responses,

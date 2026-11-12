@@ -16,7 +16,13 @@ type ToolContent = {
 };
 
 declare global {
-  interface Window { GXA_TOOL_CONTENT?: Record<string, ToolContent> }
+  interface Window {
+    GXA_TOOL_CONTENT?: Record<string, ToolContent>;
+    GxaToolGuideVisuals?: {
+      icon: (toolId: string, description: string, index: number) => string;
+      shortHeading: (toolId: string, description: string, title: string) => string;
+    };
+  }
 }
 
 const names: Record<string, string> = {
@@ -30,7 +36,14 @@ export function ToolContentGuide() {
   return <article className="tool-content-guide" aria-label="Background Remover guide">
     <section><h2>About This Tool</h2>{content.about.map(text => <p key={text}>{text}</p>)}</section>
     <section><h2>What You Can Do</h2><div className="tool-info-card-grid">{content.features.map(item => <article key={item.title}><h3>{item.title}</h3><p>{item.description}</p></article>)}</div></section>
-    <section><h2>How to Use</h2><ol className="tool-steps">{content.howToUse.map(item => <li key={item.step}><span>{item.step}</span><div><h3>{item.title}</h3>{item.description.trim().replace(/[.!?]+$/, '') !== item.title.trim().replace(/[.!?]+$/, '') && <p>{item.description}</p>}</div></li>)}</ol></section>
+    <section><h2>How to Use</h2><ol className="tool-steps tool-steps--visual" data-guide-tool="background-remover">{content.howToUse.map((item, index) => {
+      const title = window.GxaToolGuideVisuals?.shortHeading('background-remover', item.description, item.title) || item.title;
+      const icon = window.GxaToolGuideVisuals?.icon('background-remover', item.description, index) || '';
+      return <li className="tool-guide-step" key={item.step}>
+        <div className="tool-guide-step__art" aria-hidden="true" dangerouslySetInnerHTML={{ __html: icon }} />
+        <div className="tool-guide-step__copy"><span className="tool-guide-step__number">Step {item.step}</span><h3>{title}</h3>{item.description.trim().replace(/[.!?]+$/, '') !== title.trim().replace(/[.!?]+$/, '') && <p>{item.description}</p>}</div>
+      </li>;
+    })}</ol></section>
     <section><h2>Practical Use Cases</h2><div className="tool-info-card-grid">{content.useCases.map(item => <article key={item.title}><h3>{item.title}</h3><p>{item.description}</p></article>)}</div></section>
     <section><h2>Privacy and File Processing</h2><div className="tool-info-note"><strong>{content.privacy.processingMode}</strong><p>{content.privacy.description}</p></div></section>
     <section><h2>Supported Inputs and Outputs</h2><div className="tool-format-grid"><div><h3>Input</h3><ul>{content.supportedFormats.input.map(item => <li key={item}>{item}</li>)}</ul></div><div><h3>Output</h3><ul>{content.supportedFormats.output.map(item => <li key={item}>{item}</li>)}</ul></div></div></section>

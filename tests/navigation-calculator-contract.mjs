@@ -23,7 +23,9 @@ assert.match(app, /Everyday[\s\S]*Money[\s\S]*Convert & compare[\s\S]*Science & 
 assert.match(app, /function initializeCategoryNavigation\(nav\)/);
 assert.match(app, /addEventListener\('pointerenter'/);
 assert.match(app, /addEventListener\('pointerleave'/);
-assert.match(app, /addEventListener\('keydown'[\s\S]*event\.key !== 'Enter'[\s\S]*event\.key !== ' '/);
+assert.match(app, /trigger\.addEventListener\('click', togglePinnedMenu\)/);
+assert.match(app, /Native button activation dispatches click for Enter and Space/);
+assert.doesNotMatch(app, /event\.key !== 'Enter' && event\.key !== ' '/, 'Keyboard activation must not toggle twice.');
 assert.match(app, /event\.key === 'ArrowDown'[\s\S]*menu\.querySelector\('a'\)\?\.focus\(\)/);
 assert.match(app, /setTimeout\([\s\S]*}, 120\)/);
 assert.match(app, /menu\.setAttribute\('aria-hidden', 'true'\)/);

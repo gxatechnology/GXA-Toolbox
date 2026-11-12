@@ -35,6 +35,7 @@ const siteFooter = read('background-remover-app/src/components/SiteFooter.tsx');
 const toolContentGuide = read('background-remover-app/src/components/ToolContentGuide.tsx');
 const backgroundTemplate = read('background-remover-app/index.html');
 const adPlacement = read('background-remover-app/src/components/AdPlacementPlaceholder.tsx');
+const exportDialog = read('background-remover-app/src/components/ExportDialog.tsx');
 const types = read('background-remover-app/src/types/editor.ts');
 const runtime = read('background-remover-app/src/segmentation/onnxRuntime.ts');
 const modelManager = read('background-remover-app/src/segmentation/modelManager.ts');
@@ -66,12 +67,13 @@ assert(!rootIndex.includes('background-segmentation-engine.js'), 'Root HTML must
 assert(!rootIndex.includes('advanced-cutout-studio.js'), 'Root HTML must not globally load the legacy Cutout Studio.');
 ['/about/', '/careers/', '/security/', '/privacy-policy/', '/terms/', '/gdpr/', '/?support=1'].forEach((href) => assert(siteFooter.includes(href), `Background Remover footer is missing ${href}`));
 assert(siteFooter.includes('Terms of Service'), 'Background Remover footer must use the correct Terms of Service label.');
-assert(app.includes('<AdPlacementPlaceholder />'), 'Background Remover must preserve the future in-content ad mount.');
+assert(!app.includes('<AdPlacementPlaceholder />'), 'Background Remover upload workspace must not display the result ad.');
+assert(exportDialog.includes('<AdPlacementPlaceholder />') && exportDialog.includes('data-result-ready="true"'), 'Background Remover result ad must mount in the export dialog.');
 assert(app.includes('<ToolContentGuide />'), 'Background Remover must render the shared educational tool content.');
 assert(backgroundTemplate.includes('/assets/tool-content.js'), 'Background Remover must load the central tool content registry.');
 assert(toolContentGuide.includes("window.GXA_TOOL_CONTENT?.['background-remover']"), 'Background Remover content must come from the central registry rather than a duplicate definition.');
-assert(adPlacement.includes('data-ad-state="awaiting-ad-unit"'), 'Background Remover ad mount must remain explicitly unconfigured.');
-assert(adPlacement.includes('hidden'), 'Background Remover ad mount must remain hidden without a real slot ID.');
+assert(adPlacement.includes('data-ad-state="awaiting-ad-unit"'), 'Background Remover ad mount must remain explicitly unconfigured until the shared ad lifecycle plans it.');
+assert(css.includes('.gxa-tool-ad-placement[data-ad-state="awaiting-ad-unit"]'), 'Background Remover ad mount must remain hidden until the shared ad lifecycle configures it.');
 assert(!adPlacement.includes('data-ad-slot'), 'Background Remover must not contain a fake ad slot ID.');
 
 console.log('React Background Remover architecture and deployment contract passed.');

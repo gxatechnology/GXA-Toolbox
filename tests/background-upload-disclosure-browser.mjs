@@ -18,6 +18,7 @@ try {
   assert.equal(await page.locator('.editor-page').count(),0);
   assert.equal(await page.locator('.upload-page .primary-button').isVisible(),true);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  assert.ok(await page.evaluate(()=>{const r=document.querySelector('.upload-page .drop-zone')?.getBoundingClientRect();return r && Math.abs((r.left+r.right)/2-innerWidth/2)<=3;}),`centered upload ${width}`);
   rows.push({width,emptyUpload:true,exportHidden:true,editorHidden:true,overflow:false});
   if([390,1440,1920].includes(width)) await page.screenshot({path:resolve('test-results/workspace-master/after',`background-remover-${width}.png`)});
  }

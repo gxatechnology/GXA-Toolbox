@@ -22,6 +22,9 @@ if (migrations.includes('0008_recover_expected_application_schema.sql')) {
 if (migrations.includes('0009_create_tool_ratings.sql')) {
   expectedMigrations.push('0009_create_tool_ratings.sql');
 }
+if (migrations.includes('0010_create_blog_schema.sql')) {
+  expectedMigrations.push('0010_create_blog_schema.sql');
+}
 assert.deepEqual(migrations, expectedMigrations);
 for (const migration of migrations) {
   const sql = await read(`netlify/database/migrations/${migration}`);

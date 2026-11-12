@@ -1,0 +1,26 @@
+{
+  "auditDate": "2026-10-30",
+  "environment": "local generated dist in headless Chromium",
+  "screenshotsSuppliedInThisTurn": false,
+  "widthsChecked": [320, 360, 375, 390, 412, 430, 600, 768, 820, 1024, 1280, 1440, 1600, 1920],
+  "menu": {
+    "before": { "width": 320, "columns": 4, "groupWidthPx": 58 },
+    "after": { "width": 320, "columns": 1, "horizontalOverflow": false },
+    "desktopPreserved": { "width": 1440, "columns": 4 }
+  },
+  "organizePdfResult390": {
+    "before": { "previewWrapperHeightPx": 440, "comparisonHeightPx": 995, "downloadTopPx": 1376 },
+    "after": { "previewWrapperHeightPx": 997, "comparisonHeightPx": 995, "statsTopPx": 1658, "downloadTopPx": 1821, "downloadButtonContained": true, "horizontalOverflow": false },
+    "realPdfProcessed": true,
+    "downloadVerified": true,
+    "providerCreativeFillVerified": false
+  },
+  "allTools390": {
+    "before": { "scrollYPx": 0, "directoryTopPx": 1267 },
+    "after": { "path": "/", "hash": "#tools-grid-anchor", "scrollYPx": 1111, "directoryTopPx": 155 }
+  },
+  "uploadToGuideGapPx": { "mobile": 32, "tabletAndDesktop": 48 },
+  "horizontalOverflowDetected": false,
+  "physicalDevicesTested": false,
+  "all95ToolsIndividuallyTested": false
+}

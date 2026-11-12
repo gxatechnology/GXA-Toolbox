@@ -46,6 +46,7 @@ duplicate=true;
 assert.equal((await handler(make('POST','/api/tool-ratings',{tool_id:'merge-pdf',rating:4,review:''}))).status,409);
 delete process.env.RATING_ABUSE_SECRET;
 duplicate=false;
+assert.equal((await handler(make('GET','/api/tool-ratings?toolId=crop-image'))).status,503);
 assert.equal((await handler(make('POST','/api/tool-ratings',{tool_id:'crop-image',rating:4,review:''}))).status,503);
 setDatabaseClientForTests(null);
 

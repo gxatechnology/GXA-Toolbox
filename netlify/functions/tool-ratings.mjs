@@ -7,7 +7,8 @@ const TOOL_IDS = new Set(ADMIN_PRODUCT_SNAPSHOT.tools.map(tool => tool.id));
 const REVIEW_LIMIT = 1000;
 
 function enabled() {
-  return String(process.env.TOOL_RATINGS_ENABLED || '').toLowerCase() === 'true';
+  return String(process.env.TOOL_RATINGS_ENABLED || '').toLowerCase() === 'true'
+    && String(process.env.RATING_ABUSE_SECRET || '').length >= 32;
 }
 
 function validToolId(value) {

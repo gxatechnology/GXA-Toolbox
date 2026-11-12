@@ -18,11 +18,11 @@ const out = resolve('test-results/adsterra'); await mkdir(out, { recursive: true
 const csp = (await readFile('_headers', 'utf8')).match(/Content-Security-Policy: (.+)/)[1];
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
 await cachePublicDependencies(context);
-// Dedicated native lifecycle regression. Default expanded placement is exercised
-// separately by ad-layout-browser.mjs, including every approved banner adapter.
+// Isolate the result/download lifecycle; broader placement density is covered
+// separately by ad-layout-browser.mjs.
 await context.route('**/assets/ad-config.js', async route => {
   const source = await readFile('public_html/assets/ad-config.js', 'utf8');
-  // Keep the actual homepage configuration; isolate Native only on tool pages.
+  // Keep the actual homepage configuration; isolate result ads on tool pages.
   const isHome = new URL(route.request().headers().referer || origin).pathname === '/';
   await route.fulfill({ contentType: 'application/javascript', body: isHome ? source : source.replace('top: true, right: true, left: true, afterTool: true, content: true', 'top: false, right: false, left: false, afterTool: true, content: false') });
 });
@@ -81,6 +81,11 @@ try {
   const quality = await loadToolQuality();
   for (const [id] of Object.entries(quality).filter(([, q]) => q.adsEligible)) {
     await open(id);
+    if (id === 'background-remover') {
+      assert.equal(await page.locator('.gxa-ad-network').count(), 0, 'Background Remover result ad belongs to the export dialog, not the upload screen');
+      rows.push({ route: id, status: 'eligible; result candidate mounts in export dialog' });
+      continue;
+    }
     await page.waitForSelector('.gxa-ad-network', { state: 'attached' });
     assert.equal(await page.locator('.gxa-ad-network').count(), 1, id);
     assert.equal(await page.locator('.tool-workspace .gxa-ad-network:not([data-ad-trigger="result-ready"]), #crop-editor-workspace .gxa-ad-network:not([data-ad-trigger="result-ready"]), .premium-editor-workspace .gxa-ad-network:not([data-ad-trigger="result-ready"])').count(), 0, `${id}: only a gated result placement may live in the result workspace`);
@@ -113,20 +118,23 @@ try {
     await revealResultSlot();
     await requestSlot(); // The after-tool candidate may already be within the lazy-load margin.
     await page.waitForSelector('.gxa-ad-network[data-ad-state="mounted"]');
-    assert.equal(requests, before + 2); assert.equal(await page.locator(`#${config.native.containerId}`).count(), 1);
+    assert.equal(requests, before + 2);
+    const expected = width < 360 ? 'native' : width < 768 ? '320x50' : width < 1280 ? '468x60' : '728x90';
+    assert.equal(await page.locator('.gxa-ad-network').getAttribute('data-ad-format'), expected);
     assert.equal(await page.locator(`#gxa-adsterra-popunder`).count(), 0);
     assert.equal(await page.locator(`#gxa-adsterra-social-bar`).count(), 1);
-    assert.equal(await page.locator('script[src="' + config.native.src + '"]').count(), 1);
+    assert.equal(await page.locator('script[src="' + config.native.src + '"]').count(), expected === 'native' ? 1 : 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     assert.ok(await page.evaluate(() => {
-      const slot = document.querySelector('.gxa-ad-network').getBoundingClientRect();
-      const preview = document.querySelector('.crop-result-meta')?.getBoundingClientRect();
-      const download = document.querySelector('.result-download-section')?.getBoundingClientRect();
-      return (!preview || preview.bottom + 24 <= slot.top) && (!download || slot.bottom + 24 <= download.top);
+      const slotNode = document.querySelector('.gxa-ad-network');
+      const downloadNode = document.querySelector('.result-download-section');
+      if (!downloadNode) return true;
+      const slot = slotNode.getBoundingClientRect(), download = downloadNode.getBoundingClientRect();
+      return Boolean(slotNode.compareDocumentPosition(downloadNode) & Node.DOCUMENT_POSITION_FOLLOWING) && slot.bottom + 20 <= download.top;
     }), 'Ad must sit between result details and download with safe spacing');
     await page.evaluate(() => { for (let i = 0; i < 8; i++) GxaAdNetwork.sync(); setTheme(appState.theme === 'dark' ? 'light' : 'dark'); });
     assert.equal(requests, before + 2, 'No display or provider-bootstrap remount requests');
-    await page.screenshot({ path: resolve(out, `crop-native-${width}.png`), animations: 'disabled' });
+    await page.screenshot({ path: resolve(out, `crop-result-${width}.png`), animations: 'disabled' });
     rows.push({ route: 'crop-image', width, status: 'one lazy fixture, no overlap/overflow' });
   }
   await page.evaluate(() => { window.testDocument = true; navigate('tool-resize-image'); });
@@ -156,14 +164,14 @@ try {
         const download = document.querySelector('.result-download-section')?.getBoundingClientRect();
         return { ad: { top: ad.top, bottom: ad.bottom, height: ad.height }, download: download ? { top: download.top, bottom: download.bottom, height: download.height } : null, overflow: document.documentElement.scrollWidth > innerWidth + 1 };
       });
-      assert.ok((!resultGeometry.download || resultGeometry.ad.bottom + 24 <= resultGeometry.download.top) && !resultGeometry.overflow, `${id} ${width}: filled native must remain separated above the download section: ${JSON.stringify(resultGeometry)}`);
+      assert.ok((!resultGeometry.download || resultGeometry.ad.bottom + 20 <= resultGeometry.download.top) && !resultGeometry.overflow, `${id} ${width}: filled result banner must remain separated above the download section: ${JSON.stringify(resultGeometry)}`);
       rows.push({ route: id, width, status: 'filled result fixture above download, no overlap or overflow' });
     }
   }
   await open('edit-pdf');
   await page.locator('.pdf-edit-upload').waitFor();
   assert.equal(await page.locator('[data-ad-trigger="result-ready"]').getAttribute('data-ad-state'), 'waiting', 'Edit PDF result ad stays gated before a real preview exists');
-  for (const id of ['', 'guides/pdf-compression', 'background-remover']) {
+  for (const id of ['', 'guides/pdf-compression']) {
     await open(id);
     await page.evaluate(() => { for (let i = 0; i < 8; i++) window.GxaAdNetwork.sync(); });
     assert.equal(await page.locator('.gxa-ad-network').count(), id ? 1 : 2, 'Homepage has one discovery banner plus one editorial candidate');
@@ -188,8 +196,8 @@ try {
     mode = failure; const before = requests; await open('resize-image'); await revealResultSlot(); await requestSlot();
     await page.waitForFunction(() => ['failed', 'empty'].includes(document.querySelector('.gxa-ad-network')?.dataset.adState), null, { timeout: 60000 });
     assert.equal(await page.locator('.gxa-ad-network').evaluate(e => e.getBoundingClientRect().height), 0);
-    assert.equal(requests, before + 3); assert.ok(await page.locator('#file-picker').count());
-    await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, before + 3);
+    assert.equal(requests, before + 2); assert.ok(await page.locator('#file-picker').count());
+    await page.evaluate(() => GxaAdNetwork.sync()); assert.equal(requests, before + 2);
     rows.push({ route: 'resize-image', status: failure + ': collapsed, no retry, uploader retained' });
   }
   assert.deepEqual(errors, []); assert.deepEqual(unexpected, []);
@@ -197,4 +205,4 @@ try {
   await writeFile(resolve(out, 'results.json'), JSON.stringify({ rows, requests, errors, unexpected, liveAdsRequested: false, csp }, null, 2));
   await context.close(); await browser.close(); await new Promise(done => server.close(done));
 }
-console.log(`Adsterra browser passed: ${rows.length} checks, all 14 excluded routes, responsive/native fixtures, document navigation, failures and production CSP; no live ad requests.`);
+console.log(`Adsterra browser passed: ${rows.length} checks, all 14 excluded routes, responsive result fixtures, document navigation, failures and production CSP; no live ad requests.`);

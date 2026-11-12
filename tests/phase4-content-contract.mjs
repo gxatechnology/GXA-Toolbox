@@ -9,6 +9,7 @@ assert.equal(editorial.length, 20);
 assert.equal(editorial.filter(page => page.kind === 'guide').length, 13);
 assert.equal(editorial.filter(page => page.kind === 'category').length, 5);
 const known = new Set(['', ...tools.map(tool => tool.id), ...pages.map(page => page.id)]);
+const knownLinkTargets = new Set([...known, 'blog']); // Blog is a database-backed route, not a generated static page.
 for (const page of editorial) {
   assert.ok(page.sections.length >= 4, `${page.id}: substantive sections missing`);
   assert.equal(page.draftDate, '2026-10-02');
@@ -46,7 +47,7 @@ for (const id of known) {
     if (!href.startsWith('/') && !href.startsWith('#')) continue;
     const url = new URL(href, `${PRODUCTION_ORIGIN}/${id ? `${id}/` : ''}`);
     const target = url.pathname.replace(/^\/|\/$/g, '');
-    assert.ok(known.has(target), `${id}: dead internal link ${href}`);
+    assert.ok(knownLinkTargets.has(target), `${id}: dead internal link ${href}`);
     if (href.startsWith('#') && href.length > 1) assert.ok(html.includes(`id="${decodeURIComponent(url.hash.slice(1))}"`), `${id}: missing anchor ${href}`);
     checkedLinks++;
   }

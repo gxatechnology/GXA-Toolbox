@@ -1,10 +1,13 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { generateAdminSnapshot } from './generate-admin-snapshot.mjs';
+import { generateSocialPreview } from './generate-social-preview.mjs';
 import { copyEngineVendors } from './copy-engine-vendors.mjs';
 import { applyAdNetwork } from '../config/ad-network.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { toolSeoIntent } from './tool-seo-intents.mjs';
+import { TOOL_SEO_INTENTS, toolSeoIntent } from './tool-seo-intents.mjs';
+import '../public_html/assets/tool-icons.js';
+import '../public_html/assets/tool-guide-visuals.js';
 import {
   ADSENSE_PUBLISHER_ID,
   ADSENSE_SELLER_LINE,
@@ -171,7 +174,7 @@ function toolStaticContent(tool, content, tools) {
         </section>` : '';
   const guide = content ? `<article class="tool-content-guide" aria-label="${escapeHtml(tool.name)} guide">
         ${tool.id === 'edit-pdf' ? intro : ''}
-        ${section(heading('How to Use', `How to Use ${tool.name}`), `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHtml(item.title)}</h3>${item.description.trim().replace(/[.!?]+$/, '') === item.title.trim().replace(/[.!?]+$/, '') ? '' : `<p>${escapeHtml(item.description)}</p>`}</div></li>`).join('')}</ol>`)}
+        ${section(heading('How to Use', `How to Use ${tool.name}`), globalThis.GxaToolGuideVisuals.render(tool.id, content.howToUse, escapeHtml))}
         ${section(heading('About, Features and Practical Uses', `About ${tool.name}`), `
           ${content.about.slice(1).map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('')}
           ${topic('What You Can Do', cards(content.features))}
@@ -211,7 +214,7 @@ function homepageStaticContent() {
         </div>
         <div class="container tool-content-guide" aria-label="GXA Toolbox categories and approach">
           <section class="tool-info-section"><h2>Choose a task and understand the output</h2><p>For a profile photo, crop to the required shape, resize proportionally and compare delivery quality. For a report packet, merge documents in reading order and check the joins before considering compression.</p><div class="content-related-links"><a href="/pdf-tools/">PDF tools</a><a href="/image-tools/">Image tools</a><a href="/file-converters/">File converters</a><a href="/developer-tools/">Developer tools</a><a href="/calculators/">Calculators</a></div></section>
-          <section class="tool-info-section"><h2>Read before choosing settings</h2><p>The guides explain format tradeoffs, calculation assumptions and processing boundaries. Their drafting dates do not claim a completed human review.</p><div class="content-related-links"><a href="/guides/image-size/">Reduce image delivery size</a><a href="/guides/pdf-compression/">Choose PDF compression</a><a href="/guides/browser-processing/">Understand processing boundaries</a><a href="/guides/">All guides</a><a href="/editorial-standards/">Editorial standards</a></div></section>
+          <section class="tool-info-section"><h2>Read before choosing settings</h2><p>The guides explain format tradeoffs, calculation assumptions and processing boundaries. Their drafting dates do not claim a completed human review.</p><div class="content-related-links"><a href="/guides/image-size/">Reduce image delivery size</a><a href="/guides/pdf-compression/">Choose PDF compression</a><a href="/guides/browser-processing/">Understand processing boundaries</a><a href="/guides/">All guides</a><a href="/blog/">Blog</a><a href="/editorial-standards/">Editorial standards</a></div></section>
           <section class="tool-info-section"><h2>Tools for documents, images, data, and calculations</h2><div class="tool-info-card-grid">
             <article><h3>PDF workflows</h3><p>Merge, organize, compress, edit, protect, extract, convert, watermark, or number PDFs with page-aware controls and honest format limits.</p></article>
             <article><h3>Image workflows</h3><p>Compress, resize, crop, convert, inspect metadata, extract colors, run English OCR, or create an editable foreground cutout.</p></article>
@@ -221,6 +224,7 @@ function homepageStaticContent() {
             <article><h3>Everyday calculators</h3><p>Work through arithmetic, EMI, loan, GST, interest, SIP, date, age, time, percentage, and unit scenarios with visible formulas and assumptions.</p></article>
           </div></section>
           <section class="tool-info-section"><h2>Built around inspectable results</h2><p>Each public tool page explains its supported inputs and outputs, how the operation works, practical use cases, privacy boundary, limitations, and result checks. GXA Toolbox does not treat a generated file or calculation as automatically correct: important outputs should be opened, compared with the source, and checked in their destination workflow.</p></section>
+          <section class="tool-info-section"><h2>Built for everyday professionals</h2><p>Students, teachers, designers, developers, office teams, freelancers, small businesses and document professionals can choose workflows relevant to their tasks. These are use-case examples, not customer endorsements.</p></section>
         </div>
       </section>`;
 }
@@ -311,7 +315,7 @@ function notFoundHtml() {
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#2563EB">
   <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
-  <link rel="stylesheet" href="/assets/style.css?v=20261019-ux">
+  <link rel="stylesheet" href="/assets/style.css?v=20261030-guides">
 </head>
 <body class="light-mode">
   <main class="main-body"><section class="container static-route-shell not-found-shell">
@@ -385,6 +389,11 @@ async function main() {
 
   await rm(distRoot, { recursive: true, force: true });
   await mkdir(distRoot, { recursive: true });
+  await writeFile(
+    join(projectRoot, 'public_html', 'assets', 'tool-seo-intents.js'),
+    `// Generated from scripts/tool-seo-intents.mjs; do not edit directly.\nwindow.GXA_TOOL_SEO_INTENTS = Object.freeze(${escapeScriptJson(TOOL_SEO_INTENTS)});\n`,
+    'utf8'
+  );
   await cp(join(projectRoot, 'public_html', 'assets'), join(distRoot, 'assets'), { recursive: true });
   await copyEngineVendors(join(distRoot, 'assets', 'vendor'));
   const zxingDestination = join(distRoot, 'assets', 'vendor', 'zxing');
@@ -410,10 +419,15 @@ async function main() {
       await cp(source, destination);
     }
   }
+  await mkdir(join(distRoot, 'admin', 'blog'), { recursive: true });
+  for (const file of ['index.html', 'blog.css', 'blog.js']) {
+    await cp(join(projectRoot, 'public_html', 'admin', 'blog', file), join(distRoot, 'admin', 'blog', file));
+  }
   for (const file of ['_headers', '_redirects', 'apple-touch-icon.png', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'gxa-logo.png', 'site.webmanifest']) {
     await cp(join(projectRoot, file), join(distRoot, file));
   }
   await writeFile(join(distRoot, 'ads.txt'), `${ADSENSE_SELLER_LINE}\n`, 'utf8');
+  await generateSocialPreview(projectRoot, distRoot);
 
   const homeDescription = 'Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.';
   const homeHtml = applyMetadata(baseTemplate, {
@@ -463,7 +477,7 @@ async function main() {
   const backgroundCanonical = canonicalToolUrl(background.id);
   const removableHeadEntries = [
     /\s*<meta\s+name="(?:description|robots|twitter:card|twitter:title|twitter:description|twitter:image|twitter:image:alt)"[^>]*\/>?/gi,
-    /\s*<meta\s+property="(?:og:site_name|og:type|og:title|og:description|og:url|og:image|og:image:alt)"[^>]*\/>?/gi,
+    /\s*<meta\s+property="(?:og:site_name|og:type|og:title|og:description|og:url|og:image(?::(?:alt|width|height|type))?)"[^>]*\/>?/gi,
     /\s*<link\s+rel="canonical"[^>]*\/>?/gi,
     /\s*<script\s+id="gxa-structured-data"[^>]*>[\s\S]*?<\/script>/gi
   ];
@@ -477,13 +491,16 @@ async function main() {
     <meta property="og:title" content="${escapeHtml(toolTitle(background))}" />
     <meta property="og:description" content="${escapeHtml(backgroundDescription)}" />
     <meta property="og:url" content="${backgroundCanonical}" />
-    <meta property="og:image" content="${PRODUCTION_ORIGIN}/gxa-logo.png" />
-    <meta property="og:image:alt" content="GXA Toolbox logo" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="${PRODUCTION_ORIGIN}/gxa-social-preview.png" />
+    <meta property="og:image:alt" content="GXA Toolbox digital tools for PDFs, images, converters and calculations" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(toolTitle(background))}" />
     <meta name="twitter:description" content="${escapeHtml(backgroundDescription)}" />
-    <meta name="twitter:image" content="${PRODUCTION_ORIGIN}/gxa-logo.png" />
-    <meta name="twitter:image:alt" content="GXA Toolbox logo" />
+    <meta name="twitter:image" content="${PRODUCTION_ORIGIN}/gxa-social-preview.png" />
+    <meta name="twitter:image:alt" content="GXA Toolbox digital tools for PDFs, images, converters and calculations" />
     <script id="gxa-structured-data" type="application/ld+json">${escapeScriptJson(pageGraph({
       name: background.name,
       description: backgroundDescription,

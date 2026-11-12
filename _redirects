@@ -4,6 +4,16 @@ https://gxatoolbo.netlify.app/* https://gxatoolbox.in/:splat 301!
 /all-tools / 301!
 /favicon.ico /favicon-32x32.png 301
 /admin /admin/ 301
+/blog /blog/ 301
+/blog-sitemap.xml /.netlify/functions/blog-sitemap 200
+/indexnow-key.txt /.netlify/functions/blog-indexnow-key 200
+/blog/:slug /blog/:slug/ 301
+/blog/:slug/ /.netlify/functions/blog-public?slug=:slug 200
+/blog/ /.netlify/functions/blog-public 200
+/blog-media/:id /.netlify/functions/blog-media-public?id=:id 200
+/api/blog-admin /.netlify/functions/blog-admin 200
+/api/blog-media /.netlify/functions/blog-media-admin 200
+/api/blog-preview /.netlify/functions/blog-preview 200
 /api/tool-event /.netlify/functions/tool-event 200
 /api/tool-ratings /.netlify/functions/tool-ratings 200
 /api/location-geocode /.netlify/functions/location-geocode 200

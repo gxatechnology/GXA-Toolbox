@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { loadToolRegistry } from '../scripts/tool-registry.mjs';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [tools, app, styles, adNetwork, adConfig, imageConverter, gpsCamera, pdfEdit] = await Promise.all([
+const [tools, app, styles, adNetwork, adConfig, imageConverter, gpsCamera, pdfEdit, backgroundAd, backgroundExport, backgroundApp] = await Promise.all([
   loadToolRegistry(),
   read('public_html/assets/app.js'),
   read('public_html/assets/style.css'),
@@ -11,7 +11,10 @@ const [tools, app, styles, adNetwork, adConfig, imageConverter, gpsCamera, pdfEd
   read('public_html/assets/ad-config.js'),
   read('public_html/assets/image-converter.js'),
   read('public_html/assets/gps-map-camera.js'),
-  read('public_html/assets/pdf-edit.js')
+  read('public_html/assets/pdf-edit.js'),
+  read('background-remover-app/src/components/AdPlacementPlaceholder.tsx'),
+  read('background-remover-app/src/components/ExportDialog.tsx'),
+  read('background-remover-app/src/App.tsx')
 ]);
 
 assert.equal(tools.length, 95, 'The result audit must cover the complete 95-tool registry.');
@@ -20,11 +23,11 @@ assert.ok(generatorSource, 'Unable to locate the shared generator/file-workflow 
 const registered = new Set(tools.map(tool => tool.id));
 const directUtilities = new Set([...generatorSource[1].matchAll(/'([^']+)'/g)].map(match => match[1]).filter(id => registered.has(id)));
 const fileTools = tools.filter(tool => !directUtilities.has(tool.id));
-const exclusions = new Set(['background-remover', 'ppt-to-pdf']);
+const exclusions = new Set(['ppt-to-pdf']);
 const updatedTools = fileTools.filter(tool => !exclusions.has(tool.id));
 assert.equal(directUtilities.size, 38);
 assert.equal(fileTools.length, 57);
-assert.equal(updatedTools.length, 55);
+assert.equal(updatedTools.length, 56);
 assert.equal(updatedTools.length + directUtilities.size + exclusions.size, tools.length);
 
 const standard = app.slice(app.indexOf('<div id="tool-complete-mount"'), app.indexOf('<div id="tool-history-mount"'));
@@ -54,11 +57,17 @@ for (const [name, source, downloadToken] of [
 }
 assert.match(pdfEdit, /setAttribute\('data-result-ready', 'true'\)/);
 assert.match(pdfEdit, /\.result-download-section'\)\.hidden = false/);
+assert.match(backgroundAd, /data-ad-zone="ad-slot-after-tool"/);
+assert.match(backgroundAd, /data-ad-trigger="result-ready"/);
+assert.ok(backgroundExport.indexOf('AdPlacementPlaceholder') < backgroundExport.indexOf('<footer>'), 'Background Remover result banner must precede its final download footer.');
+assert.doesNotMatch(backgroundApp, /<AdPlacementPlaceholder/);
 
 assert.match(app, /window\.GxaResultFlow = Object\.freeze/);
 assert.match(adNetwork, /const resultReady = state/);
 assert.match(adNetwork, /data-result-ready="true"/);
 assert.match(adNetwork, /!resultReady\(state\)/);
+assert.match(adNetwork, /diagnostics/);
+for (const event of ['tool-eligibility', 'slot-created', 'download-result-ready', 'ad-request-attempted', 'provider-request-dispatched', 'no-creative-detected', 'creative-rendered', 'slot-collapsed']) assert.ok(adNetwork.includes(`'${event}'`), `Missing safe ad diagnostic: ${event}`);
 assert.match(adConfig, /popunder:[\s\S]*enabled:\s*false/);
 assert.match(adConfig, /socialBar:[\s\S]*enabled:\s*true/);
 assert.doesNotMatch(adNetwork, /abscloud\.org/);

@@ -1,10 +1,10 @@
 (function () {
   'use strict';
   if (window.GxaAdNetwork || window.GxaAdConfig?.network !== 'adsterra') return;
-  const config = window.GxaAdConfig, slots = new Map(), used = new Set();
+  const config = window.GxaAdConfig, slots = new Map(), used = new Set(), diagnosticEvents = [];
   let fixedQueue = Promise.resolve();
   let requested = false, requestedPath = null, plannedPath = null, pending = false, resizeTimer = null;
-  let lastGuide = null, lastGuideSignature = '', lastAfterMarker = null;
+  let lastGuide = null, lastGuideSignature = '', lastAfterMarker = null, lastEligibilitySignature = '';
   const visible = element => element.getClientRects().length && !element.closest('[hidden], .hidden');
   const resultReady = state => state.node.dataset.adTrigger !== 'result-ready' || Boolean(state.node.closest(
     '[data-result-ready="true"], #tool-complete-mount:not(.hidden), .crop-result-panel:not(.hidden), .image-converter__result:not([hidden]), .gps-studio__result:not([hidden])'
@@ -18,18 +18,48 @@
     const article = window.GXA_EDITORIAL_PAGES?.find(page => page.id === id);
     return Boolean(article && ['guide', 'category'].includes(article.kind) && policy.forPage(`content-${id}`).adsEligible === true);
   }
-  function blocked() {
+  function blockReason(state = null) {
     const main = document.querySelector('#main-content, #root');
-    if (!main || main.querySelector('[data-static-route-shell]') || !main.querySelector('h1')) return true;
-    if ([...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].some(visible)) return true;
-    return Boolean(document.body.dataset.gxaLastProcessingError) || [...main.querySelectorAll('[role="alert"], .preview-error-state, .error-message, #tool-processing-mount')].some(element => visible(element) && element.textContent.trim());
+    if (!main) return 'missing-main';
+    if (main.querySelector('[data-static-route-shell]')) return 'static-shell';
+    if (!main.querySelector('h1')) return 'missing-heading';
+    const dialog = [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].find(visible);
+    if (dialog && !state?.node.closest('[role="dialog"][aria-modal="true"]')) return 'modal-open';
+    if (document.body.dataset.gxaLastProcessingError) return 'processing-error';
+    if ([...main.querySelectorAll('[role="alert"], .preview-error-state, .error-message, #tool-processing-mount')].some(element => visible(element) && element.textContent.trim())) return 'visible-error-or-processing-state';
+    return '';
+  }
+  const blocked = state => Boolean(blockReason(state));
+  function record(event, state = null, detail = {}) {
+    diagnosticEvents.push(Object.freeze({
+      time: new Date().toISOString(),
+      path: location.pathname,
+      event,
+      zone: state?.node?.dataset.adLayoutZone || null,
+      format: state?.node?.dataset.adFormat || null,
+      unitId: state?.node?.dataset.adUnitId || null,
+      slotState: state?.node?.dataset.adState || null,
+      resultReady: state ? resultReady(state) : null,
+      ...detail
+    }));
+    if (diagnosticEvents.length > 200) diagnosticEvents.splice(0, diagnosticEvents.length - 200);
+  }
+  function recordEligibility() {
+    const value = eligible(), reason = blockReason();
+    const signature = `${location.pathname}|${value}|${reason}`;
+    if (signature === lastEligibilitySignature) return;
+    lastEligibilitySignature = signature;
+    record('tool-eligibility', null, { eligible: value, blocked: Boolean(reason), blockReason: reason || null });
   }
   function collapse(state, reason) {
     if (state.terminal) return;
+    if (reason === 'empty') record('no-creative-detected', state, { reason });
+    if (reason === 'failed') record('provider-blocked', state, { reason });
     clearTimeout(state.timer); state.observer?.disconnect(); state.intersection?.disconnect();
     state.sentinel?.remove(); state.node.hidden = true; state.node.dataset.adState = reason;
     state.node.dataset.adCollapseReason = reason;
     state.mount.replaceChildren(); state.terminal = true;
+    record('slot-collapsed', state, { reason });
     if (state.node.classList.contains('gxa-ad-rail')) updateRailLayout(state.node.closest('.tool-container') || (state.node.parentElement === document.body ? document.body : null));
   }
   function updateRailLayout(shell) {
@@ -43,7 +73,7 @@
   }
   function tryFallback(state, reason) {
     const unit = state.fallbackUnit;
-    if (!unit || state.unit.key || used.has(unit.key) || !eligible() || blocked() || !state.node.isConnected) return false;
+    if (!unit || state.unit.key || used.has(unit.key) || !eligible() || blocked(state) || !state.node.isConnected) return false;
     clearTimeout(state.timer); state.observer?.disconnect();
     state.mount.replaceChildren(); state.unit = unit; state.fallbackUnit = null;
     state.node.dataset.adState = 'loading'; state.node.dataset.adFormat = `${unit.width}x${unit.height}`;
@@ -75,7 +105,7 @@
   }
   function loadFixed(state) {
     return new Promise(resolve => {
-      if (state.terminal || !state.node.isConnected || !resultReady(state) || !eligible() || blocked()) { collapse(state, 'suppressed'); resolve(); return; }
+      if (state.terminal || !state.node.isConnected || !resultReady(state) || !eligible() || blocked(state)) { collapse(state, 'suppressed'); resolve(); return; }
       // Exact official embed pair, directly in the intended slot. Serialize pairs
       // so the provider-global atOptions object cannot race another unit.
       const options = document.createElement('script');
@@ -83,14 +113,15 @@
       const script = document.createElement('script');
       script.async = false; script.src = state.unit.src;
       script.onload = () => { ready(state, state.mount); resolve(); };
-      script.onerror = () => { collapse(state, 'failed'); resolve(); };
+      script.onerror = () => { record('provider-request-failed', state); collapse(state, 'failed'); resolve(); };
       watchForFill(state, state.mount);
+      record('provider-request-dispatched', state, { provider: 'adsterra' });
       state.mount.append(options, script);
     });
   }
   function ready(state, container) {
     if (state.terminal) return;
-    if (!eligible() || !state.node.isConnected || requestedPath !== location.pathname || blocked()) { collapse(state, 'suppressed'); return; }
+    if (!eligible() || !state.node.isConnected || requestedPath !== location.pathname || blocked(state)) { collapse(state, 'suppressed'); return; }
     // A host iframe/script loading is NOT a fill signal. Require provider creative DOM.
     const creative = [...container.querySelectorAll('iframe, img, a[href]')].some(element => {
       if (element.tagName === 'IMG') return element.complete && element.naturalWidth > 0;
@@ -119,30 +150,36 @@
     });
     if (!creative) return;
     if (document.activeElement?.closest('.tool-workspace, #edit-pdf-mount, #image-converter-mount, .tool-interactive-area')) return;
-    clearTimeout(state.timer); state.node.dataset.adState = 'mounted';
+    clearTimeout(state.timer);
+    if (state.node.dataset.adState !== 'mounted') record('creative-rendered', state);
+    state.node.dataset.adState = 'mounted';
     delete state.node.dataset.adCollapseReason;
   }
   function request(state) {
-    if (state.started || state.terminal || !state.node.isConnected || !resultReady(state) || !eligible() || blocked()) return;
+    if (state.started || state.terminal || !state.node.isConnected || !resultReady(state) || !eligible() || blocked(state)) return;
     const key = state.unit.key || state.unit.containerId;
     if (used.has(key)) return;
     used.add(key); state.started = true; requested = true; requestedPath = location.pathname;
     state.intersection?.disconnect(); state.sentinel.remove();
     state.node.dataset.adState = 'loading'; state.node.hidden = false;
+    record('ad-request-attempted', state, { provider: 'adsterra' });
     if (state.unit.key) {
       fixedQueue = fixedQueue.then(() => loadFixed(state));
     } else {
       if (document.getElementById(state.unit.containerId)) { collapse(state, 'duplicate'); return; }
       // Exact official Native order: async provider script, then its fixed ID.
       const script = document.createElement('script'); script.async = true; script.dataset.cfasync = 'false'; script.src = state.unit.src;
-      script.onerror = () => { if (!tryFallback(state, 'native-failed')) collapse(state, 'failed'); };
+      script.onerror = () => { record('provider-request-failed', state); if (!tryFallback(state, 'native-failed')) collapse(state, 'failed'); };
       const container = document.createElement('div'); container.id = state.unit.containerId;
       watchForFill(state, container);
+      record('provider-request-dispatched', state, { provider: 'adsterra' });
       state.mount.append(script, container);
     }
   }
   function makeSlot(zone, unit, anchor, existing = null, fallbackUnit = null) {
-    if (slots.has(zone)) return;
+    const prior = slots.get(zone);
+    if (prior?.node.isConnected) return;
+    if (prior) { collapse(prior, 'removed'); slots.delete(zone); }
     const node = existing || document.createElement('aside'); node.hidden = true;
     node.setAttribute('aria-label', 'Advertisement'); node.classList.add('gxa-ad-network');
     node.dataset.adLayoutZone = zone; node.dataset.adPlacement = zone;
@@ -159,6 +196,11 @@
     const sentinel = document.createElement('div'); sentinel.className = 'gxa-ad-sentinel'; sentinel.setAttribute('aria-hidden', 'true'); sentinel.dataset.adSentinelZone = zone; node.before(sentinel);
     const state = { node, unit, fallbackUnit, sentinel, mount: node.querySelector('[data-ad-unit-mount]'), started: false, terminal: false };
     slots.set(zone, state);
+    record('slot-created', state);
+    if (used.has(unit.key || unit.containerId)) {
+      collapse(state, 'already-requested');
+      return;
+    }
     if (zone === 'right' || zone === 'left') {
       node.classList.add('gxa-ad-rail'); node.style.width = `${unit.width}px`;
       updateRailLayout(node.closest('.tool-container') || (node.parentElement === document.body ? document.body : null));
@@ -189,12 +231,18 @@
     // The dedicated React editor owns #root. Put rails beside that root only
     // while its upload screen exists; never insert nodes inside React's tree.
     if (id === 'background-remover' && main?.id === 'root') {
+      const marker = main.querySelector('[data-ad-zone="ad-slot-after-tool"], [data-ad-zone="ad-slot-content-1"]');
+      if (marker && window.GxaAdLayout) {
+        const markerWidth = marker.parentElement?.getBoundingClientRect().width || Math.min(520, innerWidth - 32);
+        const resultPlacement = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: markerWidth })
+          .find(item => item.zone === 'after-tool');
+        if (resultPlacement) makeSlot('after-tool', resultPlacement.unit, null, marker, resultPlacement.fallbackUnit);
+      }
+      lastAfterMarker = marker;
       const upload = main.querySelector('.upload-page'), drop = upload?.querySelector('.drop-zone');
       if (!drop || !window.GxaAdLayout) return;
-      if (config.native.enabled && config.zones.afterTool) makeSlot('after-tool', config.native, main);
-      const usable = Math.max(0, innerWidth - 64 - 760);
-      const rightSpace = usable >= 324 ? 324 : 0;
-      const layout = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: 760, leftSpace: Math.max(0, usable - rightSpace - 24), rightSpace, railEligible: true });
+      const sideSpace = Math.max(0, (innerWidth - 32 - 760 - 48) / 2);
+      const layout = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: 760, leftSpace: sideSpace, rightSpace: sideSpace, railEligible: true });
       for (const item of layout.filter(item => item.zone === 'left' || item.zone === 'right')) {
         makeSlot(item.zone, item.unit, main);
         const node = slots.get(item.zone)?.node;
@@ -208,17 +256,20 @@
     shell.classList.add('gxa-ad-layout-shell');
     const workspace = [...shell.children].find(child => child.matches('.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount'));
     const canUseRails = Boolean(workspace && shell.dataset.disclosure !== 'ready' && workspace.getBoundingClientRect().width > 0);
-    const reservedWorkspace = Math.max(760, Math.min(820, workspace?.getBoundingClientRect().width || 760));
-    const usable = Math.max(0, innerWidth - 64 - reservedWorkspace);
-    const rightSpace = usable >= 324 ? 324 : 0;
-    const leftSpace = Math.max(0, usable - rightSpace - 24);
+    // The upload column is capped at 760px by the shared rail grid. Measure
+    // both side gutters symmetrically so planning cannot shift it off center.
+    const sideSpace = Math.max(0, (innerWidth - 32 - 760 - 48) / 2);
     const width = header.getBoundingClientRect().width;
     const sections = [...main.querySelectorAll('.tool-content-guide .tool-info-section')];
     const guideSections = sections.map(section => section.textContent.trim().length);
     lastGuide = main.querySelector('.tool-content-guide');
     lastGuideSignature = guideSections.join(',');
     lastAfterMarker = main.querySelector('[data-ad-zone="ad-slot-after-tool"], [data-ad-zone="ad-slot-content-1"]');
-    const layout = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: width, leftSpace: canUseRails ? leftSpace : 0, rightSpace: canUseRails ? rightSpace : 0, railEligible: canUseRails, guideSections });
+    // Static tool shells hydrate before their result marker. Every tool page
+    // reserves the result unit from the first pass; a top request can never
+    // consume the key needed by a later download workflow.
+    const resultPriority = true;
+    const layout = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: width, leftSpace: canUseRails ? sideSpace : 0, rightSpace: canUseRails ? sideSpace : 0, railEligible: canUseRails, guideSections, resultPriority });
     for (const item of layout) {
       if (item.zone === 'top') makeSlot(item.zone, item.unit, header, null, item.fallbackUnit);
       else if (item.zone === 'right' || item.zone === 'left') makeSlot(item.zone, item.unit, workspace, null, item.fallbackUnit);
@@ -234,7 +285,8 @@
     }
   }
   function sync() {
-    if (!eligible() || blocked()) { for (const state of slots.values()) if (state.started) collapse(state, 'suppressed'); return; }
+    recordEligibility();
+    if (!eligible()) { for (const state of slots.values()) if (state.started) collapse(state, 'suppressed'); return; }
     if (requested && requestedPath !== location.pathname) { for (const state of slots.values()) collapse(state, 'removed'); return; }
     if (plannedPath !== location.pathname) {
       for (const state of slots.values()) collapse(state, 'removed'); slots.clear();
@@ -248,6 +300,8 @@
       }
     }
     if (location.pathname === '/background-remover/') {
+      const marker = document.querySelector('#root [data-ad-zone="ad-slot-after-tool"], #root [data-ad-zone="ad-slot-content-1"]');
+      if (marker !== lastAfterMarker) plan();
       if (!document.querySelector('#root .upload-page')) {
         for (const zone of ['left', 'right']) {
           const state = slots.get(zone);
@@ -267,8 +321,12 @@
     }
     for (const state of slots.values()) {
       if (!state.node.isConnected && !state.terminal) collapse(state, 'removed');
-      if (state.started && !state.terminal && state.container) ready(state, state.container);
-      if (!state.started && !state.terminal && resultReady(state) && window.IntersectionObserver && state.sentinel.isConnected) {
+      if (state.started && !state.terminal && blocked(state)) collapse(state, 'suppressed');
+      const isResultReady = resultReady(state);
+      if (isResultReady && !state.lastResultReady) record('download-result-ready', state);
+      state.lastResultReady = isResultReady;
+      if (state.started && !state.terminal && state.container && !blocked(state)) ready(state, state.container);
+      if (!state.started && !state.terminal && isResultReady && !blocked(state) && window.IntersectionObserver && state.sentinel.isConnected) {
         const rect = state.sentinel.getBoundingClientRect();
         if (rect.bottom >= -200 && rect.top <= innerHeight + 200) request(state);
       }
@@ -278,6 +336,9 @@
     // Never refresh units on resize. Collapse sizes that no longer fit.
     for (const [zone, state] of slots) {
       if (!state.unit.key || state.terminal) continue;
+      // The result container is intentionally hidden until processing succeeds.
+      // Its zero-width pre-result geometry must not retire the download banner.
+      if (!state.started && !resultReady(state)) continue;
       const rect = state.node.parentElement?.getBoundingClientRect();
       const rail = zone === 'left' || zone === 'right';
       const fits = rect && (rail ? innerWidth >= (zone === 'left' ? 1440 : 1280) && state.node.getBoundingClientRect().width >= state.unit.width : rect.width >= state.unit.width);
@@ -285,7 +346,26 @@
     }
   }
   const schedule = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; sync(); }); };
-  window.GxaAdNetwork = Object.freeze({ sync, eligible, hasRequested: () => requested });
+  function diagnostics() {
+    return Object.freeze({
+      path: location.pathname,
+      eligible: eligible(),
+      blocked: blocked(),
+      blockReason: blockReason() || null,
+      providerRequestAttempted: requested,
+      slots: [...slots.values()].map(state => Object.freeze({
+        zone: state.node.dataset.adLayoutZone,
+        format: state.node.dataset.adFormat,
+        state: state.node.dataset.adState,
+        resultReady: resultReady(state),
+        requestAttempted: state.started,
+        collapseReason: state.node.dataset.adCollapseReason || null,
+        creativeRendered: state.node.dataset.adState === 'mounted'
+      })),
+      events: diagnosticEvents.slice()
+    });
+  }
+  window.GxaAdNetwork = Object.freeze({ sync, eligible, hasRequested: () => requested, diagnostics });
   function start() {
     new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'data-result-ready', 'data-gxa-last-processing-error'] });
     document.addEventListener('focusout', schedule);

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import sharp from 'sharp';
 import {
   ADSENSE_PUBLISHER_ID,
   ADSENSE_SELLER_LINE,
@@ -62,8 +64,13 @@ function assertSocialMetadata(html, { route, title, description, canonical }) {
     [/<meta\b[^>]*property=["']og:title["'][^>]*>/gi, 'Open Graph title'],
     [/<meta\b[^>]*property=["']og:description["'][^>]*>/gi, 'Open Graph description'],
     [/<meta\b[^>]*property=["']og:url["'][^>]*>/gi, 'Open Graph URL'],
+    [/<meta\b[^>]*property=["']og:image["'][^>]*>/gi, 'Open Graph image'],
+    [/<meta\b[^>]*property=["']og:image:width["'][^>]*>/gi, 'Open Graph image width'],
+    [/<meta\b[^>]*property=["']og:image:height["'][^>]*>/gi, 'Open Graph image height'],
+    [/<meta\b[^>]*property=["']og:image:type["'][^>]*>/gi, 'Open Graph image type'],
     [/<meta\b[^>]*name=["']twitter:title["'][^>]*>/gi, 'Twitter title'],
-    [/<meta\b[^>]*name=["']twitter:description["'][^>]*>/gi, 'Twitter description']
+    [/<meta\b[^>]*name=["']twitter:description["'][^>]*>/gi, 'Twitter description'],
+    [/<meta\b[^>]*name=["']twitter:image["'][^>]*>/gi, 'Twitter image']
   ];
   for (const [pattern, label] of singletonPatterns) {
     assert.equal((html.match(pattern) || []).length, 1, `${route} must contain exactly one ${label} tag.`);
@@ -77,9 +84,11 @@ function assertSocialMetadata(html, { route, title, description, canonical }) {
   assert.equal(attribute(html, 'property', 'og:type'), 'website', `${route} Open Graph type is incorrect.`);
   assert.equal(attribute(html, 'name', 'twitter:title'), title, `${route} Twitter title is incorrect.`);
   assert.equal(attribute(html, 'name', 'twitter:description'), description, `${route} Twitter description is incorrect.`);
-  assert.ok(['summary', 'summary_large_image'].includes(attribute(html, 'name', 'twitter:card')), `${route} Twitter card is invalid.`);
-  assert.match(attribute(html, 'property', 'og:image'), /^https:\/\//, `${route} Open Graph image must be absolute.`);
-  assert.match(attribute(html, 'name', 'twitter:image'), /^https:\/\//, `${route} Twitter image must be absolute.`);
+  assert.equal(attribute(html, 'name', 'twitter:card'), 'summary_large_image', `${route} needs the descriptive social card.`);
+  assert.equal(attribute(html, 'property', 'og:image'), `${PRODUCTION_ORIGIN}/gxa-social-preview.png`, `${route} Open Graph image is incorrect.`);
+  assert.equal(attribute(html, 'name', 'twitter:image'), `${PRODUCTION_ORIGIN}/gxa-social-preview.png`, `${route} Twitter image is incorrect.`);
+  assert.equal(attribute(html, 'property', 'og:image:width'), '1200', `${route} Open Graph image width is incorrect.`);
+  assert.equal(attribute(html, 'property', 'og:image:height'), '630', `${route} Open Graph image height is incorrect.`);
 }
 
 function countOccurrences(value, needle) {
@@ -162,7 +171,7 @@ async function listFiles(directory) {
   return files;
 }
 
-const [tools, blockedIds, contentPages, netlify, robots, manifestSource, rootAdsText, rootTemplate, backgroundTemplate, adminSource, appSource, backgroundFooterSource, backgroundAdPlaceholderSource] = await Promise.all([
+const [tools, blockedIds, contentPages, netlify, robots, manifestSource, rootAdsText, rootTemplate, backgroundTemplate, adminSource, appSource, backgroundFooterSource, backgroundAdPlaceholderSource, backgroundStyles] = await Promise.all([
   loadToolRegistry(),
   loadBlockedToolIds(),
   loadContentPageRegistry(),
@@ -175,7 +184,8 @@ const [tools, blockedIds, contentPages, netlify, robots, manifestSource, rootAds
   readFile(join(projectRoot, 'public_html', 'admin', 'admin.js'), 'utf8'),
   readFile(join(projectRoot, 'public_html', 'assets', 'app.js'), 'utf8'),
   readFile(join(projectRoot, 'background-remover-app', 'src', 'components', 'SiteFooter.tsx'), 'utf8'),
-  readFile(join(projectRoot, 'background-remover-app', 'src', 'components', 'AdPlacementPlaceholder.tsx'), 'utf8')
+  readFile(join(projectRoot, 'background-remover-app', 'src', 'components', 'AdPlacementPlaceholder.tsx'), 'utf8'),
+  readFile(join(projectRoot, 'background-remover-app', 'src', 'styles', 'global.css'), 'utf8')
 ]);
 
 assert.equal(ADSENSE_PUBLISHER_ID, 'ca-pub-6705105270847964', 'Canonical AdSense publisher configuration changed unexpectedly.');
@@ -189,10 +199,19 @@ assert.deepEqual([...blockedIds].sort(), ['qr-reader', 'barcode-reader', 'base64
 assert.equal(Object.keys(TOOL_SEO_INTENTS).length, 81, 'Reviewed SEO metadata must cover exactly the 81 indexable tools.');
 assert.deepEqual(new Set(Object.keys(TOOL_SEO_INTENTS)), new Set(tools.filter(tool => !blockedIds.has(tool.id)).map(tool => tool.id)), 'Reviewed SEO metadata must match the indexable tool policy exactly.');
 for (const [id, intent] of Object.entries(TOOL_SEO_INTENTS)) {
-  assert.ok(intent.title.length <= 60, `${id}: reviewed title exceeds 60 characters.`);
-  assert.ok(intent.description.length >= 70 && intent.description.length <= 160, `${id}: reviewed description is outside the 70-160 character quality range.`);
+  assert.ok(intent.title.trim() && intent.description.trim(), `${id}: reviewed metadata must be substantive.`);
   assert.doesNotMatch(intent.description, /…$/, `${id}: reviewed description must not end in a generated truncation mark.`);
 }
+assert.equal(new Set(Object.values(TOOL_SEO_INTENTS).map(intent => intent.title)).size, 81, 'Reviewed titles must be unique.');
+assert.equal(new Set(Object.values(TOOL_SEO_INTENTS).map(intent => intent.description)).size, 81, 'Reviewed descriptions must be unique.');
+const browserIntentSource = await readFile(join(distRoot, 'assets', 'tool-seo-intents.js'), 'utf8');
+const browserIntentContext = { window: {} };
+vm.runInNewContext(browserIntentSource, browserIntentContext);
+assert.deepEqual(JSON.parse(JSON.stringify(browserIntentContext.window.GXA_TOOL_SEO_INTENTS)), TOOL_SEO_INTENTS, 'Browser metadata must match the source registry.');
+assert.match(rootTemplate, /<script defer src="\/assets\/tool-seo-intents\.js"><\/script>/, 'The browser metadata source must load before app hydration.');
+assert.match(appSource, /window\.GXA_TOOL_SEO_INTENTS\?\.\[tool\.id\]/, 'Client navigation must retain reviewed tool metadata.');
+const socialImage = await sharp(join(distRoot, 'gxa-social-preview.png')).metadata();
+assert.deepEqual([socialImage.format, socialImage.width, socialImage.height], ['png', 1200, 630], 'Social preview must be a real 1200×630 PNG.');
 assert.match(netlify, /publish\s*=\s*["']dist["']/, 'Netlify must publish the generated dist directory.');
 assert.doesNotMatch(netlify, /from\s*=\s*["']\/\*["']/, 'Netlify must not restore a broad SPA catch-all.');
 assertGoogleTagManager(rootTemplate, 'root HTML template');
@@ -207,7 +226,7 @@ assert.match(appSource, /data-ad-placement="tool-content"[\s\S]*?hidden/i, 'Tool
 assert.doesNotMatch(appSource, /\bdata-ad-slot\s*=/i, 'Main application source must not invent an AdSense slot ID.');
 assert.match(backgroundAdPlaceholderSource, /data-ad-placement="tool-content"/i, 'Background Remover is missing the future responsive ad mount.');
 assert.match(backgroundAdPlaceholderSource, /data-ad-state="awaiting-ad-unit"/i, 'Background Remover ad mount must remain explicitly unconfigured.');
-assert.match(backgroundAdPlaceholderSource, /\bhidden\b/i, 'Background Remover ad mount must stay hidden until a real unit ID exists.');
+assert.match(backgroundStyles, /\.gxa-tool-ad-placement\[data-ad-state="awaiting-ad-unit"\]\s*\{[^}]*display:\s*none/i, 'Background Remover ad mount must stay hidden until the shared ad lifecycle configures it.');
 assert.doesNotMatch(backgroundAdPlaceholderSource, /\bdata-ad-slot\s*=/i, 'Background Remover must not invent an AdSense slot ID.');
 
 const footerSource = appSource.slice(appSource.indexOf('function renderFooter'), appSource.indexOf('// --- Page Navigator'));

@@ -4,3 +4,4 @@ Disallow: /api/
 Disallow: /.netlify/functions/
 
 Sitemap: https://gxatoolbox.in/sitemap.xml
+Sitemap: https://gxatoolbox.in/blog-sitemap.xml
