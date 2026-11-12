@@ -1,7 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { loadToolRegistry } from './tool-registry.mjs';
+import { loadToolRegistry, loadToolQuality } from './tool-registry.mjs';
 
 const tools = await loadToolRegistry();
+const quality = await loadToolQuality();
 const app = await readFile(new URL('../public_html/assets/app.js', import.meta.url), 'utf8');
 const generatorSource = app.match(/const generators = \[([\s\S]*?)\];\s*const routeNormallyNeedsFiles/);
 if (!generatorSource) throw new Error('Unable to locate the shared tool workflow classification.');
@@ -10,8 +11,9 @@ const directUtilities = new Set([...generatorSource[1].matchAll(/'([^']+)'/g)].m
 
 function classification(tool) {
   if (directUtilities.has(tool.id)) return ['Direct/live output', 'Excluded', 'No intermediate processed-file result screen; existing direct copy/download behavior is retained.'];
-  if (tool.id === 'background-remover') return ['Dedicated React editor export', 'Excluded', 'Export remains in the editor dialog; inserting an ad into that critical workflow would obstruct the canvas/export UX.'];
   if (tool.id === 'ppt-to-pdf') return ['Dependency-blocked', 'Excluded', 'Faithful presentation renderer is unavailable; no successful result/download screen is exposed.'];
+  if (!quality[tool.id]?.adsEligible) return ['Processed-file result', 'Ad-free', 'Intentional noindex/ad-free policy; no provider script is installed.'];
+  if (tool.id === 'background-remover') return ['Dedicated React editor export', 'Updated', 'Result-ready placement precedes the final download footer inside the export dialog; no ad enters the canvas.'];
   if (tool.id === 'image-converter') return ['Specialized image result', 'Updated', 'Preview and verified metadata → gated result ad → labeled download section.'];
   if (tool.id === 'gps-map-camera') return ['Specialized photo export', 'Updated', 'Result metadata → gated result ad → labeled download section.'];
   if (tool.id === 'crop-image') return ['Specialized crop result', 'Updated', 'Preview and output details → gated result ad → download/edit actions.'];
@@ -25,6 +27,7 @@ const rows = tools.map(tool => {
 });
 const updated = rows.filter(row => row.includes('| Updated |')).length;
 const excluded = tools.length - updated;
+const adFreeResults = tools.filter(tool => !directUtilities.has(tool.id) && tool.id !== 'ppt-to-pdf' && !quality[tool.id]?.adsEligible).length;
 const document = `# GXA Toolbox result/download layout audit
 
 Generated from the central 95-tool registry by \`scripts/generate-result-download-audit.mjs\`.
@@ -32,8 +35,8 @@ Generated from the central 95-tool registry by \`scripts/generate-result-downloa
 ## Outcome
 
 - Registered tools audited: **${tools.length}**
-- Post-processing result workflows updated: **${updated}**
-- Intentionally excluded: **${excluded}** (${directUtilities.size} direct/live utilities, Background Remover direct editor export, and dependency-blocked PPT to PDF)
+- Ad-eligible post-processing result workflows covered: **${updated}** (including the Background Remover export dialog)
+- Intentionally without a result ad: **${excluded}** (${directUtilities.size} direct/live utilities, ${adFreeResults} ad-free processed-file routes, and dependency-blocked PPT to PDF)
 - Popunder: **off**
 - Smartlink: **off**
 - Social Bar: **on**
@@ -53,7 +56,7 @@ ${rows.join('\n')}
 - Standard, crop, Image Converter, GPS Map Camera, and Edit PDF result views use the same shared advertisement-placeholder renderer.
 - Mobile has one normal-flow download action, rather than separate sticky and desktop duplicate buttons.
 - Advertisement labels, eligibility, approved-unit selection, lazy loading, fill detection, and collapse behavior remain owned by the central ad runtime.
-- The dedicated React Background Remover remains a direct-export exception to protect its canvas and export dialog.
+- The dedicated React Background Remover places its result ad in the export dialog before the final download footer, never in the canvas.
 
 ## Verification boundary
 

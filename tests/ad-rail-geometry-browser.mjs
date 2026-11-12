@@ -97,10 +97,12 @@ try {
     assert.equal(row.bodyOverflow, false, `${id} ${width}: no horizontal overflow`);
     assert.ok(Math.abs(target.x + target.width / 2 - width / 2) <= 3, `${id} ${width}: functional workspace is centered`);
     assert.ok(row.right, `${id} ${width}: right rail exists`);
+    assert.equal(row.rightStyle?.position, 'static', `${id} ${width}: unapproved sticky ads remain disabled`);
     assert.ok(Math.abs(row.right.y - target.y) <= 80, `${id} ${width}: right rail beside functional workspace`);
     assert.ok(row.right.x >= target.x + target.width + 20, `${id} ${width}: right rail separated from workspace`);
     if (width >= 1440) {
       assert.ok(row.left, `${id} ${width}: left rail exists`);
+      assert.equal(row.leftStyle?.position, 'static', `${id} ${width}: unapproved sticky ads remain disabled`);
       assert.ok(Math.abs(row.left.y - target.y) <= 80, `${id} ${width}: left rail beside functional workspace`);
       assert.ok(row.left.x + row.left.width + 20 <= target.x, `${id} ${width}: left rail separated from workspace`);
     } else assert.equal(row.left, null, `${id} ${width}: no squeezed left rail`);
@@ -119,7 +121,7 @@ try {
       })));
     }
     rows.push({ id, width, ...row, providerRequests: requested, finalState, creativeStatus: realProvider ? 'not proven by request or mounted state' : 'fixture only' });
-    if ([1440, 1920].includes(width) && ['compress-pdf', 'background-remover', 'gst-calculator'].includes(id)) {
+    if ([1440, 1920].includes(width) && ['compress-pdf', 'organize-pdf', 'compress-image', 'background-remover', 'gst-calculator'].includes(id)) {
       await page.evaluate(() => scrollTo(0, Math.max(0, (document.querySelector('.upload-zone, .tool-interactive-area, .drop-zone')?.getBoundingClientRect().top || 0) + scrollY - 180)));
       await page.waitForTimeout(150);
       await page.screenshot({ path: resolve(`test-results/ad-rails/${id}-${width}${realProvider ? '-real' : '-fixture'}.png`) });

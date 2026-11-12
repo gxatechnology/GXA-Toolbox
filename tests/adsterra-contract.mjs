@@ -8,6 +8,7 @@ const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 assert.ok(['adsterra', 'adsense', 'off'].includes(AD_NETWORK));
 assert.equal(config.maxPlacements, 6);
 assert.equal(config.providerSiteId, 6091425);
+assert.deepEqual(config.stickyRails, { enabled: false, providerApproved: false, minWidth: 1600, minHeight: 900 }, 'Sticky rails require an explicit provider-policy opt-in.');
 assert.equal(config.interstitial.enabled, false);
 for (const tool of ['edit-pdf', 'crop-image', 'organize-pdf', 'background-remover', 'gps-map-camera']) assert.ok(!config.railTools.includes(tool));
 for (const viewport of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1600, 1920]) {
@@ -96,6 +97,7 @@ assert.doesNotMatch(runtime, /addEventListener\('pointerdown'/);
 assert.match(runtime, /used\.has\(key\)/);
 assert.match(runtime, /setTimeout\(resize, 150\)/, 'Retire units only after transient viewport measurements settle');
 assert.match(runtime, /IntersectionObserver/); assert.match(runtime, /if \(requested/);
+assert.match(runtime, /sticky\.providerApproved && config\.network === 'adsterra'/);
 const intrusiveRuntime = await read('public_html/assets/ad-intrusive.js');
 assert.match(intrusiveRuntime, /publicRouteEligible/);
 assert.match(intrusiveRuntime, /GxaAdNetwork\?\.eligible\(\) === true/);

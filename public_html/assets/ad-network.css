@@ -1,4 +1,4 @@
-/* Dedicated editorial placements only; no fixed/sticky positions or tool overlays. */
+/* Dedicated placements only; sticky rails remain policy-gated and off by default. */
 .gxa-ad-network[hidden] { display: none !important; }
 .gxa-ad-network:not([hidden]) { display: block; box-sizing: border-box; width: 100%; max-width: 970px; min-width: 0; min-height: 0; margin: 40px auto; padding: 16px 0; border-block: 1px solid var(--color-border, #dbe2ea); background: transparent; contain: layout; overflow: visible; }
 .gxa-ad-layout-shell { position: relative; }
@@ -42,6 +42,13 @@
 .gxa-ad-network[data-ad-state="loading"] { position: absolute; visibility: hidden; height: 0; margin-block: 0; padding: 0; border: 0; pointer-events: none; }
 .gxa-ad-banner-frame { display: block; margin: 0 auto; border: 0; max-width: 100%; }
 .gxa-ad-network.gxa-ad-rail { position: static; margin: 0; padding: 12px 0; }
+@media (min-width: 1600px) and (min-height: 900px) {
+  .gxa-ad-layout-shell--sticky-rails > .gxa-ad-rail[data-ad-state="mounted"] {
+    position: sticky;
+    top: 88px;
+    align-self: start;
+  }
+}
 .gxa-ad-network[data-ad-layout-zone="content-middle"] { margin-block: 52px; }
 .gxa-ad-network[data-ad-layout-zone="content-lower"] { margin-block: 64px; }
 .gxa-ad-network[data-ad-layout-zone="after-tool"] { max-width: 752px; margin-block: 28px 22px; padding-block: 12px; text-align: center; }

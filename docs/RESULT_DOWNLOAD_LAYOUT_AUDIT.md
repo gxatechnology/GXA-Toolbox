@@ -5,8 +5,8 @@ Generated from the central 95-tool registry by `scripts/generate-result-download
 ## Outcome
 
 - Registered tools audited: **95**
-- Post-processing result workflows updated: **55**
-- Intentionally excluded: **40** (38 direct/live utilities, Background Remover direct editor export, and dependency-blocked PPT to PDF)
+- Ad-eligible post-processing result workflows covered: **53** (including the Background Remover export dialog)
+- Intentionally without a result ad: **42** (38 direct/live utilities, 3 ad-free processed-file routes, and dependency-blocked PPT to PDF)
 - Popunder: **off**
 - Smartlink: **off**
 - Social Bar: **on**
@@ -26,7 +26,7 @@ The shared result order is success, preview, useful output details, a result-rea
 | GPS Map Camera – Geotag Photo | /gps-map-camera/ | image | Specialized photo export | Updated | Result metadata → gated result ad → labeled download section. |
 | Crop Image | /crop-image/ | image | Specialized crop result | Updated | Preview and output details → gated result ad → download/edit actions. |
 | Image OCR | /image-ocr/ | image | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
-| Background Remover | /background-remover/ | image | Dedicated React editor export | Excluded | Export remains in the editor dialog; inserting an ad into that critical workflow would obstruct the canvas/export UX. |
+| Background Remover | /background-remover/ | image | Dedicated React editor export | Updated | Result-ready placement precedes the final download footer inside the export dialog; no ad enters the canvas. |
 | Password Generator | /password-generator/ | utility | Direct/live output | Excluded | No intermediate processed-file result screen; existing direct copy/download behavior is retained. |
 | QR & Barcode | /barcode-generator/ | utility | Direct/live output | Excluded | No intermediate processed-file result screen; existing direct copy/download behavior is retained. |
 | Color Extractor | /color-extractor/ | utility | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
@@ -51,7 +51,7 @@ The shared result order is success, preview, useful output details, a result-rea
 | Excel to PDF | /excel-to-pdf/ | convert | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
 | PPT to PDF | /ppt-to-pdf/ | convert | Dependency-blocked | Excluded | Faithful presentation renderer is unavailable; no successful result/download screen is exposed. |
 | PDF to Text | /pdf-to-text/ | convert | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
-| HTML to PDF | /html-to-pdf/ | convert | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
+| HTML to PDF | /html-to-pdf/ | convert | Processed-file result | Ad-free | Intentional noindex/ad-free policy; no provider script is installed. |
 | PDF to HTML | /pdf-to-html/ | convert | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
 | Markdown to PDF | /markdown-to-pdf/ | convert | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
 | PDF to Markdown | /pdf-to-markdown/ | convert | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
@@ -60,8 +60,8 @@ The shared result order is success, preview, useful output details, a result-rea
 | WEBP to JPG | /webp-to-jpg/ | convert | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
 | GIF Frame Extractor | /gif-to-png/ | convert | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
 | Text-to-Speech Reader | /text-to-speech/ | utility | Direct/live output | Excluded | No intermediate processed-file result screen; existing direct copy/download behavior is retained. |
-| QR Code Reader | /qr-reader/ | utility | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
-| Barcode Scanner | /barcode-reader/ | utility | Shared processed-file result | Updated | Success and preview/statistics → gated result ad → labeled download/start-over actions. |
+| QR Code Reader | /qr-reader/ | utility | Processed-file result | Ad-free | Intentional noindex/ad-free policy; no provider script is installed. |
+| Barcode Scanner | /barcode-reader/ | utility | Processed-file result | Ad-free | Intentional noindex/ad-free policy; no provider script is installed. |
 | Base64 Tool | /base64-tool/ | utility | Direct/live output | Excluded | No intermediate processed-file result screen; existing direct copy/download behavior is retained. |
 | URL Encoder/Decoder | /url-tool/ | utility | Direct/live output | Excluded | No intermediate processed-file result screen; existing direct copy/download behavior is retained. |
 | JSON Formatter | /json-tool/ | utility | Direct/live output | Excluded | No intermediate processed-file result screen; existing direct copy/download behavior is retained. |
@@ -120,7 +120,7 @@ The shared result order is success, preview, useful output details, a result-rea
 - Standard, crop, Image Converter, GPS Map Camera, and Edit PDF result views use the same shared advertisement-placeholder renderer.
 - Mobile has one normal-flow download action, rather than separate sticky and desktop duplicate buttons.
 - Advertisement labels, eligibility, approved-unit selection, lazy loading, fill detection, and collapse behavior remain owned by the central ad runtime.
-- The dedicated React Background Remover remains a direct-export exception to protect its canvas and export dialog.
+- The dedicated React Background Remover places its result ad in the export dialog before the final download footer, never in the canvas.
 
 ## Verification boundary
 

@@ -70,6 +70,12 @@
     shell.classList.toggle('gxa-ad-layout-shell--rail-right', !left && right);
     shell.classList.toggle('gxa-ad-layout-shell--rail-left', left && !right);
     if (shell === document.body) shell.classList.toggle('gxa-ad-background-rails', left || right);
+    const sticky = config.stickyRails;
+    shell.classList.toggle('gxa-ad-layout-shell--sticky-rails', Boolean(
+      sticky?.enabled && sticky.providerApproved && config.network === 'adsterra'
+      && innerWidth >= sticky.minWidth && innerHeight >= sticky.minHeight
+      && (left || right) && shell !== document.body
+    ));
   }
   function tryFallback(state, reason) {
     const unit = state.fallbackUnit;
@@ -154,6 +160,7 @@
     if (state.node.dataset.adState !== 'mounted') record('creative-rendered', state);
     state.node.dataset.adState = 'mounted';
     delete state.node.dataset.adCollapseReason;
+    if (state.node.classList.contains('gxa-ad-rail')) updateRailLayout(state.node.closest('.tool-container'));
   }
   function request(state) {
     if (state.started || state.terminal || !state.node.isConnected || !resultReady(state) || !eligible() || blocked(state)) return;
@@ -344,6 +351,8 @@
       const fits = rect && (rail ? innerWidth >= (zone === 'left' ? 1440 : 1280) && state.node.getBoundingClientRect().width >= state.unit.width : rect.width >= state.unit.width);
       if (!fits) collapse(state, 'resized');
     }
+    const shell = document.querySelector('#main-content .tool-container');
+    if (shell) updateRailLayout(shell);
   }
   const schedule = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; sync(); }); };
   function diagnostics() {

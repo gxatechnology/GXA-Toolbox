@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { loadToolRegistry } from '../scripts/tool-registry.mjs';
+import { loadToolRegistry, loadToolQuality } from '../scripts/tool-registry.mjs';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [tools, app, styles, adNetwork, adConfig, imageConverter, gpsCamera, pdfEdit, backgroundAd, backgroundExport, backgroundApp] = await Promise.all([
+const [tools, quality, app, styles, adNetwork, adConfig, imageConverter, gpsCamera, pdfEdit, backgroundAd, backgroundExport, backgroundApp] = await Promise.all([
   loadToolRegistry(),
+  loadToolQuality(),
   read('public_html/assets/app.js'),
   read('public_html/assets/style.css'),
   read('public_html/assets/ad-network.js'),
@@ -28,6 +29,7 @@ const updatedTools = fileTools.filter(tool => !exclusions.has(tool.id));
 assert.equal(directUtilities.size, 38);
 assert.equal(fileTools.length, 57);
 assert.equal(updatedTools.length, 56);
+assert.equal(updatedTools.filter(tool => quality[tool.id]?.adsEligible).length, 53, 'Only published, ads-eligible result workflows receive provider scripts.');
 assert.equal(updatedTools.length + directUtilities.size + exclusions.size, tools.length);
 
 const standard = app.slice(app.indexOf('<div id="tool-complete-mount"'), app.indexOf('<div id="tool-history-mount"'));
@@ -73,4 +75,4 @@ assert.match(adConfig, /socialBar:[\s\S]*enabled:\s*true/);
 assert.doesNotMatch(adNetwork, /abscloud\.org/);
 assert.match(app, /recordToolAnalytics\('tool_download'/);
 
-console.log(`Result/download layout contract passed: ${tools.length} audited, ${updatedTools.length} result workflows updated, ${directUtilities.size + exclusions.size} intentionally excluded.`);
+console.log(`Result/download layout contract passed: ${tools.length} audited, ${updatedTools.length} result workflows covered (${updatedTools.filter(tool => quality[tool.id]?.adsEligible).length} ads-eligible), ${directUtilities.size + exclusions.size} intentionally excluded.`);

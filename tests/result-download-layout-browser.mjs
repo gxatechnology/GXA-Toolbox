@@ -87,7 +87,9 @@ async function verifyResult(route, downloadSelector, width) {
   assert.equal(slot.requestAttempted, true);
   assert.equal(slot.creativeRendered, true);
   for (const event of ['download-result-ready', 'ad-request-attempted', 'provider-request-dispatched', 'creative-rendered']) assert.ok(diagnostics.events.some(item => item.zone === 'after-tool' && item.event === event), `${route} ${width}: missing ${event}`);
-  if ([390, 1920].includes(width)) await page.screenshot({ path: resolve(output, `${route}-${width}.png`), fullPage: true, animations: 'disabled' });
+  if ([390, 1920].includes(width) || (width === 1440 && ['organize-pdf', 'compress-image'].includes(route))) {
+    await page.screenshot({ path: resolve(output, `${route}-${width}.png`), fullPage: true, animations: 'disabled' });
+  }
   return { route, width, ...result, format: slot.format };
 }
 
@@ -126,15 +128,41 @@ try {
     }
   }
 
+  // The shared result template serves these distinct engines. Exercise actual
+  // processing, not just a static marker in the generated tool HTML.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const route of ['organize-pdf', 'merge-pdf', 'compress-image', 'pdf-to-jpg']) {
+    await open(route);
+    const before = resultRequests;
+    const files = route === 'merge-pdf'
+      ? [{ name: 'merge-a.pdf', mimeType: 'application/pdf', buffer: pdfBytes }, { name: 'merge-b.pdf', mimeType: 'application/pdf', buffer: pdfBytes }]
+      : route === 'compress-image'
+        ? resolve('tests/fixtures/small.png')
+        : { name: `${route}.pdf`, mimeType: 'application/pdf', buffer: pdfBytes };
+    await page.locator('#file-picker').setInputFiles(files);
+    await page.locator('#btn-process-action').click();
+    await page.waitForFunction(() => document.getElementById('btn-download-result')?.disabled === false && !document.getElementById('tool-complete-mount')?.classList.contains('hidden'));
+    rows.push(await verifyResult(route, '#btn-download-result', 1440));
+    assert.equal(resultRequests, before + 1, `${route}: exactly one result-banner request`);
+  }
+  await open('crop-image');
+  const beforeCrop = resultRequests;
+  await page.locator('#crop-file-picker').setInputFiles(resolve('tests/fixtures/small.png'));
+  await page.locator('#crop-apply-button').click();
+  await page.locator('#crop-result-panel').waitFor({ state: 'visible' });
+  rows.push(await verifyResult('crop-image', '#crop-download-button', 1440));
+  assert.equal(resultRequests, beforeCrop + 1, 'Crop Image: exactly one result-banner request');
+
   providerMode = 'empty';
   await page.setViewportSize({ width: 390, height: 844 }); await open('image-converter');
   await page.locator('.image-converter__input').setInputFiles(resolve('tests/fixtures/small.png'));
   await page.locator('.image-converter__convert').click();
   await page.locator('.image-converter__result').waitFor({ state: 'visible' });
-  await page.evaluate(() => { const node = document.querySelector('[data-ad-trigger="result-ready"]'); if (node) { node.dataset.adState = 'empty'; node.dataset.adCollapseReason = 'empty'; node.hidden = true; } });
-  await page.waitForFunction(() => document.querySelector('[data-ad-trigger="result-ready"]')?.dataset.adState === 'empty');
+  await page.evaluate(() => document.querySelector('.gxa-ad-sentinel[data-ad-sentinel-zone="after-tool"]')?.scrollIntoView({ block: 'center' }));
+  await page.waitForFunction(() => document.querySelector('[data-ad-trigger="result-ready"]')?.dataset.adState === 'empty', null, { timeout: 45000 });
   assert.equal(await page.locator('[data-ad-trigger="result-ready"]').evaluate(node => node.getBoundingClientRect().height), 0);
   assert.equal(await page.locator('.image-converter__download').isVisible(), true, 'No-fill must not hide the download action.');
+  assert.equal((await page.evaluate(() => window.GxaAdNetwork.diagnostics())).slots.find(item => item.zone === 'after-tool')?.collapseReason, 'empty');
 
   assert.deepEqual(errors, []);
   await writeFile(resolve(output, 'results.json'), JSON.stringify({ rows, fixtureAdsOnly: true, realDownloads: 2, resultRequests }, null, 2));

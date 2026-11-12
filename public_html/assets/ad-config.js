@@ -7,6 +7,9 @@
     maxPlacements: 6,
     zones: Object.freeze({ top: true, right: true, left: true, afterTool: true, content: true }),
     limits: Object.freeze({ tool: 6, editor: 3, tablet: 3, mobile: 3, editorial: 1 }),
+    // Dormant until this exact provider/placement is expressly approved.
+    // A viewport alone must never turn a normal rail into a sticky ad.
+    stickyRails: Object.freeze({ enabled: false, providerApproved: false, minWidth: 1600, minHeight: 900 }),
     railTools: Object.freeze(['compress-pdf', 'merge-pdf', 'split-pdf', 'pdf-to-jpg', 'jpg-to-pdf', 'image-to-pdf', 'png-to-pdf', 'svg-to-png', 'compress-image', 'resize-image', 'image-converter', 'calculator', 'scientific-calculator', 'percentage-calculator', 'age-calculator', 'date-calculator', 'emi-calculator', 'loan-calculator', 'interest-calculator', 'gst-calculator', 'sip-calculator', 'bmi-calculator', 'discount-calculator', 'unit-converter', 'currency-converter', 'time-calculator', 'json-tool', 'hash-tool', 'word-counter', 'lorem-ipsum', 'diff-checker', 'regex-tester', 'timestamp-converter']),
     // Explicit opt-in rail list: unknown/new editors never acquire a sidebar.
     interstitial: Object.freeze({ enabled: false, frequencyMinutes: 30, reason: 'No approved interstitial unit; banners must not be repurposed.' }),
