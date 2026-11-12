@@ -241,9 +241,8 @@
       lastAfterMarker = marker;
       const upload = main.querySelector('.upload-page'), drop = upload?.querySelector('.drop-zone');
       if (!drop || !window.GxaAdLayout) return;
-      const usable = Math.max(0, innerWidth - 64 - 760);
-      const rightSpace = usable >= 324 ? 324 : 0;
-      const layout = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: 760, leftSpace: Math.max(0, usable - rightSpace - 24), rightSpace, railEligible: true });
+      const sideSpace = Math.max(0, (innerWidth - 32 - 760 - 48) / 2);
+      const layout = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: 760, leftSpace: sideSpace, rightSpace: sideSpace, railEligible: true });
       for (const item of layout.filter(item => item.zone === 'left' || item.zone === 'right')) {
         makeSlot(item.zone, item.unit, main);
         const node = slots.get(item.zone)?.node;
@@ -257,10 +256,9 @@
     shell.classList.add('gxa-ad-layout-shell');
     const workspace = [...shell.children].find(child => child.matches('.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount'));
     const canUseRails = Boolean(workspace && shell.dataset.disclosure !== 'ready' && workspace.getBoundingClientRect().width > 0);
-    const reservedWorkspace = Math.max(760, Math.min(820, workspace?.getBoundingClientRect().width || 760));
-    const usable = Math.max(0, innerWidth - 64 - reservedWorkspace);
-    const rightSpace = usable >= 324 ? 324 : 0;
-    const leftSpace = Math.max(0, usable - rightSpace - 24);
+    // The upload column is capped at 760px by the shared rail grid. Measure
+    // both side gutters symmetrically so planning cannot shift it off center.
+    const sideSpace = Math.max(0, (innerWidth - 32 - 760 - 48) / 2);
     const width = header.getBoundingClientRect().width;
     const sections = [...main.querySelectorAll('.tool-content-guide .tool-info-section')];
     const guideSections = sections.map(section => section.textContent.trim().length);
@@ -271,7 +269,7 @@
     // reserves the result unit from the first pass; a top request can never
     // consume the key needed by a later download workflow.
     const resultPriority = true;
-    const layout = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: width, leftSpace: canUseRails ? leftSpace : 0, rightSpace: canUseRails ? rightSpace : 0, railEligible: canUseRails, guideSections, resultPriority });
+    const layout = window.GxaAdLayout.plan(config, { tool: id, viewport: innerWidth, inlineWidth: width, leftSpace: canUseRails ? sideSpace : 0, rightSpace: canUseRails ? sideSpace : 0, railEligible: canUseRails, guideSections, resultPriority });
     for (const item of layout) {
       if (item.zone === 'top') makeSlot(item.zone, item.unit, header, null, item.fallbackUnit);
       else if (item.zone === 'right' || item.zone === 'left') makeSlot(item.zone, item.unit, workspace, null, item.fallbackUnit);

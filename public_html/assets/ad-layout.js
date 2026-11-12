@@ -33,7 +33,10 @@
       else if (resultPriority && viewport >= 768 && inlineWidth >= 320) add('top', 320, 50);
       else if (config.native.enabled && !result.some(item => item.unit.containerId === config.native.containerId) && result.length < limit) result.push({ zone: 'top', unit: config.native });
     }
-    if (railAllowed && config.zones.right && viewport >= 1280 && rightSpace >= 324) add('right', 300, 250);
+    // Keep the functional workspace centered: a rail needs an equally wide
+    // opposite gutter even when that gutter has no advertisement.
+    if (railAllowed && config.zones.right && viewport >= 1440 && rightSpace >= 300) add('right', 300, 250);
+    else if (railAllowed && config.zones.right && viewport >= 1280 && rightSpace >= 160) add('right', 160, 300);
     // One tall format only; 1440px uses the shorter rail while wider layouts
     // have room for the 160x600 unit without narrowing the workspace.
     if (railAllowed && config.zones.left && viewport >= 1440 && leftSpace >= 184) add('left', 160, viewport >= 1600 ? 600 : 300);

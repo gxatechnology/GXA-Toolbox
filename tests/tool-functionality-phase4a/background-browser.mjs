@@ -10,6 +10,14 @@ const server = createQaServer(); await new Promise(done => server.listen(0, '127
 const browser = await chromium.launch({ headless: true, executablePath: process.env.GXA_BROWSER_EXECUTABLE || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
 await context.route(/bauval\.org|abscloud\.org|googletagmanager\.com|google-analytics\.com|googlesyndication\.com|doubleclick\.net/, route => route.abort());
+let ratingSubmission = null;
+await context.route('**/api/tool-ratings**', route => {
+  if (route.request().method() === 'POST') {
+    ratingSubmission = JSON.parse(route.request().postData() || '{}');
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ success: true, available: true, message: 'Thank you for your feedback!', aggregate: { average: 5, count: 1 } }) });
+  }
+  return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, available: true, aggregate: { average: null, count: 0 } }) });
+});
 const page = await context.newPage(); page.setDefaultTimeout(60000);
 const out = resolve('test-results/tool-functionality-phase4a'); await mkdir(out, { recursive: true });
 const source = resolve('tests/fixtures/background-remover-qa/07-product-white.jpg');
@@ -33,6 +41,12 @@ try {
   await page.getByRole('dialog').getByRole('button', { name: 'PNG', exact: true }).tap();
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('dialog').getByRole('button', { name: 'Download', exact: true }).tap()]);
   assert.equal(await download.failure(), null); assert.match(download.suggestedFilename(), /\.png$/i);
+  await page.locator('.tool-rating-react').waitFor({ state: 'visible' });
+  assert.match(await page.locator('.tool-rating-react').innerText(), /Be the first to rate this tool/);
+  await page.locator('.tool-rating-react .rating-stars button[aria-label="5 stars"]').tap();
+  await page.locator('.tool-rating-react button[type="submit"]').tap();
+  await page.locator('.tool-rating-react .rating-thanks').waitFor({ state: 'visible' });
+  assert.deepEqual([ratingSubmission?.tool_id, ratingSubmission?.rating], ['background-remover', 5]);
   const target = resolve(out, 'background-real-wasm.png'); await download.saveAs(target);
   const original = await sharp(source).metadata(); const bytes = await readFile(target); const output = await sharp(bytes).metadata();
   assert.equal(output.format, 'png'); assert.deepEqual([output.width, output.height], [original.width, original.height]); assert.ok(output.hasAlpha);

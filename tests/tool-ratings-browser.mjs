@@ -104,6 +104,14 @@ try {
   const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-download-result').click()]);
   assert.equal(await download.failure(), null, 'download remains independent of rating submission');
 
+  await page.route('**/api/tool-ratings**', route => route.fulfill({
+    status: 503, contentType: 'application/json',
+    body: JSON.stringify({ success: false, available: false, message: 'Tool ratings are not available yet.' })
+  }));
+  await open('json-tool');
+  await page.waitForFunction(() => document.querySelector('[data-tool-rating]')?.dataset.ratingState === 'unavailable');
+  assert.equal(await page.locator('[data-tool-rating]:visible').count(), 0, 'unavailable backend must not expose a dead rating form');
+
   await open('');
   assert.equal(await page.locator('.trust-marquee__track > .trust-marquee__item').count(), 12);
   assert.equal(await page.locator('.trust-marquee__viewport').getAttribute('tabindex'), '0');

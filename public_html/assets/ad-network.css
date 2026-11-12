@@ -7,33 +7,36 @@
 @media (min-width: 1280px) {
   .container.gxa-ad-layout-shell--rail-right,
   .container.gxa-ad-layout-shell--rail-left,
-  .container.gxa-ad-layout-shell--rail-both { display: grid; column-gap: 24px; align-items: start; }
-  .container.gxa-ad-layout-shell--rail-right { max-width: 1084px; grid-template-columns: minmax(0, 760px) 300px; }
-  .container.gxa-ad-layout-shell--rail-left { max-width: 944px; grid-template-columns: 160px minmax(0, 760px); }
-  .container.gxa-ad-layout-shell--rail-both { max-width: 1268px; grid-template-columns: 160px minmax(0, 760px) 300px; }
+  .container.gxa-ad-layout-shell--rail-both { display: grid; column-gap: 24px; align-items: start; padding-inline: 0; }
+  .container.gxa-ad-layout-shell--rail-right { max-width: 1408px; grid-template-columns: minmax(0, 300px) minmax(0, 760px) minmax(0, 300px); }
+  .container.gxa-ad-layout-shell--rail-right:has(> .gxa-ad-rail[data-ad-layout-zone="right"][data-ad-format="160x300"]) { max-width: 1128px; grid-template-columns: 160px minmax(0, 760px) 160px; }
+  .container.gxa-ad-layout-shell--rail-left { max-width: 1128px; grid-template-columns: 160px minmax(0, 760px) 160px; }
+  .container.gxa-ad-layout-shell--rail-both { max-width: 1408px; grid-template-columns: minmax(0, 300px) minmax(0, 760px) minmax(0, 300px); }
   .container.gxa-ad-layout-shell--rail-right > :not(.gxa-ad-rail):not(.tool-workspace):not(#edit-pdf-mount):not(#image-converter-mount):not(#crop-editor-workspace):not(#gps-map-camera-mount),
   .container.gxa-ad-layout-shell--rail-left > :not(.gxa-ad-rail):not(.tool-workspace):not(#edit-pdf-mount):not(#image-converter-mount):not(#crop-editor-workspace):not(#gps-map-camera-mount),
   .container.gxa-ad-layout-shell--rail-both > :not(.gxa-ad-rail):not(.tool-workspace):not(#edit-pdf-mount):not(#image-converter-mount):not(#crop-editor-workspace):not(#gps-map-camera-mount) { grid-column: 1 / -1; }
-  .gxa-ad-layout-shell--rail-right > :is(.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount) { grid-column: 1; min-width: 0; width: 100%; }
+  .gxa-ad-layout-shell--rail-right > :is(.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount) { grid-column: 2; min-width: 0; width: 100%; }
   .gxa-ad-layout-shell--rail-left > :is(.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount),
   .gxa-ad-layout-shell--rail-both > :is(.tool-workspace, #edit-pdf-mount, #image-converter-mount, #crop-editor-workspace, #gps-map-camera-mount) { grid-column: 2; min-width: 0; width: 100%; }
   .gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="left"],
   .gxa-ad-layout-shell--rail-left > .gxa-ad-rail[data-ad-layout-zone="left"] { grid-column: 1; }
-  .gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 3; }
-  .gxa-ad-layout-shell--rail-right > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 2; }
-  /* Keep React's existing full-width header while its upload/root column is
-     narrower. Offsets are half the asymmetric rail+gap widths (324/140/184). */
-  body.gxa-ad-background-rails { --gxa-bg-header-offset: 162px; display: grid; grid-template-columns: minmax(0, 760px) 300px; column-gap: 24px; justify-content: center; align-items: start; }
-  body.gxa-ad-background-rails > #root { grid-column: 1; min-width: 0; width: 100%; }
-  body.gxa-ad-background-rails .gxa-header { width: 100vw; margin-left: calc(50% - 50vw + var(--gxa-bg-header-offset)); }
-  body.gxa-ad-background-rails > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 2; }
-  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both { --gxa-bg-header-offset: 70px; grid-template-columns: 160px minmax(0, 760px) 300px; }
+  .gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="right"],
+  .gxa-ad-layout-shell--rail-right > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 3; }
+  .gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="left"] { justify-self: center; }
+  /* React's upload root is the centered middle column; its header still spans
+     the viewport without the old asymmetric offset correction. */
+  body.gxa-ad-background-rails { display: grid; grid-template-columns: 300px minmax(0, 760px) 300px; column-gap: 24px; justify-content: center; align-items: start; }
+  body.gxa-ad-background-rails > #root { grid-column: 2; min-width: 0; width: 100%; }
+  body.gxa-ad-background-rails .gxa-header { width: 100vw; margin-left: calc(50% - 50vw); }
+  body.gxa-ad-background-rails > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 3; }
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-right:has(> .gxa-ad-rail[data-ad-layout-zone="right"][data-ad-format="160x300"]) { grid-template-columns: 160px minmax(0, 760px) 160px; }
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both { grid-template-columns: 300px minmax(0, 760px) 300px; }
   body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both > #root,
   body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-left > #root { grid-column: 2; }
   body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="left"],
   body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-left > .gxa-ad-rail[data-ad-layout-zone="left"] { grid-column: 1; }
   body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-both > .gxa-ad-rail[data-ad-layout-zone="right"] { grid-column: 3; }
-  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-left { --gxa-bg-header-offset: -92px; grid-template-columns: 160px minmax(0, 760px); }
+  body.gxa-ad-background-rails.gxa-ad-layout-shell--rail-left { grid-template-columns: 160px minmax(0, 760px) 160px; }
   body.gxa-ad-background-rails > .gxa-ad-network:not(.gxa-ad-rail) { grid-column: 1 / -1; }
 }
 .gxa-ad-network[data-ad-state="loading"] { position: absolute; visibility: hidden; height: 0; margin-block: 0; padding: 0; border: 0; pointer-events: none; }

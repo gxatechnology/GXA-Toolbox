@@ -28,7 +28,7 @@ await context.route(/bauval\.org|abscloud\.org/, async route => {
   const url = route.request().url(), unit = config.banners.find(item => item.src === url);
   const intrusive = Object.values(config.intrusive).find(item => item.src === url);
   assert.ok(unit || url === config.native.src || intrusive?.enabled, `Unapproved provider request: ${url}`); requests.push(url);
-  if (mode === 'blocked') return route.abort();
+  if (mode === 'blocked' || (mode === 'left-blocked' && unit?.width === 160) || (mode === 'right-blocked' && unit?.width === 300 && unit?.height === 250)) return route.abort();
   if (mode === 'empty') return route.fulfill({ contentType: 'application/javascript', body: '/* intentional no fill */' });
   // Test-only provider adapter: verify isolated standard options and draw no real ad.
   if (intrusive) return route.fulfill({ contentType: 'application/javascript', body: `document.documentElement.dataset.gxaFixture${intrusive.unitId}='loaded';` });
@@ -113,14 +113,13 @@ try {
           nativeCount: document.querySelectorAll('[id="container-b1b26904317d94da1830e1f5dd69d6d9"]').length };
       });
       assert.equal(result.overflow, false, `${id} ${width} overflow`); assert.equal(result.overlaps, false, `${id} ${width} overlap`);
+      if (result.workspace) assert.ok(Math.abs((result.workspace.left + result.workspace.right) / 2 - width / 2) <= 2, `${id} ${width}: workspace must be centered in the viewport (${JSON.stringify(result.workspace)})`);
       if (result.workspace && width >= 1280) {
         assert.ok(result.workspace.width >= 700, `${id} ${width}: functional workspace must remain usable`);
         if (result.rails.left) assert.ok(result.rails.left.right <= result.workspace.left, `${id} ${width}: left rail must be beside workspace`);
         if (result.rails.right) assert.ok(result.rails.right.left >= result.workspace.right, `${id} ${width}: right rail must be beside workspace`);
-        if (result.rails.left && result.rails.right) assert.ok(Math.abs(result.rails.left.left - (width - result.rails.right.right)) <= 2, `${id} ${width}: three columns should be centered`);
-        else if (result.rails.right) assert.ok(Math.abs(result.workspace.left - (width - result.rails.right.right)) <= 2, `${id} ${width}: two columns should be centered`);
         if (result.rails.left) assert.equal(result.rails.left.format, width >= 1600 ? '160x600' : '160x300');
-        if (result.rails.right) assert.equal(result.rails.right.format, '300x250');
+        if (result.rails.right) assert.equal(result.rails.right.format, width >= 1440 ? '300x250' : '160x300');
       }
       assert.equal(result.insideControl, false); assert.equal(result.topOrdered, true); assert.ok(result.nativeCount <= 1);
       assert.equal(result.afterBeforeGuide,true,`${id}: after-tool ad must precede guide, not interrupt result controls`);
@@ -154,7 +153,26 @@ try {
     mode = failure; await open('compress-image',1920); await loadSlots();
     assert.equal(await page.locator('.gxa-ad-network:not([hidden])').count(),0);
     assert.equal(await page.locator('.gxa-ad-network').evaluateAll(nodes=>nodes.reduce((sum,n)=>sum+n.getBoundingClientRect().height,0)),0);
+    const centerOffset = await page.evaluate(() => { const rect = document.querySelector('.tool-container > .tool-workspace')?.getBoundingClientRect(); return rect ? (rect.left + rect.right) / 2 - innerWidth / 2 : null; });
+    assert.ok(centerOffset !== null && Math.abs(centerOffset) <= 2, `${failure}: collapsed rails must leave the workspace centered`);
     assert.ok(await page.locator('#file-picker').count()); rows.push({ failure, status:'collapsed, uploader retained' });
+  }
+  for (const [failure, remaining] of [['left-blocked', 'right'], ['right-blocked', 'left']]) {
+    mode = failure; await open('compress-image',1920); await loadSlots();
+    const state = await page.evaluate(() => {
+      const workspace = document.querySelector('.tool-container > .tool-workspace')?.getBoundingClientRect();
+      return {
+        centerOffset: workspace ? (workspace.left + workspace.right) / 2 - innerWidth / 2 : null,
+        leftVisible: Boolean(document.querySelector('.gxa-ad-rail[data-ad-layout-zone="left"]:not([hidden])')),
+        rightVisible: Boolean(document.querySelector('.gxa-ad-rail[data-ad-layout-zone="right"]:not([hidden])')),
+        overflow: document.documentElement.scrollWidth > innerWidth + 1
+      };
+    });
+    assert.ok(state.centerOffset !== null && Math.abs(state.centerOffset) <= 2, `${failure}: one surviving rail must not shift the workspace`);
+    assert.equal(state[`${remaining}Visible`], true);
+    assert.equal(state[`${remaining === 'left' ? 'right' : 'left'}Visible`], false);
+    assert.equal(state.overflow, false);
+    rows.push({ failure, status: 'one rail collapsed, opposite rail retained, workspace centered' });
   }
   mode='filled'; await open('compress-image',1920); await loadSlots(); const count=requests.length;
   await page.setViewportSize({width:320,height:900});

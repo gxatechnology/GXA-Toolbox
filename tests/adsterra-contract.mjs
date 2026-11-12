@@ -20,7 +20,7 @@ for (const viewport of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1600, 1920]) 
     if (viewport < 1440) assert.ok(!plan.some(item => item.zone === 'left'));
     if (viewport >= 768 && viewport < 1280) { assert.ok(plan.length <= 3); assert.equal(plan.find(item => item.zone === 'top')?.unit.width, 320); }
     const right = plan.find(item => item.zone === 'right');
-    if (right) assert.deepEqual([right.unit.width, right.unit.height], [300, 250]);
+    if (right) assert.deepEqual([right.unit.width, right.unit.height], viewport >= 1440 ? [300, 250] : [160, 300]);
     assert.ok(plan.filter(item => item.unit.width === 160).length <= 1);
   }
 }
@@ -33,8 +33,11 @@ const utilityPlan = layout.plan(config, { tool: 'json-tool', viewport: 1440, inl
 assert.equal(utilityPlan.find(item => item.zone === 'top')?.unit.width, 728, 'Non-download utilities retain the desktop leaderboard.');
 assert.equal(utilityPlan.find(item => item.zone === 'after-tool')?.unit.containerId, config.native.containerId, 'Non-download utilities retain their Native after-tool placement.');
 assert.ok(!layout.plan(config, { tool: 'organize-pdf', viewport: 1280, inlineWidth: 1200, leftSpace: 100, rightSpace: 324, railEligible: true }).some(item => item.zone === 'left'));
+assert.deepEqual(layout.plan(config, { tool: 'organize-pdf', viewport: 1280, inlineWidth: 1200, leftSpace: 220, rightSpace: 220, railEligible: true }).find(item => item.zone === 'right')?.unit.width, 160);
 assert.deepEqual(layout.plan({ ...config, network: 'off' }, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200 }), []);
-assert.ok(!layout.plan(config, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200, leftSpace: 180, rightSpace: 180 }).some(item => ['left', 'right'].includes(item.zone)));
+const narrowGutters = layout.plan(config, { tool: 'compress-pdf', viewport: 1920, inlineWidth: 1200, leftSpace: 180, rightSpace: 180 });
+assert.equal(narrowGutters.find(item => item.zone === 'right')?.unit.width, 160);
+assert.ok(!narrowGutters.some(item => item.zone === 'left'));
 assert.equal(config.native.src, 'https://bauval.org/21/b1b26904317d94da1830e1f5dd69d6d9');
 assert.equal(config.native.containerId, 'container-b1b26904317d94da1830e1f5dd69d6d9');
 assert.equal(config.native.unitId, 31513079);
