@@ -26,7 +26,7 @@ assert.deepEqual(imageOcr, {
   icon: 'scan-text'
 });
 assert.equal(toolTitle(imageOcr), 'Image OCR - Extract Text from Images | GXA Toolbox');
-assert.equal(toolDescription(imageOcr), 'Extract text from JPG, JPEG, PNG, and WEBP images using browser-based OCR with GXA Toolbox.');
+assert.equal(toolDescription(imageOcr), 'Extract editable text from JPG, PNG or WebP images with browser-local OCR. Check the transcript against the original image before using it.');
 assert.equal(canonicalToolUrl(imageOcr.id), `${PRODUCTION_ORIGIN}/image-ocr/`);
 
 const ocrPdf = tools.find(tool => tool.id === 'ocr-pdf');

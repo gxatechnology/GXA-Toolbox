@@ -904,9 +904,11 @@ function setupGlobalExperience() {
       openCommandPalette();
     } else if (event.key === 'Tab' && document.body.classList.contains('modal-open')) {
       trapModalFocus(event);
+    } else if (event.key === 'Tab' && document.body.classList.contains('mobile-menu-open')) {
+      trapMobileNavigationFocus(event);
     } else if (event.key === 'Escape') {
       closeCommandPalette();
-      closeMobileNavigation();
+      closeMobileNavigation({ restoreFocus: true });
       closeAccountMenu({ restoreFocus: true });
       closeModal();
     }
@@ -1024,7 +1026,12 @@ function toggleFavorite(toolId) {
 }
 
 function toggleMobileNavigation() {
-  const open = document.body.classList.toggle('mobile-menu-open');
+  if (document.body.classList.contains('mobile-menu-open')) {
+    closeMobileNavigation({ restoreFocus: true });
+    return;
+  }
+  const open = true;
+  document.body.classList.add('mobile-menu-open');
   const button = document.getElementById('mobile-nav-toggle');
   const menu = document.querySelector('.header-nav .nav-menu');
   button?.setAttribute('aria-expanded', String(open));
@@ -1036,13 +1043,32 @@ function toggleMobileNavigation() {
   if (open) requestAnimationFrame(() => document.querySelector('.mobile-drawer-search')?.focus());
 }
 
-function closeMobileNavigation() {
+function trapMobileNavigationFocus(event) {
+  const button = document.getElementById('mobile-nav-toggle');
+  const menu = document.querySelector('.header-nav .nav-menu');
+  const focusable = [button, ...(menu?.querySelectorAll('a[href], button:not([disabled]), select, input') || [])]
+    .filter(node => node && node.getClientRects().length && !node.closest('[aria-hidden="true"]'));
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function closeMobileNavigation({ restoreFocus = false } = {}) {
+  const wasOpen = document.body.classList.contains('mobile-menu-open');
   document.body.classList.remove('mobile-menu-open');
   document.querySelectorAll('.nav-item.menu-expanded').forEach(item => {
     item.classList.remove('menu-expanded');
     delete item.dataset.navigationPinned;
   });
   document.querySelectorAll('.nav-item > button[aria-haspopup="true"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+  document.querySelectorAll('.header-nav .mega-menu').forEach(menu => menu.setAttribute('aria-hidden', 'true'));
   const menu = document.querySelector('.header-nav .nav-menu');
   if (window.matchMedia('(max-width: 1100px)').matches && menu) {
     menu.setAttribute('aria-hidden', 'true');
@@ -1053,6 +1079,7 @@ function closeMobileNavigation() {
   button?.setAttribute('aria-label', 'Open navigation menu');
   if (button) button.innerHTML = '<i data-lucide="menu"></i>';
   lucide.createIcons();
+  if (restoreFocus && wasOpen) button?.focus({ preventScroll: true });
 }
 
 function syncMobileNavigationState() {
@@ -1060,24 +1087,36 @@ function syncMobileNavigationState() {
   const menu = document.querySelector('.header-nav .nav-menu');
   if (!menu) return;
   if (!mobile) {
-    document.body.classList.remove('mobile-menu-open');
+    if (document.body.classList.contains('mobile-menu-open')) closeMobileNavigation();
     menu.removeAttribute('aria-hidden');
     menu.inert = false;
     return;
   }
   const open = document.body.classList.contains('mobile-menu-open');
+  document.getElementById('mobile-nav-toggle')?.setAttribute('aria-expanded', String(open));
   menu.setAttribute('aria-hidden', String(!open));
   menu.inert = !open;
 }
 
 function navigateToToolCategory(category = 'all') {
   closeMobileNavigation();
-  navigate('home');
+  navigate('home', { scroll: false });
   requestAnimationFrame(() => {
     const tab = document.querySelector(`.filter-tab[data-category="${category}"]`);
     if (tab) filterTools(category, tab);
-    document.getElementById('tools-grid-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('tools-grid-anchor')?.scrollIntoView({ behavior: 'instant', block: 'start' });
   });
+}
+
+function handleToolsDirectoryLink(event) {
+  if (!shouldHandleNavigationEvent(event)) return;
+  if (window.GxaAdNetwork?.hasRequested() && location.pathname !== '/') {
+    closeMobileNavigation();
+    return;
+  }
+  event.preventDefault();
+  navigateToToolCategory('all');
+  history.replaceState({ pageId: 'home' }, '', '/#tools-grid-anchor');
 }
 
 function closeAccountMenu({ restoreFocus = false } = {}) {
@@ -1192,9 +1231,7 @@ function initializeCategoryNavigation(nav) {
         requestAnimationFrame(() => menu.querySelector('a')?.focus());
         return;
       }
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      togglePinnedMenu();
+      // Native button activation dispatches click for Enter and Space.
     });
     item.addEventListener('pointerenter', () => {
       if (isDesktopHoverNavigation()) setCategoryNavigationOpen(item, true);
@@ -1283,7 +1320,7 @@ function renderNavbar() {
         <div class="logo-text">GXA <span class="brand-suffix">Toolbox</span></div>
       </a>
       
-      <ul class="nav-menu" aria-label="Primary navigation">
+      <ul id="primary-nav-menu" class="nav-menu" aria-label="Primary navigation">
         <li class="mobile-drawer-heading" aria-hidden="true">
           <span>GXA Toolbox</span>
           <small>Your Complete Digital Toolbox</small>
@@ -1295,7 +1332,7 @@ function renderNavbar() {
           <a href="/" class="nav-link${navState('home')}" onclick="handleRouteLink(event, 'home')"${currentPageAttribute('home')}><i data-lucide="house"></i><span>${t('home')}</span></a>
         </li>
         <li class="mobile-all-tools-link">
-          <button type="button" class="nav-link" onclick="navigateToToolCategory('all')"><i data-lucide="grid-2x2"></i><span>All Tools</span></button>
+          <a href="/#tools-grid-anchor" class="nav-link" onclick="handleToolsDirectoryLink(event)"><i data-lucide="grid-2x2"></i><span>All Tools</span></a>
         </li>
         <li class="nav-item has-mega-menu" data-nav-category="pdf">
           <button id="nav-pdf-trigger" type="button" class="nav-link${navState('pdf')}" aria-haspopup="true" aria-controls="nav-pdf-menu" aria-expanded="false"${currentPageAttribute('pdf')}><i data-lucide="file-text"></i><span>${t('pdf')}</span><i class="nav-chevron" data-lucide="chevron-down"></i></button>
@@ -1371,7 +1408,7 @@ function renderNavbar() {
         
         ${authActionsHTML}
       </div>
-      <button type="button" id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Open navigation menu" aria-expanded="false" onclick="toggleMobileNavigation()"><i data-lucide="menu"></i></button>
+      <button type="button" id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Open navigation menu" aria-controls="primary-nav-menu" aria-expanded="false" onclick="toggleMobileNavigation()"><i data-lucide="menu"></i></button>
     </div>
     <button type="button" class="mobile-nav-backdrop" aria-label="Close navigation menu" onclick="closeMobileNavigation()"></button>
   `;
@@ -1417,6 +1454,7 @@ function renderFooter() {
           <ul class="footer-links">
             <li><a href="/help/" class="footer-link" onclick="handleRouteLink(event, 'content-help')">Help Center</a></li>
             <li><a href="/guides/" class="footer-link" onclick="handleRouteLink(event, 'content-guides')">Practical guides</a></li>
+            <li><a href="/blog/" class="footer-link">Blog</a></li>
             <li><a href="/editorial-standards/" class="footer-link" onclick="handleRouteLink(event, 'content-editorial-standards')">Editorial standards</a></li>
             <li><a href="/merge-pdf/" class="footer-link" onclick="handleRouteLink(event, 'tool-merge-pdf')">Merge PDF</a></li>
             <li><a href="/compress-image/" class="footer-link" onclick="handleRouteLink(event, 'tool-compress-image')">Compress Image</a></li>
@@ -1642,10 +1680,9 @@ function applyPageMetadata(pageId) {
   if (pageId.startsWith('tool-')) {
     const tool = toolsList.find(item => item.id === pageId.replace('tool-', ''));
     if (tool) {
-      title = tool.id === 'image-ocr' ? 'Image OCR - Extract Text from Images | GXA Toolbox' : `${tool.name} | GXA Toolbox`;
-      description = tool.id === 'image-ocr'
-        ? 'Extract text from JPG, JPEG, PNG, and WEBP images using browser-based OCR with GXA Toolbox.'
-        : tool.desc;
+      const reviewedIntent = window.GXA_TOOL_SEO_INTENTS?.[tool.id];
+      title = reviewedIntent?.title || `${tool.name} | GXA Toolbox`;
+      description = reviewedIntent?.description || tool.desc;
       path = `/${tool.id}/`;
       robots = window.GxaToolQuality.forTool(tool.id).indexable ? 'index, follow' : 'noindex, follow';
       schema = {
@@ -1737,13 +1774,16 @@ function applyPageMetadata(pageId) {
   ensureMetaElement('meta[property="og:type"]', { property: 'og:type' }).content = 'website';
   ensureMetaElement('meta[property="og:url"]', { property: 'og:url' }).content = canonicalUrl;
   ensureMetaElement('meta[property="og:site_name"]', { property: 'og:site_name' }).content = SITE_NAME;
-  ensureMetaElement('meta[property="og:image"]', { property: 'og:image' }).content = `${origin}/gxa-logo.png`;
-  ensureMetaElement('meta[property="og:image:alt"]', { property: 'og:image:alt' }).content = 'GXA Toolbox logo';
-  ensureMetaElement('meta[name="twitter:card"]', { name: 'twitter:card' }).content = 'summary';
+  ensureMetaElement('meta[property="og:image"]', { property: 'og:image' }).content = `${origin}/gxa-social-preview.png`;
+  ensureMetaElement('meta[property="og:image:alt"]', { property: 'og:image:alt' }).content = 'GXA Toolbox digital tools for PDFs, images, converters and calculations';
+  ensureMetaElement('meta[property="og:image:width"]', { property: 'og:image:width' }).content = '1200';
+  ensureMetaElement('meta[property="og:image:height"]', { property: 'og:image:height' }).content = '630';
+  ensureMetaElement('meta[property="og:image:type"]', { property: 'og:image:type' }).content = 'image/png';
+  ensureMetaElement('meta[name="twitter:card"]', { name: 'twitter:card' }).content = 'summary_large_image';
   ensureMetaElement('meta[name="twitter:title"]', { name: 'twitter:title' }).content = title;
   ensureMetaElement('meta[name="twitter:description"]', { name: 'twitter:description' }).content = description;
-  ensureMetaElement('meta[name="twitter:image"]', { name: 'twitter:image' }).content = `${origin}/gxa-logo.png`;
-  ensureMetaElement('meta[name="twitter:image:alt"]', { name: 'twitter:image:alt' }).content = 'GXA Toolbox logo';
+  ensureMetaElement('meta[name="twitter:image"]', { name: 'twitter:image' }).content = `${origin}/gxa-social-preview.png`;
+  ensureMetaElement('meta[name="twitter:image:alt"]', { name: 'twitter:image:alt' }).content = 'GXA Toolbox digital tools for PDFs, images, converters and calculations';
   ensureCanonicalLink().href = canonicalUrl;
   setStructuredData(schema);
 }
@@ -2601,15 +2641,11 @@ function renderHome(container) {
       </div>
     </section>
 
-    <section class="stats-section">
-      <div class="container">
-        <div class="stats-grid">
-          <div class="stat-item"><div class="stat-number">Tools</div><div class="stat-label">For everyday tasks</div></div>
-          <div class="stat-item"><div class="stat-number">Help</div><div class="stat-label">Instructions with each tool</div></div>
-          <div class="stat-item"><div class="stat-number" id="stats-counter-2">${new Set(toolsList.map(tool => tool.category)).size}</div><div class="stat-label">Focused categories</div></div>
-          <div class="stat-item"><div class="stat-number">320px+</div><div class="stat-label">Responsive layouts</div></div>
-        </div>
-      </div>
+    <section class="everyday-audience container" aria-labelledby="everyday-audience-title">
+      <div class="section-header"><span class="section-kicker">Everyday work</span><h2 class="section-title" id="everyday-audience-title">Built for everyday professionals</h2><p class="section-desc">Choose a workflow for your task. These examples describe use cases, not customer endorsements.</p></div>
+      <ul class="everyday-audience__list">
+        ${[['graduation-cap', 'Students'], ['presentation', 'Teachers'], ['palette', 'Designers'], ['code-2', 'Developers'], ['briefcase-business', 'Office teams'], ['laptop', 'Freelancers'], ['store', 'Small businesses'], ['files', 'Document professionals']].map(([icon, label]) => `<li><i data-lucide="${icon}" aria-hidden="true"></i><span>${label}</span></li>`).join('')}
+      </ul>
     </section>
     <section class="container">
       <div class="cta-banner">
@@ -2627,8 +2663,10 @@ function renderHome(container) {
   // Render grid list
   renderToolsGrid(toolBrowseState.category, toolBrowseState.query);
   initializeToolBrowsing();
+  if (location.hash === '#tools-grid-anchor') {
+    requestAnimationFrame(() => document.getElementById('tools-grid-anchor')?.scrollIntoView({ behavior: 'instant', block: 'start' }));
+  }
   lucide.createIcons();
-  startStatsCounters();
 }
 
 function renderToolsGrid(categoryFilter = 'all', searchQuery = '') {
@@ -2688,13 +2726,6 @@ function searchTools(query) {
   const cat = document.querySelector('.filter-tab.active')?.dataset.category || 'all';
   renderToolsGrid(cat, query);
   if (reposition) returnToToolResults();
-}
-
-function startStatsCounters() {
-  const toolsCounter = document.getElementById('stats-counter-1');
-  const categoryCounter = document.getElementById('stats-counter-2');
-  if (toolsCounter) toolsCounter.textContent = String(toolsList.length);
-  if (categoryCounter) categoryCounter.textContent = String(new Set(toolsList.map(tool => tool.category)).size);
 }
 
 // --- RENDER PAGE: USER DASHBOARD ---
@@ -2926,7 +2957,7 @@ function renderToolContentSections(toolId) {
   const toolName = toolsList.find(tool => tool.id === toolId)?.name || 'Tool';
   return `<article class="tool-content-guide" aria-label="${escapeHTML(toolName)} guide">
     ${toolId === 'edit-pdf' ? renderToolPreworkspaceIntro(toolId) : ''}
-    ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? `<ol class="tool-steps">${content.howToUse.map(item => `<li><span>${item.step}</span><div><h3>${escapeHTML(item.title)}</h3>${item.description.trim().replace(/[.!?]+$/, '') === item.title.trim().replace(/[.!?]+$/, '') ? '' : `<p>${escapeHTML(item.description)}</p>`}</div></li>`).join('')}</ol>` : '')}
+    ${section(`${toolId}-how-to`, 'How to Use', content.howToUse?.length ? window.GxaToolGuideVisuals.render(toolId, content.howToUse, escapeHTML) : '')}
     ${section(`${toolId}-about`, 'About, Features and Practical Uses', `
       ${content.about?.slice(1).map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join('') || ''}
       ${topic('What You Can Do', cards(content.features, 'tool-info-card-grid'))}
@@ -4833,16 +4864,15 @@ function renderToolPage(container, toolId) {
             <div class="complete-card" data-result-type="${resultType}">
               <div class="complete-icon"><i data-lucide="check" style="width:36px; height:36px; stroke-width:3;"></i></div>
               <h3 class="complete-title" id="tool-result-title">${t('complete')}</h3>
-              <p class="upload-subtitle" style="margin-bottom:20px;">Your processed output is ready. Review the real result and download it when ready.</p>
-              <div id="premium-result-preview" class="premium-result-preview" aria-live="polite" aria-labelledby="tool-result-title" data-result-type="${resultType}"></div>
+              <section id="premium-result-preview" class="premium-result-preview" aria-live="polite" aria-labelledby="tool-result-title" data-result-type="${resultType}"></section>
               
               <!-- Image compression comparisons if applicable -->
               <div id="comparison-metric-mount" class="complete-comparison hidden"></div>
               
-              <div id="premium-result-stats" class="premium-result-stats" aria-label="Output statistics"></div>
+              <section id="premium-result-stats" class="premium-result-stats" aria-label="Output statistics"></section>
               ${renderToolAdPlacementPlaceholder('ad-slot-after-tool')}
               <section class="result-download-section" aria-labelledby="result-download-title">
-                <div class="result-download-copy"><span class="tool-category-label">Download</span><h4 id="result-download-title">Save your finished result</h4><p>Your validated output is ready to save to this device.</p></div>
+                <div class="result-download-copy"><span class="tool-category-label">Download</span><h4 id="result-download-title">Download your result</h4></div>
                 <div class="premium-result-actions">
                   <button class="btn btn-primary btn-lg" id="btn-download-result" disabled><i data-lucide="download"></i> ${getDirectResultDownloadLabel(toolId)}</button>
                   ${['split-pdf', 'organize-pdf'].includes(toolId) ? '<button type="button" class="btn btn-secondary btn-lg" onclick="resumePdfPageTool()">Adjust settings</button>' : ''}
@@ -7476,6 +7506,9 @@ async function renderPremiumToolResult(blob, filename, url, explicitSize) {
   const extension = (filename.split('.').pop() || '').toLowerCase();
   const type = (blob?.type || '').toLowerCase();
   const toolId = premiumEditorState.toolId || appState.currentPage.replace('tool-', '');
+  const downloadTitle = document.getElementById('result-download-title');
+  const outputKind = extension === 'pdf' ? 'PDF' : extension === 'zip' ? 'ZIP file' : ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(extension) ? 'image' : extension === 'mp3' || extension === 'wav' ? 'audio' : 'file';
+  if (downloadTitle) downloadTitle.textContent = `Download your ${outputKind}`;
   preview.innerHTML = '';
   if (type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(extension)) {
     preview.dataset.resultType = 'image-preview';
@@ -7543,7 +7576,7 @@ async function renderPremiumToolResult(blob, filename, url, explicitSize) {
     preview.appendChild(textPreview);
   } else {
     preview.dataset.resultType = 'download-card';
-    preview.innerHTML = '<div class="premium-result-file"><i data-lucide="file-check-2"></i><strong>' + escapeHTML(filename) + '</strong><span>Output file ready to download</span></div>';
+    preview.innerHTML = '<div class="premium-result-file"><i data-lucide="file-check-2" aria-hidden="true"></i><strong>' + escapeHTML(filename) + '</strong></div>';
   }
   const originalSize = appState.activeFiles.reduce((sum, file) => sum + file.size, 0);
   const outputSize = blob?.size || explicitSize || 0;

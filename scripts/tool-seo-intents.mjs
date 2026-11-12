@@ -8,15 +8,15 @@
 export const TOOL_SEO_INTENTS = Object.freeze({
   "merge-pdf": {
     "title": "Merge PDF Online — PDF Tool | GXA Toolbox",
-    "description": "A cover letter, report and appendix can travel as one PDF without converting their pages into pictures."
+    "description": "Combine PDF files into one document, choose their order and review the merged pages before download. Original PDF pages remain PDF content."
   },
   "organize-pdf": {
     "title": "Organize PDF Online — PDF Tool | GXA Toolbox",
-    "description": "Reorder, rotate, select, remove, watermark, or insert blank pages in a PDF."
+    "description": "Reorder, rotate, remove or duplicate PDF pages, insert blanks and add a watermark. Review the page sequence before saving a new PDF."
   },
   "compress-image": {
     "title": "Compress Image Online — Image Tool | GXA Toolbox",
-    "description": "Compress browser-decodable JPG, PNG, and WEBP images with adjustable quality."
+    "description": "Compress browser-decodable JPG, PNG or WebP images with adjustable quality, then compare the resulting size and appearance before download."
   },
   "resize-image": {
     "title": "Resize Image Online — Image Tool | GXA Toolbox",
@@ -24,7 +24,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "image-converter": {
     "title": "Image Converter Online — Image Tool | GXA Toolbox",
-    "description": "Use Image Converter when a destination requires a different image encoding, not merely a renamed extension."
+    "description": "Convert supported image formats with controls for quality and transparency. Check the detected source format and inspect the output before download."
   },
   "gps-map-camera": {
     "title": "GPS Map Camera & Geotag Photo Online | GXA Toolbox",
@@ -36,7 +36,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "image-ocr": {
     "title": "Image OCR - Extract Text from Images | GXA Toolbox",
-    "description": "Extract text from JPG, JPEG, PNG, and WEBP images using browser-based OCR with GXA Toolbox."
+    "description": "Extract editable text from JPG, PNG or WebP images with browser-local OCR. Check the transcript against the original image before using it."
   },
   "background-remover": {
     "title": "Background Remover Online — Image Tool | GXA Toolbox",
@@ -56,11 +56,11 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "zip-manager": {
     "title": "ZIP Manager Online — Archive tool | GXA Toolbox",
-    "description": "ZIP Manager packages the files you select into one downloadable ZIP archive."
+    "description": "Choose files and create one downloadable ZIP archive with a custom name. Inspect the selected filenames before sharing the package."
   },
   "split-pdf": {
     "title": "Split PDF Online — PDF Tool | GXA Toolbox",
-    "description": "Separate a long PDF into deliverables using physical page ranges or individual-page output."
+    "description": "Split a PDF into separate files by page ranges, individual pages or equal groups. Check the requested pages before downloading the ZIP output."
   },
   "protect-pdf": {
     "title": "Protect PDF Online — PDF Tool | GXA Toolbox",
@@ -68,7 +68,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "unlock-pdf": {
     "title": "Unlock PDF Online — PDF Tool | GXA Toolbox",
-    "description": "Unlock PDF removes password protection from a PDF when you know the current password."
+    "description": "Remove password protection from a PDF when you know its current password. Download an unlocked copy and keep the original protected file if needed."
   },
   "pdf-to-jpg": {
     "title": "PDF to JPG Online — PDF Tool | GXA Toolbox",
@@ -96,7 +96,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "gif-maker": {
     "title": "GIF Maker Online — File Converter | GXA Toolbox",
-    "description": "GIF Maker encodes a sequence of browser-decodable images as an animated GIF."
+    "description": "Turn a sequence of browser-decodable images into an animated GIF. Set the frame speed and review the output size before download."
   },
   "zip-extractor": {
     "title": "ZIP Extractor Online — Archive tool | GXA Toolbox",
@@ -104,7 +104,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "compress-pdf": {
     "title": "Compress PDF Online — PDF Tool | GXA Toolbox",
-    "description": "PDF size is not determined by page count alone. A short scan can contain more image data than a long text document."
+    "description": "Reduce a PDF's file size with available compression settings, then compare the output size and page quality. Scanned images may change more than text."
   },
   "edit-pdf": {
     "title": "Edit PDF Online — PDF Tool | GXA Toolbox",
@@ -132,11 +132,11 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "ppt-to-pdf": {
     "title": "PPT to PDF Online — File Converter | GXA Toolbox",
-    "description": "Convert supported PPTX slides with text, shapes, images, and solid backgrounds to PDF."
+    "description": "Convert supported PPTX slides containing text, shapes and images to PDF. Complex presentation effects may not reproduce exactly, so review the result."
   },
   "pdf-to-text": {
     "title": "PDF to Text Online — File Converter | GXA Toolbox",
-    "description": "PDF to Text extracts selectable character data from PDF pages into plain text."
+    "description": "Extract selectable text from PDF pages into a plain-text file. Scanned image-only pages need OCR rather than ordinary text extraction."
   },
   "pdf-to-html": {
     "title": "PDF to HTML Online — File Converter | GXA Toolbox",
@@ -144,15 +144,15 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "markdown-to-pdf": {
     "title": "Markdown to PDF Online — File Converter | GXA Toolbox",
-    "description": "Markdown to PDF formats supported Markdown text into a readable PDF document."
+    "description": "Convert supported Markdown headings, paragraphs and lists into a readable PDF. Preview the result to check pagination and formatting."
   },
   "pdf-to-markdown": {
     "title": "PDF to Markdown Online — File Converter | GXA Toolbox",
-    "description": "PDF to Markdown extracts PDF text into a Markdown-oriented document for further editing."
+    "description": "Extract selectable PDF text into a Markdown-oriented document for editing. Complex page layout and scanned text may require manual cleanup."
   },
   "svg-to-png": {
     "title": "SVG to PNG Online — File Converter | GXA Toolbox",
-    "description": "SVG to PNG rasterizes SVG markup into a PNG image at the selected browser-rendered dimensions."
+    "description": "Rasterize an SVG graphic into PNG at the selected pixel dimensions. Inspect fine lines and text at the intended output size before download."
   },
   "png-to-svg": {
     "title": "PNG to SVG Online — File Converter | GXA Toolbox",
@@ -160,7 +160,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "webp-to-jpg": {
     "title": "WEBP to JPG Online — File Converter | GXA Toolbox",
-    "description": "WEBP to JPG decodes WebP pixels and re-encodes them as a broadly compatible JPG image."
+    "description": "Convert a browser-decodable WebP image to a widely supported JPG. JPEG cannot retain transparency, so check the background before download."
   },
   "gif-to-png": {
     "title": "GIF Frame Extractor Online — File Converter | GXA Toolbox",
@@ -172,7 +172,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "json-tool": {
     "title": "JSON Formatter Online — Browser Utility | GXA Toolbox",
-    "description": "Parse valid JSON and serialize it into an indented or compact representation."
+    "description": "Validate JSON syntax, then format valid data with indentation or compact it for copying. Invalid input is reported rather than silently rewritten."
   },
   "hash-tool": {
     "title": "Hash Generator Online — Browser Utility | GXA Toolbox",
@@ -224,7 +224,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "crop-pdf": {
     "title": "Crop PDF Online — PDF Tool | GXA Toolbox",
-    "description": "Crop PDF changes page boundaries to trim margins or focus on a selected region."
+    "description": "Adjust PDF page boundaries to trim margins or focus on a region. Cropping changes the visible page area; it does not erase hidden source content."
   },
   "header-footer-pdf": {
     "title": "Add Header & Footer Online — PDF Tool | GXA Toolbox",
@@ -232,7 +232,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "sign-pdf": {
     "title": "Sign PDF Online — PDF Tool | GXA Toolbox",
-    "description": "Add a visible handwritten signature appearance to a PDF; this is not cryptographic signing."
+    "description": "Place a visible handwritten signature appearance on a PDF page and export the result. This is not a cryptographic digital signature."
   },
   "repair-pdf": {
     "title": "Repair PDF Online — PDF Tool | GXA Toolbox",
@@ -244,11 +244,11 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "image-to-pdf": {
     "title": "Image to PDF Online — File Converter | GXA Toolbox",
-    "description": "Bring mixed JPG, PNG and WebP images into a single PDF for a recipient who needs one document."
+    "description": "Combine supported JPG, PNG and WebP images into one image-based PDF. Arrange the pages and inspect the result before sharing."
   },
   "png-to-pdf": {
     "title": "PNG to PDF Online — File Converter | GXA Toolbox",
-    "description": "PNG to PDF places PNG images onto PDF pages for consistent document sharing."
+    "description": "Place selected PNG images on PDF pages and download a single document. Image-based pages are not the same as selectable text."
   },
   "txt-to-pdf": {
     "title": "TXT to PDF Online — File Converter | GXA Toolbox",
@@ -264,15 +264,15 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "pdf-to-excel": {
     "title": "PDF to Excel Online — File Converter | GXA Toolbox",
-    "description": "PDF to Excel places extracted PDF text into a generated spreadsheet for manual cleanup."
+    "description": "Put extracted PDF text into a generated spreadsheet for manual cleanup. Complex tables and scanned pages may not retain their original structure."
   },
   "pdf-to-ppt": {
     "title": "PDF to PPT Online — File Converter | GXA Toolbox",
-    "description": "PDF to PPT creates an image-based presentation with one rendered PDF page per slide."
+    "description": "Create an image-based presentation with one rendered PDF page per slide. Text and layout remain visible but are not editable slide objects."
   },
   "calculator": {
     "title": "Simple Calculator Online — Calculator | GXA Toolbox",
-    "description": "Perform basic math operations like addition, subtraction, multiplication, and division."
+    "description": "Calculate addition, subtraction, multiplication and division in a keyboard-friendly workspace, with clear results and input validation."
   },
   "scientific-calculator": {
     "title": "Scientific Calculator Online — Calculator | GXA Toolbox",
@@ -292,7 +292,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "emi-calculator": {
     "title": "EMI Calculator Online — Calculator | GXA Toolbox",
-    "description": "Estimate a fixed monthly repayment for a loan whose rate stays constant over its term."
+    "description": "Estimate a fixed monthly loan repayment from principal, interest rate and term. Review the assumptions before comparing offers or planning a budget."
   },
   "loan-calculator": {
     "title": "Loan Calculator Online — Calculator | GXA Toolbox",
@@ -316,7 +316,7 @@ export const TOOL_SEO_INTENTS = Object.freeze({
   },
   "discount-calculator": {
     "title": "Discount Calculator Online — Calculator | GXA Toolbox",
-    "description": "Discount Calculator applies one or two sequential discounts and then optional sales tax."
+    "description": "Apply one or two sequential discounts, then optional sales tax, to see the final amount and understand how the reductions combine."
   },
   "unit-converter": {
     "title": "Unit Converter Online — Calculator | GXA Toolbox",

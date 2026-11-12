@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MAX_FILE_BYTES, MAX_SOURCE_PIXELS } from './app/defaults';
 import { BeforeAfter } from './components/BeforeAfter';
-import { AdPlacementPlaceholder } from './components/AdPlacementPlaceholder';
 import { BottomToolbar } from './components/BottomToolbar';
 import { EditorCanvas } from './components/EditorCanvas';
 import { ExportDialog } from './components/ExportDialog';
@@ -177,7 +176,6 @@ export default function App() {
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
     {!editing && <ToolContentGuide />}
-    {!editing && <AdPlacementPlaceholder />}
     {!editing && <SiteFooter />}
   </>);
 }

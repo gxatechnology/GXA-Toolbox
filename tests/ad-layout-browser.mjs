@@ -76,10 +76,10 @@ async function loadSlots() {
   await page.waitForFunction(() => [...document.querySelectorAll('.gxa-ad-network')].filter(node => node.dataset.adTrigger !== 'result-ready' || node.closest('[data-result-ready="true"], #tool-complete-mount:not(.hidden), .crop-result-panel:not(.hidden), .image-converter__result:not([hidden]), .gps-studio__result:not([hidden])')).every(node => !['waiting', 'loading'].includes(node.dataset.adState)), null, { timeout: 60000 });
 }
 try {
-  const routeFilter = process.argv.find(value => value.startsWith('--route='))?.slice(8) || process.env.GXA_AD_QA_ROUTE;
-  const widthFilter = Number(process.argv.find(value => value.startsWith('--width='))?.slice(8) || process.env.GXA_AD_QA_WIDTH || 0);
-  for (const id of ['image-converter', 'compress-image', 'compress-pdf', 'merge-pdf', 'split-pdf', 'edit-pdf', 'crop-image', 'gst-calculator', 'json-tool'].filter(id => !routeFilter || id === routeFilter)) {
-    for (const width of [320, 360, 375, 390, 414, 430, 480, 600, 768, 1024, 1280, 1440, 1600, 1800, 1920, 2400].filter(width => !widthFilter || width === widthFilter)) {
+  const routeFilter = (process.argv.find(value => value.startsWith('--route='))?.slice(8) || process.env.GXA_AD_QA_ROUTE || '').split(',').filter(Boolean);
+  const widthFilter = (process.argv.find(value => value.startsWith('--width='))?.slice(8) || process.env.GXA_AD_QA_WIDTH || '').split(',').map(Number).filter(Boolean);
+  for (const id of ['image-converter', 'compress-image', 'compress-pdf', 'merge-pdf', 'split-pdf', 'edit-pdf', 'crop-image', 'gst-calculator', 'json-tool'].filter(id => !routeFilter.length || routeFilter.includes(id))) {
+    for (const width of [320, 360, 375, 390, 414, 430, 480, 600, 768, 1024, 1280, 1440, 1600, 1800, 1920, 2400].filter(width => !widthFilter.length || widthFilter.includes(width))) {
       await open(id, width);
       const workspaceWidth = await page.evaluate(() => document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect().width ?? null);
       const workspaceTopBefore = await page.evaluate(() => { const rect = document.querySelector('.upload-zone,.image-converter__drop,.pdf-edit-upload,.crop-upload-state')?.getBoundingClientRect(); return rect ? rect.top + scrollY : null; });
@@ -94,7 +94,15 @@ try {
         const top = nodes.find(node => node.dataset.adLayoutZone === 'top');
         const header = document.querySelector('.tool-header');
         const after = nodes.find(node => node.dataset.adLayoutZone === 'after-tool'), guide = document.querySelector('.tool-content-guide');
+        const workspace = document.querySelector('.tool-container > .tool-workspace, .tool-container > #image-converter-mount, .tool-container > #edit-pdf-mount, .tool-container > #crop-editor-workspace');
+        const workspaceRect = workspace?.getBoundingClientRect();
+        const rails = Object.fromEntries(nodes.filter(node => ['left', 'right'].includes(node.dataset.adLayoutZone)).map(node => {
+          const rect = node.getBoundingClientRect();
+          return [node.dataset.adLayoutZone, { left: rect.left, right: rect.right, width: rect.width,
+            format: node.dataset.adFormat, unitId: node.dataset.adUnitId, state: node.dataset.adState }];
+        }));
         return { zones: nodes.map(node => node.dataset.adLayoutZone), overflow: document.documentElement.scrollWidth > innerWidth + 1, overlaps,
+          workspace: workspaceRect ? { left: workspaceRect.left, right: workspaceRect.right, width: workspaceRect.width } : null, rails,
           margins: Object.fromEntries(nodes.map(node => [node.dataset.adLayoutZone, {
             before: Number.parseFloat(getComputedStyle(node).marginBlockStart) || 0,
             after: Number.parseFloat(getComputedStyle(node).marginBlockEnd) || 0
@@ -105,6 +113,15 @@ try {
           nativeCount: document.querySelectorAll('[id="container-b1b26904317d94da1830e1f5dd69d6d9"]').length };
       });
       assert.equal(result.overflow, false, `${id} ${width} overflow`); assert.equal(result.overlaps, false, `${id} ${width} overlap`);
+      if (result.workspace && width >= 1280) {
+        assert.ok(result.workspace.width >= 700, `${id} ${width}: functional workspace must remain usable`);
+        if (result.rails.left) assert.ok(result.rails.left.right <= result.workspace.left, `${id} ${width}: left rail must be beside workspace`);
+        if (result.rails.right) assert.ok(result.rails.right.left >= result.workspace.right, `${id} ${width}: right rail must be beside workspace`);
+        if (result.rails.left && result.rails.right) assert.ok(Math.abs(result.rails.left.left - (width - result.rails.right.right)) <= 2, `${id} ${width}: three columns should be centered`);
+        else if (result.rails.right) assert.ok(Math.abs(result.workspace.left - (width - result.rails.right.right)) <= 2, `${id} ${width}: two columns should be centered`);
+        if (result.rails.left) assert.equal(result.rails.left.format, width >= 1600 ? '160x600' : '160x300');
+        if (result.rails.right) assert.equal(result.rails.right.format, '300x250');
+      }
       assert.equal(result.insideControl, false); assert.equal(result.topOrdered, true); assert.ok(result.nativeCount <= 1);
       assert.equal(result.afterBeforeGuide,true,`${id}: after-tool ad must precede guide, not interrupt result controls`);
       assert.ok(result.zones.length <= (width < 768 ? 3 : width < 1280 ? 3 : ['edit-pdf','crop-image'].includes(id) ? 4 : 6));
@@ -113,14 +130,17 @@ try {
       if (width < 1280) assert.ok(!result.zones.some(zone => ['left','right'].includes(zone)));
       assert.equal(new Set(requests).size, requests.length, 'One execution per key');
       if (result.zones.includes('top')) {
-        const expectedWidth = width >= 1280 ? 728 : width >= 768 ? 468 : 320;
-        const unit = config.banners.find(item => item.width === expectedWidth);
-        assert.ok(requests.includes(unit.src), `${id} ${width}: correct top banner`);
+        const resultPriority = await page.evaluate(() => document.querySelector('[data-ad-layout-zone="after-tool"]')?.dataset.adTrigger === 'result-ready');
+        const expectedWidth = resultPriority
+          ? width >= 1280 ? 468 : width >= 768 ? 320 : 0
+          : width >= 1280 ? 728 : width >= 768 ? 468 : 320;
+        const source = expectedWidth ? config.banners.find(item => item.width === expectedWidth).src : config.native.src;
+        assert.ok(requests.includes(source), `${id} ${width}: correct top unit (expected ${source}; requested ${requests.join(', ')}; slots ${JSON.stringify(await page.evaluate(() => GxaAdNetwork.diagnostics().slots))})`);
       }
       assert.equal(requests.some(url => /abscloud\.org/.test(url)), false, 'Popunder provider must never be requested');
       assert.equal(requests.filter(url => url === config.intrusive.socialBar.src).length, 1, 'One Social Bar bootstrap per document');
       const before = requests.length; await page.evaluate(() => { for(let i=0;i<10;i++)GxaAdNetwork.sync(); }); assert.equal(requests.length, before);
-      if (['compress-image', 'edit-pdf'].includes(id) && [390, 768, 1440, 1920].includes(width)) {
+      if (['compress-image', 'edit-pdf'].includes(id) && [390, 768, 1280, 1440, 1600, 1920].includes(width)) {
         await page.evaluate(() => scrollTo(0,0));
         await page.waitForFunction(() => scrollY < 1);
         await page.screenshot({ path: resolve(out, `${id}-${width}-viewport.png`), animations: 'disabled' });

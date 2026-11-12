@@ -41,6 +41,56 @@
   status = 301
 
 [[redirects]]
+  from = "/blog"
+  to = "/blog/"
+  status = 301
+
+[[redirects]]
+  from = "/blog-sitemap.xml"
+  to = "/.netlify/functions/blog-sitemap"
+  status = 200
+
+[[redirects]]
+  from = "/indexnow-key.txt"
+  to = "/.netlify/functions/blog-indexnow-key"
+  status = 200
+
+[[redirects]]
+  from = "/blog/:slug"
+  to = "/blog/:slug/"
+  status = 301
+
+[[redirects]]
+  from = "/blog/:slug/"
+  to = "/.netlify/functions/blog-public?slug=:slug"
+  status = 200
+
+[[redirects]]
+  from = "/blog/"
+  to = "/.netlify/functions/blog-public"
+  status = 200
+
+[[redirects]]
+  from = "/blog-media/:id"
+  to = "/.netlify/functions/blog-media-public?id=:id"
+  status = 200
+
+[[redirects]]
+  from = "/api/blog-admin"
+  to = "/.netlify/functions/blog-admin"
+  status = 200
+
+[[redirects]]
+  from = "/api/blog-media"
+  to = "/.netlify/functions/blog-media-admin"
+  status = 200
+
+[[redirects]]
+  from = "/api/blog-preview"
+  to = "/.netlify/functions/blog-preview"
+  status = 200
+
+[[redirects]]
   from = "/api/tool-event"
   to = "/.netlify/functions/tool-event"
   status = 200
