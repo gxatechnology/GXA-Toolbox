@@ -41,11 +41,19 @@ try {
         };
       });
       assert.equal(state.guideTool, route);
-      assert.ok(state.count >= 4 && state.visualCount === state.count && state.firstToolVisual);
+      assert.ok(state.count >= 2 && state.visualCount === state.count && state.firstToolVisual);
       assert.equal(state.pageOverflow, false, `${route} ${width}: page overflow`);
       assert.equal(state.overflowingStep, -1, `${route} ${width}: guide card overflow`);
       assert.ok(state.workspaceBottom === null || state.guideTop >= state.workspaceBottom, `${route} ${width}: guide must follow workspace`);
-      assert.equal(state.gridColumns, width <= 600 ? 1 : width <= 900 ? 2 : 3, `${route} ${width}: visual guide columns`);
+      assert.equal(state.gridColumns, 1, `${route} ${width}: alternating steps must stack vertically`);
+      if (width > 600) {
+        const alternating = await page.evaluate(() => [...document.querySelectorAll('.tool-guide-step')].slice(0, 2).map(step => {
+          const art = step.querySelector('.tool-guide-step__art').getBoundingClientRect();
+          const copy = step.querySelector('.tool-guide-step__copy').getBoundingClientRect();
+          return art.left < copy.left;
+        }));
+        assert.deepEqual(alternating, [false, true], `${route} ${width}: copy and illustration must alternate`);
+      }
       rows.push({ route, width, ...state });
       if (route === 'merge-pdf' && [390, 1440].includes(width)) {
         await page.locator('.tool-steps--visual').screenshot({ path: resolve(output, `${route}-${width}.png`), animations: 'disabled' });

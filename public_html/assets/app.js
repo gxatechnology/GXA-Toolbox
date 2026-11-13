@@ -32,6 +32,17 @@ const appState = {
 
 const HOME_META_DESCRIPTION = 'Use browser-based tools for PDFs, images, file conversions, QR codes, ZIP files, developer utilities, and everyday calculations with GXA Toolbox.';
 const SITE_NAME = 'GXA Toolbox';
+// Owner-supplied homepage copy. Empty logo paths deliberately use accurate
+// text wordmarks until permission-cleared official assets are available.
+const TRUST_SHOWCASE = Object.freeze({
+  headline: 'Trusted by 5 Million+ Users',
+  description: 'Helping people simplify PDF, image, conversion and everyday digital tasks with GXA Toolbox.',
+  label: 'Organizations',
+  organizations: Object.freeze([
+    'TCS', 'Infosys', 'Wipro', 'HCLTech', 'Tech Mahindra',
+    'Reliance Industries', 'Tata Motors', 'Flipkart'
+  ].map((name, index) => Object.freeze({ name, logoPath: '', alt: `${name} logo`, url: '', order: index + 1, visible: true })))
+});
 const PRODUCTION_ORIGIN = 'https://gxatoolbox.in';
 const NOT_FOUND_PAGE = 'not-found';
 const contentPages = Array.isArray(window.GXA_CONTENT_PAGES) ? window.GXA_CONTENT_PAGES : [];
@@ -2575,25 +2586,6 @@ function renderHome(container) {
       </div>
     </section>
 
-    <section class="trust-marquee" aria-label="GXA Toolbox capabilities">
-      <div class="trust-marquee__viewport" tabindex="0">
-        <div class="trust-marquee__track">
-          ${[
-            ['boxes','GXA Toolbox'],['building-2','GXA Technologies'],['file-text','Free PDF Tools'],['images','Image Conversion'],
-            ['file-pen-line','PDF Editing'],['combine','Merge PDF'],['minimize-2','Compress PDF'],['image-down','Image Compression'],
-            ['repeat-2','File Conversion'],['smartphone','Mobile Friendly'],['badge-check','No-Cost Utilities'],['download','Easy Downloads']
-          ].map(([icon,label]) => `<span class="trust-marquee__item"><i data-lucide="${icon}" aria-hidden="true"></i>${label}</span>`).join('')}
-          <span class="trust-marquee__copy" aria-hidden="true">
-            ${[
-              ['boxes','GXA Toolbox'],['building-2','GXA Technologies'],['file-text','Free PDF Tools'],['images','Image Conversion'],
-              ['file-pen-line','PDF Editing'],['combine','Merge PDF'],['minimize-2','Compress PDF'],['image-down','Image Compression'],
-              ['repeat-2','File Conversion'],['smartphone','Mobile Friendly'],['badge-check','No-Cost Utilities'],['download','Easy Downloads']
-            ].map(([icon,label]) => `<span class="trust-marquee__item"><i data-lucide="${icon}" aria-hidden="true"></i>${label}</span>`).join('')}
-          </span>
-        </div>
-      </div>
-    </section>
-
     <section class="command-search-section">
       <div class="container">
         <button class="home-command-search" onclick="openCommandPalette()" aria-label="Search all GXA Toolbox tools">
@@ -2601,6 +2593,22 @@ function renderHome(container) {
         </button>
         <div class="popular-searches"><span>Popular:</span><button onclick="runPopularSearch('Merge PDF')">Merge PDF</button><button onclick="runPopularSearch('Compress Image')">Compress Image</button><button onclick="runPopularSearch('QR Generator')">QR Generator</button><button onclick="runPopularSearch('JSON')">JSON</button></div>
         ${recentSearchChips}
+      </div>
+    </section>
+
+    <section class="trust-showcase" aria-labelledby="trust-showcase-title">
+      <div class="container trust-showcase__intro">
+        <span class="section-kicker">GXA Toolbox</span>
+        <h2 id="trust-showcase-title">${escapeHTML(TRUST_SHOWCASE.headline)}</h2>
+        <p>${escapeHTML(TRUST_SHOWCASE.description)}</p>
+        <span class="trust-showcase__label">${escapeHTML(TRUST_SHOWCASE.label)}</span>
+      </div>
+      <div class="trust-marquee" aria-label="Owner-supplied organization names">
+        <div class="trust-marquee__viewport" tabindex="0">
+          <div class="trust-marquee__track">
+            ${[false, true].map(duplicate => `<div class="trust-marquee__copy"${duplicate ? ' aria-hidden="true"' : ''}>${TRUST_SHOWCASE.organizations.filter(item => item.visible).sort((a, b) => a.order - b.order).map(item => `<span class="trust-marquee__item" aria-label="${escapeHTML(item.name)}">${item.logoPath ? `<img src="${escapeHTML(item.logoPath)}" alt="${escapeHTML(item.alt)}" loading="lazy">` : escapeHTML(item.name)}</span>`).join('')}</div>`).join('')}
+          </div>
+        </div>
       </div>
     </section>
 

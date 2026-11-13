@@ -113,7 +113,7 @@ try {
   assert.equal(await page.locator('[data-tool-rating]:visible').count(), 0, 'unavailable backend must not expose a dead rating form');
 
   await open('');
-  assert.equal(await page.locator('.trust-marquee__track > .trust-marquee__item').count(), 12);
+  assert.equal(await page.locator('.trust-marquee__copy:first-child .trust-marquee__item').count(), 8);
   assert.equal(await page.locator('.trust-marquee__viewport').getAttribute('tabindex'), '0');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const animation = await page.locator('.trust-marquee__track').evaluate(node => getComputedStyle(node).animationName);

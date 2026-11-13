@@ -30,17 +30,20 @@ try {
       const track = document.querySelector('.trust-marquee__track');
       return {
         heroBottom: hero.bottom, stripTop: strip.top, stripBottom: strip.bottom,
-        searchTop: search.top, buttonTop: button.top,
-        gap: search.top - strip.bottom,
+        searchTop: search.top, searchBottom: search.bottom, buttonTop: button.top,
+        gap: strip.top - search.bottom,
         stripHeight: strip.height,
         running: getComputedStyle(track).animationName !== 'none',
         overflow: document.documentElement.scrollWidth > innerWidth + 1
       };
     });
-    assert.ok(state.stripTop >= state.heroBottom - 1, `${width}: marquee must follow the hero`);
-    assert.ok(state.gap >= 0, `${width}: search section overlaps the moving strip (${state.gap}px)`);
+    assert.ok(state.searchTop >= state.heroBottom - 1, `${width}: search must follow the hero`);
+    assert.ok(state.gap >= 0, `${width}: trust section overlaps search (${JSON.stringify(state)})`);
     assert.ok(state.stripHeight >= 44, `${width}: marquee is clipped vertically`);
-    assert.ok(state.buttonTop >= state.stripBottom + 12, `${width}: search button covers marquee`);
+    assert.ok(state.buttonTop < state.stripTop, `${width}: search must appear before the trust marquee`);
+    assert.equal(await page.locator('.trust-marquee__copy:first-child .trust-marquee__item').count(), 8);
+    assert.equal(await page.locator('.trust-marquee__copy[aria-hidden="true"]').count(), 1);
+    assert.equal(await page.locator('#trust-showcase-title').textContent(), 'Trusted by 5 Million+ Users');
     assert.equal(state.overflow, false, `${width}: horizontal body overflow`);
     assert.equal(state.running, true, `${width}: marquee animation stopped`);
     await page.locator('.home-command-search').click();
@@ -55,6 +58,8 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(document.querySelector('.trust-marquee__track')) && !document.querySelector('[data-static-route-shell]'));
   assert.equal(await page.locator('.trust-marquee__track').evaluate(node => getComputedStyle(node).animationName), 'none', 'Reduced motion must stop animation.');
+  assert.equal(await page.locator('.trust-marquee__copy:first-child .trust-marquee__item:visible').count(), 8, 'Reduced motion must retain the primary organization sequence.');
+  assert.equal(await page.locator('.trust-marquee__copy[aria-hidden="true"]:visible').count(), 0, 'Reduced motion must hide the duplicate sequence.');
   assert.deepEqual(errors, []);
   await writeFile(resolve(output, 'results.json'), JSON.stringify({ rows, errors, reducedMotion: true }, null, 2));
 } finally {

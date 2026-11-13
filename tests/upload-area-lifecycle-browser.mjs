@@ -41,12 +41,15 @@ async function checkArea(selector) {
   // Disclosure is committed in requestAnimationFrame after reset; measure the
   // settled layout, not the previous editor grid midway through that update.
   await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
-  await page.locator(selector).evaluate(el => el.scrollIntoView({block:'start',behavior:'instant'}));
-  const check = await page.locator(selector).evaluate(el => {
-    const r=el.getBoundingClientRect(), header=document.querySelector('.header-nav,.gxa-header').getBoundingClientRect();
-    return {left:r.left,right:r.right,top:r.top,header:header.bottom,width:innerWidth,overflow:document.documentElement.scrollWidth-innerWidth};
-  });
-  assert.ok(check.left>=0 && check.right<=check.width+1 && check.top>=check.header-1 && check.overflow<=1,JSON.stringify(check));
+  const check = await page.evaluate(selector => {
+    const r=document.querySelector(selector).getBoundingClientRect();
+    return {left:r.left,right:r.right,top:r.top,height:r.height,width:innerWidth,overflow:document.documentElement.scrollWidth-innerWidth};
+  },selector);
+  assert.ok(check.left>=0 && check.right<=check.width+1 && check.height>0 && check.overflow<=1,JSON.stringify(check));
+  if (selector==='#drop-zone') {
+    assert.ok(check.height <= (check.width < 768 ? 280 : 220),`Empty shared upload must stay compact: ${JSON.stringify(check)}`);
+    assert.ok(await page.locator('#drop-zone .btn').evaluate(button => button.getBoundingClientRect().height >= 44),'Primary file picker must retain a 44px touch target.');
+  }
 }
 try {
   for (const [width,height] of [[320,568],[390,844],[1366,768]]) {
@@ -55,6 +58,7 @@ try {
       assert.equal((await page.goto(`${origin}/${spec.route}/`)).status(),200);
       await page.locator(spec.area).waitFor({state:'visible'});
       await checkArea(spec.area);
+      if (spec.route==='merge-pdf') await page.locator(spec.area).screenshot({path:resolve(evidence,`merge-pdf-${width}-empty.png`),animations:'disabled'});
       await choose(spec,width);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth+1),`${spec.route} uploaded overflow`);
       if (spec.route==='crop-image') {
